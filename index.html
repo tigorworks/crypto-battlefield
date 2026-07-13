@@ -42,53 +42,70 @@
   #retry{display:none;margin-left:6px;padding:3px 9px;font-size:9px}
 
   /* ── tengah atas: harga besar mengambang di atas lapangan, kontras tinggi ── */
-  #center-price{top:16%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:9}
-  #cp-value{font-size:clamp(38px,6.4vw,80px);font-weight:800;color:#fff;letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 rgba(0,0,0,.18),0 2px 4px rgba(0,0,0,.5),0 12px 30px rgba(0,0,0,.55),0 0 44px rgba(0,0,0,.35);transition:color .15s}
+  #center-price{top:14%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:9}
+  #cp-value{font-size:clamp(36px,6vw,72px);font-weight:800;color:#fff;letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 rgba(0,0,0,.18),0 2px 4px rgba(0,0,0,.5),0 12px 30px rgba(0,0,0,.55),0 0 44px rgba(0,0,0,.35);transition:color .15s}
   #cp-value.up{color:var(--long);text-shadow:0 3px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.5),0 0 34px rgba(45,214,165,.5),0 12px 30px rgba(0,0,0,.5)}
   #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.5),0 0 34px rgba(255,101,132,.5),0 12px 30px rgba(0,0,0,.5)}
-  #cp-sub{font-size:15px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
+  #cp-sub{font-size:14px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
   #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
-  #cp-status{font-size:15px;font-weight:800;letter-spacing:.1em;margin-top:8px;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+  #cp-status{font-size:13px;font-weight:800;letter-spacing:.1em;margin-top:6px;text-shadow:0 2px 14px rgba(0,0,0,.5)}
   #cp-status.up{color:var(--long)} #cp-status.down{color:var(--short)}
 
-  /* ── bawah, tengah: battle meter LONG vs SHORT ── */
-  #battle{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:min(420px,90vw);padding:10px 14px}
-  #battle h4{font-size:9px;letter-spacing:.24em;text-align:center;font-weight:600;margin-bottom:8px;font-family:var(--rounded);color:var(--muted)}
-  #battle h4 .long-lbl{color:var(--long)} #battle h4 .short-lbl{color:var(--short)}
-  #meter{height:12px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.06)}
-  #m-long{background:linear-gradient(90deg,#123a30,var(--long));transition:width .4s}
-  #m-short{background:linear-gradient(90deg,var(--short),#3a1220);transition:width .4s;flex:1}
-  #meter-lbl{display:flex;justify-content:space-between;font-size:10px;margin-top:6px;font-variant-numeric:tabular-nums}
+  /* ── di bawah harga: tekanan pasar, ringkas ── */
+  #battle{top:calc(14% + 128px);left:50%;transform:translateX(-50%);width:min(260px,70vw);pointer-events:none}
+  #meter{height:7px;display:flex;overflow:hidden;border-radius:999px;background:rgba(0,0,0,.28);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  #m-long{background:var(--long);transition:width .4s}
+  #m-short{background:var(--short);transition:width .4s;flex:1}
+  #meter-lbl{display:flex;justify-content:space-between;font-size:9px;margin-top:4px;font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 1px 6px rgba(0,0,0,.6)}
   #meter-lbl .l{color:var(--long)} #meter-lbl .s{color:var(--short)}
-  #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}
 
-  /* ── bawah kanan: killfeed gabungan ── */
-  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:310px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
-  #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:8px;font-weight:600;font-family:var(--rounded)}
-  #kills{overflow:hidden;max-height:120px}
-  .kill{font-size:10.5px;padding:5px 9px;margin-bottom:4px;background:rgba(255,255,255,.04);border-radius:8px;border-right:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* ── bawah tengah: killfeed ringkas ── */
+  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:290px;max-width:calc(100vw - 32px);padding:9px 11px;text-align:left}
+  #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:7px;font-weight:600;font-family:var(--rounded)}
+  #kills{overflow:hidden;max-height:112px}
+  .kill{font-size:10px;padding:4px 8px;margin-bottom:3px;background:rgba(255,255,255,.04);border-radius:7px;border-left:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .kill .kt{opacity:.55;margin-right:4px}
   .kill.buy{border-color:var(--long);color:var(--long)}
   .kill.sell{border-color:var(--short);color:var(--short)}
   .kill.liq{border-color:var(--gold);color:var(--gold)}
   .kill .tag{color:var(--gold);font-weight:700}
-  @keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+  @keyframes slidein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
-  /* ── bawah kiri: controls ── */
-  #controls{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:max(16px,env(safe-area-inset-left) + 12px);font-size:10px;line-height:1.8;letter-spacing:.05em;padding:12px 16px;max-width:270px}
+  /* ── bawah kiri: controls, ringkas ── */
+  #controls{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:max(16px,env(safe-area-inset-left) + 12px);font-size:9.5px;line-height:1.7;letter-spacing:.04em;padding:10px 13px;max-width:230px}
   #controls b{color:var(--ink);font-weight:600}
-  #cam-row{display:flex;gap:6px;margin-bottom:8px}
-  #audio-btn{margin-top:8px;width:100%}
+  #cam-row{display:flex;gap:5px;margin-bottom:7px}
+  #cam-row .btn{padding:4px 8px;font-size:9px}
+  #audio-btn{margin-top:7px;width:100%}
+
+  /* ── bawah kanan: chat ── */
+  #chat-toggle{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);display:inline-flex;align-items:center;gap:6px;background:rgba(10,16,10,.6);padding:8px 14px;border-radius:8px;font-size:10px;letter-spacing:.1em;font-weight:700;color:var(--long);cursor:pointer;border:none;font-family:var(--rounded)}
+  #chat-toggle .dot{width:6px;height:6px;border-radius:50%;background:var(--long);box-shadow:0 0 8px var(--long)}
+  #chat-panel{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:280px;max-width:calc(100vw - 32px);padding:0;display:none;flex-direction:column;overflow:hidden}
+  #chat-head{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line)}
+  #chat-head span{font-size:9px;letter-spacing:.2em;font-weight:700;color:var(--muted);font-family:var(--rounded)}
+  #chat-close{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1;padding:2px 4px}
+  #chat-close:hover{color:var(--ink)}
+  #chat-note{font-size:9px;color:var(--gold);opacity:.85;padding:6px 12px 0;letter-spacing:.02em}
+  #chat-msgs{flex:1;overflow-y:auto;padding:8px 12px;max-height:220px;font-size:10.5px;line-height:1.6}
+  .chat-msg{margin-bottom:5px;word-break:break-word}
+  .chat-msg .ct{opacity:.45;margin-right:4px;font-size:9px}
+  .chat-msg b{color:var(--gold)}
+  .chat-msg.sys{opacity:.6;font-style:italic}
+  #chat-join-row,#chat-send-row{display:flex;gap:6px;padding:9px 12px;border-top:1px solid var(--line)}
+  #chat-nick,#chat-input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:7px;padding:6px 9px;color:var(--ink);font-size:10.5px;font-family:var(--mono)}
+  #chat-nick:focus,#chat-input:focus{outline:none;border-color:rgba(45,214,165,.5)}
 
   #flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:#fff;opacity:0}
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
   @media (max-width:760px){
     #battle{display:none}
-    #killfeed{width:172px;bottom:auto;top:max(16px,env(safe-area-inset-top) + 12px);right:max(16px,env(safe-area-inset-right) + 12px)}
+    #killfeed{width:220px}
     #controls .keys{display:none}
-    #controls{max-width:220px}
-    #center-price{top:14%}
+    #controls{max-width:210px}
+    #center-price{top:13%}
+    #chat-panel{width:calc(100vw - 32px)}
   }
 </style>
 </head>
@@ -106,16 +123,11 @@
   <div id="cp-status"></div>
 </div>
 
-<div class="hud panel" id="battle">
-  <h4>TEKANAN PASAR · 60 DETIK · <span class="long-lbl">PANJANG</span> vs <span class="short-lbl">PENDEK</span></h4>
+<div class="hud" id="battle">
   <div id="meter"><div id="m-long" style="width:50%"></div><div id="m-short"></div></div>
   <div id="meter-lbl">
-    <span class="l"><b id="long-usd">$0</b> · <span id="long-pct">50%</span></span>
-    <span class="s"><span id="short-pct">50%</span> · <b id="short-usd">$0</b></span>
-  </div>
-  <div id="meter-cnt">
-    <span id="long-n">0 order beli</span>
-    <span id="short-n">0 order jual</span>
+    <span class="l" id="long-pct">50%</span>
+    <span class="s" id="short-pct">50%</span>
   </div>
 </div>
 
@@ -135,6 +147,24 @@
     <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
   </div>
   <button class="btn" id="audio-btn">AUDIO AKTIF</button>
+</div>
+
+<button class="hud" id="chat-toggle"><span class="dot"></span>CHAT</button>
+<div class="hud panel" id="chat-panel">
+  <div id="chat-head">
+    <span>BATTLEFIELD CHAT</span>
+    <button id="chat-close">✕</button>
+  </div>
+  <div id="chat-note">Mode lokal — belum tersambung ke server obrolan bersama</div>
+  <div id="chat-msgs"></div>
+  <div id="chat-join-row">
+    <input id="chat-nick" placeholder="Pilih nickname…" maxlength="16">
+    <button class="btn active" id="chat-join">GABUNG</button>
+  </div>
+  <div id="chat-send-row" style="display:none">
+    <input id="chat-input" placeholder="Ketik pesan…" maxlength="140">
+    <button class="btn active" id="chat-send">KIRIM</button>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -338,7 +368,69 @@ function makeTank(side){
   return g;
 }
 
-/* ═══════════ UNIT (tembakan / tank) ═══════════ */
+/* ═══════════ PAUS, DINOSAURUS & HEWAN BESAR — varian lain untuk order raksasa ═══════════ */
+const eyeMat = new THREE.MeshBasicMaterial({ color:0x10121f });
+const eyeGeo = new THREE.SphereGeometry(.13, 8, 6);
+
+const whaleBodyGeo = new THREE.SphereGeometry(1, 16, 12);
+const whaleHeadGeo = new THREE.SphereGeometry(.95, 14, 10);
+const whaleTailGeo = new THREE.ConeGeometry(1, 2.3, 4);
+const whaleFinGeo = new THREE.ConeGeometry(.55, 1.7, 4);
+function makeWhale(side){
+  const mat = tankMat[side];
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(whaleBodyGeo, mat); body.scale.set(3.4,1.2,1.3); g.add(body);
+  const head = new THREE.Mesh(whaleHeadGeo, mat); head.position.set(2.8,.1,0); head.scale.set(1.15,.95,1.05); g.add(head);
+  const tail = new THREE.Mesh(whaleTailGeo, mat); tail.rotation.z=Math.PI/2; tail.rotation.y=Math.PI/4; tail.position.set(-3.8,.25,0); tail.scale.set(1,1,.25); g.add(tail);
+  for (const s of [-1,1]){
+    const fin = new THREE.Mesh(whaleFinGeo, mat); fin.rotation.x=s*Math.PI/2.4; fin.rotation.z=-.5; fin.position.set(.85,-.35,s*1.15); fin.scale.set(1,1,.3); g.add(fin);
+    const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(3.35,.35,s*.55); g.add(eye);
+  }
+  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(16,16,1); aura.position.y=2; g.add(aura);
+  return g;
+}
+
+const dinoBodyGeo = new THREE.SphereGeometry(1.1, 14, 10);
+const dinoNeckGeo = new THREE.CylinderGeometry(.45, .6, 2, 8);
+const dinoHeadGeo = new THREE.SphereGeometry(.55, 12, 8);
+const dinoTailGeo = new THREE.ConeGeometry(.55, 3.4, 6);
+const dinoLegGeo = new THREE.CylinderGeometry(.35, .4, 1.8, 8);
+function makeDinosaur(side){
+  const mat = tankMat[side];
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(dinoBodyGeo, mat); body.scale.set(1.6,1.3,1.1); body.position.set(-.5,2.4,0); g.add(body);
+  const neck = new THREE.Mesh(dinoNeckGeo, mat); neck.rotation.z=-.9; neck.position.set(1.4,3.4,0); g.add(neck);
+  const head = new THREE.Mesh(dinoHeadGeo, mat); head.position.set(2.5,4.1,0); head.scale.set(1.3,.9,.9); g.add(head);
+  for (const s of [-1,1]){ const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(2.85,4.3,s*.4); g.add(eye); }
+  const tail = new THREE.Mesh(dinoTailGeo, mat); tail.rotation.z=Math.PI/2+.35; tail.position.set(-2.6,2,0); g.add(tail);
+  for (const s of [-1,1]){ const leg = new THREE.Mesh(dinoLegGeo, mat); leg.position.set(-.2,.9,s*.7); g.add(leg); }
+  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(16,16,1); aura.position.y=2; g.add(aura);
+  return g;
+}
+
+const animalBodyGeo = new THREE.SphereGeometry(1.3, 14, 10);
+const animalHeadGeo = new THREE.SphereGeometry(.85, 12, 8);
+const animalEarGeo = new THREE.SphereGeometry(.35, 8, 6);
+const animalLegGeo = new THREE.CylinderGeometry(.32, .36, 1.3, 8);
+function makeBigAnimal(side){
+  const mat = tankMat[side];
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(animalBodyGeo, mat); body.position.set(0,2,0); g.add(body);
+  const head = new THREE.Mesh(animalHeadGeo, mat); head.position.set(1.7,2.5,0); g.add(head);
+  for (const s of [-1,1]){
+    const ear = new THREE.Mesh(animalEarGeo, mat); ear.position.set(1.9,3.1,s*.6); g.add(ear);
+    const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(2.45,2.6,s*.5); g.add(eye);
+  }
+  for (const [dx,dz] of [[-.7,-.8],[-.7,.8],[.7,-.8],[.7,.8]]){
+    const leg = new THREE.Mesh(animalLegGeo, mat); leg.position.set(dx,1.1,dz); g.add(leg);
+  }
+  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(16,16,1); aura.position.y=2; g.add(aura);
+  return g;
+}
+
+const BIG_UNIT_MAKERS = [makeTank, makeWhale, makeDinosaur, makeBigAnimal];
+
+/* ═══════════ UNIT (tembakan / unit besar) ═══════════ */
 const units = [];
 const lastImpact = new THREE.Vector3(0,0,0);
 
@@ -356,7 +448,7 @@ function spawnShot(side, usd, heavy){
   scene.add(obj);
   units.push({ obj, start, end, apex:40+mag*90, t:0, dur:.45+mag*.35, side, usd, mag, color, tier: heavy?1:0 });
 }
-function spawnTank(side, usd){
+function spawnBigUnit(side, usd){
   if (units.length >= MAX_UNITS) return;
   const color = side==='buy' ? C_LONG : C_SHORT;
   const mag = Math.min(1, Math.log10(usd/T_WHALE+1)/2);
@@ -364,7 +456,8 @@ function spawnTank(side, usd){
   const start = new THREE.Vector3(sx, 0, (Math.random()-.5)*180);
   const ex = (side==='buy'?1:-1)*35;
   const end = new THREE.Vector3(ex, 0, (Math.random()-.5)*180);
-  const obj = makeTank(side);
+  const maker = BIG_UNIT_MAKERS[Math.floor(Math.random()*BIG_UNIT_MAKERS.length)];
+  const obj = maker(side);
   const sc = 2.2 + mag*1.6;
   obj.scale.set(sc, sc, sc);
   obj.rotation.y = side==='buy' ? Math.PI/2 : -Math.PI/2;
@@ -413,11 +506,6 @@ function explode(pos, color, mag, tier){
 
 /* ═══════════ KILLFEED — gabungan order flow & sorotan ═══════════ */
 const killsEl = document.getElementById('kills');
-function fmtUsd(v){
-  if (v>=1e6) return '$'+(v/1e6).toFixed(2)+'M';
-  if (v>=1e3) return '$'+(v/1e3).toFixed(0)+'K';
-  return '$'+v.toFixed(0);
-}
 function logKill(side, qty, killedN, tag){
   const d = document.createElement('div');
   const time = new Date().toLocaleTimeString('en-GB');
@@ -437,17 +525,13 @@ let flow = [];   // {t, usd, buy}
 function meterUpdate(){
   const now = performance.now();
   flow = flow.filter(f=>now-f.t < 60000);
-  let bu=0, su=0, bn=0, sn=0;
-  for (const f of flow){ if (f.buy){bu+=f.usd;bn++;} else {su+=f.usd;sn++;} }
+  let bu=0, su=0;
+  for (const f of flow){ if (f.buy) bu+=f.usd; else su+=f.usd; }
   const tot = bu+su || 1;
   const lp = Math.round(bu/tot*100);
   document.getElementById('m-long').style.width = lp+'%';
-  document.getElementById('long-usd').textContent = fmtUsd(bu);
-  document.getElementById('short-usd').textContent = fmtUsd(su);
   document.getElementById('long-pct').textContent = lp+'%';
   document.getElementById('short-pct').textContent = (100-lp)+'%';
-  document.getElementById('long-n').textContent = bn.toLocaleString()+' order beli';
-  document.getElementById('short-n').textContent = sn.toLocaleString()+' order jual';
 
   if (bu+su > 0){
     cpStatusEl.textContent = lp>=50 ? 'PEMBELI SEDANG UNGGUL!' : 'PENJUAL SEDANG UNGGUL!';
@@ -569,6 +653,57 @@ function playChargeHorn(){
   o.start(t); o.stop(t+2.5);
 }
 
+/* ═══════════ CHAT — obrolan lokal per perangkat (belum ada backend bersama) ═══════════ */
+const chatToggle = document.getElementById('chat-toggle');
+const chatPanel = document.getElementById('chat-panel');
+const chatClose = document.getElementById('chat-close');
+const chatMsgs = document.getElementById('chat-msgs');
+const chatNick = document.getElementById('chat-nick');
+const chatJoin = document.getElementById('chat-join');
+const chatJoinRow = document.getElementById('chat-join-row');
+const chatSendRow = document.getElementById('chat-send-row');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+let myNick = '';
+
+function openChat(){ chatPanel.style.display='flex'; chatToggle.style.display='none'; (myNick?chatInput:chatNick).focus(); }
+function closeChat(){ chatPanel.style.display='none'; chatToggle.style.display='inline-flex'; }
+chatToggle.onclick = openChat;
+chatClose.onclick = closeChat;
+
+function addChatMsg(nick, text, sys){
+  const d = document.createElement('div');
+  d.className = 'chat-msg' + (sys?' sys':'');
+  const time = new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  d.innerHTML = `<span class="ct">${time}</span>` + (nick?`<b>${nick}</b> `:'') + text;
+  chatMsgs.appendChild(d);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+}
+function escapeHtml(s){ return s.replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function doJoin(){
+  const nick = chatNick.value.trim().slice(0,16);
+  if (!nick) return;
+  myNick = escapeHtml(nick);
+  chatJoinRow.style.display = 'none';
+  chatSendRow.style.display = 'flex';
+  addChatMsg('', `${myNick} bergabung ke obrolan.`, true);
+  chatInput.focus();
+}
+chatJoin.onclick = doJoin;
+chatNick.addEventListener('keydown', e=>{ if (e.key==='Enter') doJoin(); });
+
+function doSend(){
+  const text = chatInput.value.trim().slice(0,140);
+  if (!text || !myNick) return;
+  addChatMsg(myNick, escapeHtml(text));
+  chatInput.value = '';
+}
+chatSend.onclick = doSend;
+chatInput.addEventListener('keydown', e=>{ if (e.key==='Enter') doSend(); });
+
+addChatMsg('', 'Selamat datang! Ini mode obrolan lokal — pesan hanya tersimpan di perangkatmu.', true);
+
 /* ═══════════ DATA FEED — REAL (Binance) atau DUMMY (simulasi lokal) ═══════════ */
 const priceEl = document.getElementById('cp-value');
 const cpPctEl = document.getElementById('cp-pct');
@@ -596,9 +731,9 @@ function onTrade(p, qty, isBuy){
   const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
   const killed = tier===2 ? 10 : tier===1 ? 4 : 1;
   killSoldier(defender, killed);
-  if (usd >= T_WHALE) spawnTank(side, usd);
+  if (usd >= T_WHALE) spawnBigUnit(side, usd);
   else if (usd >= T_SHELL) spawnShot(side, usd, tier===1);
-  logKill(side, qty, killed, tier===2?'TANK':null);
+  logKill(side, qty, killed, tier===2?'PAUS':null);
 }
 
 function setBadge(state){
