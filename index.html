@@ -523,23 +523,24 @@ const bulletMat = {
 };
 const AXIS_X = new THREE.Vector3(1,0,0);
 const _bq = new THREE.Quaternion(), _bdir = new THREE.Vector3();
-const MAXBULLETS = 200;
+const MAXBULLETS = 240, MAXSPARKS = 140;
 
 function makeSpark(pos, color, size, dur){
+  if (sparks.length >= MAXSPARKS) return;
   const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
   spr.position.copy(pos); spr.scale.set(size,size,1);
   scene.add(spr);
   sparks.push({ spr, t:0, dur, size });
 }
 function fireBullet(side, from, to, kills, defender){
-  if (bullets.length >= MAXBULLETS) return;
+  if (bullets.length >= MAXBULLETS){ const old = bullets.shift(); scene.remove(old.m); } // buang tertua, jangan berhenti menembak
   const m = new THREE.Mesh(bulletGeo, bulletMat[side]);
   m.position.copy(from);
   scene.add(m);
   const vel = to.clone().sub(from); const dist = vel.length(); vel.normalize();
   bullets.push({ m, pos:from.clone(), vel, speed:640+Math.random()*180, kills, defender, side,
                  target:to.clone(), traveled:0, dist, color: side==='buy'?C_LONG:C_SHORT });
-  makeSpark(from, side==='buy'?C_LONG:C_SHORT, 10, .1);
+  if (Math.random() < .5) makeSpark(from, side==='buy'?C_LONG:C_SHORT, 9, .1);  // kilatan moncong sebagian
 }
 function fireVolley(side, tier, killed){
   const atk = side==='buy' ? -1 : 1;
@@ -554,9 +555,14 @@ function fireVolley(side, tier, killed){
 }
 
 /* ═══════════ JUICE — getar layar, jeda hantam, angka melayang, streak ═══════════ */
-let shake = 0, hitstop = 0;
-function addShake(a){ shake = Math.min(7, shake + a); }
-function addHitstop(s){ hitstop = Math.max(hitstop, s); }
+let shake = 0, hitstop = 0, lastHitstopT = -10;
+function addShake(a){ shake = Math.min(5, shake + a); }
+function addHitstop(s){
+  // jeda-hantam hanya sesekali; jangan menumpuk/berantai sampai simulasi macet
+  const now = performance.now()/1000;
+  if (hitstop > 0 || now - lastHitstopT < 0.6) return;
+  lastHitstopT = now; hitstop = s;
+}
 
 const fxLayer = document.getElementById('fx-layer');
 const _pv = new THREE.Vector3();
@@ -756,9 +762,12 @@ audioBtn.classList.add('active');
 /* Browser memblokir suara sampai ada satu interaksi pengguna. Kita coba
    resume sedini mungkin pada gerakan/gesture apa pun (bergerak mouse,
    scroll, sentuh, tekan tombol) supaya musik nyala secepatnya. */
-const RESUME_EVENTS = ['pointerdown','pointermove','keydown','touchstart','wheel','scroll','click'];
+const RESUME_EVENTS = ['pointerdown','pointerup','pointermove','keydown','touchstart','touchend','wheel','scroll','click'];
 const resumeAudioOnce = ()=>{
-  if (AC && AC.state === 'suspended'){ AC.resume(); }
+  if (AC){
+    if (AC.state === 'suspended') AC.resume();
+    try { const s = AC.createBufferSource(); s.buffer = AC.createBuffer(1,1,AC.sampleRate); s.connect(AC.destination); s.start(0); } catch(e){} // buka audio di iOS/Safari
+  }
   if (AC && AC.state === 'running') RESUME_EVENTS.forEach(ev=>removeEventListener(ev, resumeAudioOnce));
 };
 RESUME_EVENTS.forEach(ev=>addEventListener(ev, resumeAudioOnce, { passive:true }));
@@ -861,10 +870,10 @@ function onTrade(p, qty, isBuy){
   if (usd >= T_WHALE){
     spawnBigUnit(side, usd);
     fireVolley(side, 2, Math.min(killed, 12));
-    addShake(3); addHitstop(.11);
+    addShake(2.2); addHitstop(.09);
   } else if (usd >= T_SHELL){
     fireVolley(side, tier, killed);        // peluru yang membunuh saat mendarat
-    if (tier===1){ addShake(1.1); addHitstop(.04); }
+    if (tier===1) addShake(.5);
   } else {
     killSoldier(defender, killed);          // order kecil: tumbang seketika
   }
@@ -1149,12 +1158,11 @@ function tick(){
     b.m.position.copy(b.pos);
     b.m.scale.set(16, .55, .55);
     if (b.traveled >= b.dist){
-      makeSpark(b.target, b.color, 13, .2);
+      if (b.kills || Math.random() < .22) makeSpark(b.target, b.color, 12, .18);
       if (b.kills){
         killSoldier(b.defender, 1);
         spawnSkull(b.target);
         floatNum(b.target, '-1', b.side==='buy'?'up':'dn');
-        addShake(.35);
       }
       scene.remove(b.m);
       bullets.splice(i,1);
