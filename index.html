@@ -3,25 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Crypto Battlefield — LIVE</title>
+<title>🎮 BTC Cartoon Battlefield — LIVE</title>
 <style>
   :root{
-    --night:#05080a;
-    --phosphor:#39ff88;
-    --threat:#ff3b4d;
-    --amber:#ffb648;
-    --steel:#6b7f86;
-    --panel:rgba(8,14,16,.74);
+    --night:#f5f5f5;
+    --phosphor:#4caf50;
+    --threat:#ff6b6b;
+    --amber:#ffc107;
+    --steel:#757575;
+    --panel:rgba(255,255,255,.92);
     --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:var(--night);font-family:var(--mono);color:var(--steel)}
+  html,body{height:100%;overflow:hidden;background:linear-gradient(135deg,#fffacd 0%,#ffe4e1 100%);font-family:var(--mono);color:var(--steel)}
   canvas{display:block}
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--mono)}
 
   /* ── top-left: price ── */
-  #price-panel{top:14px;left:14px;padding:10px 14px;background:var(--panel);border:1px solid rgba(107,127,134,.25);border-left:3px solid var(--amber);backdrop-filter:blur(4px)}
+  #price-panel{top:14px;left:14px;padding:10px 14px;background:var(--panel);border:3px solid var(--amber);border-radius:8px;box-shadow:0 4px 12px rgba(255,193,7,.3);backdrop-filter:blur(4px)}
   #symbol-row{display:flex;gap:8px;align-items:center;margin-bottom:4px}
   #symbol{font-size:11px;letter-spacing:.2em;color:var(--amber)}
   #feed-badge{font-size:9px;letter-spacing:.15em;padding:2px 6px;border:1px solid var(--amber);color:var(--amber)}
@@ -37,7 +37,7 @@
   #retry{display:none;margin-top:8px;border-color:var(--threat);color:var(--threat)}
 
   /* ── top-center: battle meter LONG vs SHORT ── */
-  #battle{top:14px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:8px 12px;background:var(--panel);border:1px solid rgba(107,127,134,.25);backdrop-filter:blur(4px)}
+  #battle{top:14px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:8px 12px;background:var(--panel);border:3px solid var(--amber);border-radius:8px;box-shadow:0 4px 12px rgba(255,193,7,.3);backdrop-filter:blur(4px)}
   #battle h4{font-size:9px;letter-spacing:.3em;text-align:center;font-weight:400;margin-bottom:6px}
   #meter{height:14px;display:flex;overflow:hidden;border:1px solid rgba(107,127,134,.3)}
   #m-long{background:linear-gradient(90deg,#0f5c36,var(--phosphor));transition:width .4s}
@@ -47,7 +47,7 @@
   #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.8;font-variant-numeric:tabular-nums}
 
   /* ── top-right: killfeed ── */
-  #killfeed{top:14px;right:14px;width:260px;max-width:calc(100vw - 28px);text-align:right}
+  #killfeed{top:14px;right:14px;width:260px;max-width:calc(100vw - 28px);text-align:right;background:var(--panel);border:3px solid var(--threat);border-radius:8px;padding:8px 10px;box-shadow:0 4px 12px rgba(255,107,107,.2)}
   #killfeed h4{font-size:9px;letter-spacing:.3em;color:var(--steel);margin-bottom:6px;font-weight:400}
   .kill{font-size:11px;padding:5px 9px;margin-bottom:4px;background:var(--panel);border-right:3px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums}
   .kill.buy{border-color:var(--phosphor);color:var(--phosphor)}
@@ -57,7 +57,7 @@
   @keyframes slidein{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 
   /* ── bottom-left: controls + audio ── */
-  #controls{bottom:14px;left:14px;font-size:10px;line-height:1.8;letter-spacing:.06em;padding:10px 14px;background:var(--panel);border:1px solid rgba(107,127,134,.25);max-width:280px}
+  #controls{bottom:14px;left:14px;font-size:10px;line-height:1.8;letter-spacing:.06em;padding:10px 14px;background:var(--panel);border:3px solid var(--phosphor);border-radius:8px;box-shadow:0 4px 12px rgba(76,175,80,.2);max-width:280px}
   #controls b{color:#c7d6d0;font-weight:600}
   #cam-row{display:flex;gap:6px;margin-bottom:8px}
   .cam-btn{background:none;border:1px solid rgba(107,127,134,.35);color:var(--steel);font-size:10px;padding:4px 10px;cursor:pointer;letter-spacing:.1em}
@@ -93,21 +93,16 @@
 
 <div class="hud" id="price-panel">
   <div id="symbol-row">
-    <span id="symbol">BTC / USDT</span>
+    <span id="symbol">🎯 BTC / USDT</span>
     <span id="feed-badge">MENGHUBUNGKAN…</span>
   </div>
   <div id="price">—</div>
-  <div id="sub-row"><span id="tps">0</span> trade/s · vol 1m <span id="vol1m">$0</span></div>
-  <div id="sym-switch">
-    <button class="sym-btn active" data-s="BTC">BTC</button>
-    <button class="sym-btn" data-s="ETH">ETH</button>
-    <button class="sym-btn" data-s="SOL">SOL</button>
-  </div>
-  <button class="sym-btn" id="retry">SAMBUNG ULANG</button>
+  <div id="sub-row"><span id="tps">0</span> ⚔️ trade/s · vol 1m <span id="vol1m">$0</span></div>
+  <button class="sym-btn" id="retry">🔄 SAMBUNG ULANG</button>
 </div>
 
 <div class="hud" id="battle">
-  <h4>TEKANAN PASAR · 60 DETIK · <span style="color:var(--phosphor)">LONG/BUY</span> vs <span style="color:var(--threat)">SHORT/SELL</span></h4>
+  <h4>🎪 PERTEMPURAN · 60 DETIK · <span style="color:var(--phosphor)">📈 PANJANG/BELI</span> vs <span style="color:var(--threat)">📉 PENDEK/JUAL</span></h4>
   <div id="meter"><div id="m-long" style="width:50%"></div><div id="m-short"></div></div>
   <div id="meter-lbl">
     <span class="l"><b id="long-usd">$0</b> · <span id="long-pct">50%</span></span>
@@ -120,23 +115,23 @@
 </div>
 
 <div class="hud" id="killfeed">
-  <h4>KILLFEED · WHALE & LIKUIDASI</h4>
+  <h4>🎬 DRAMA · PAUS 🐋 & LEDAKAN 💥</h4>
   <div id="kills"></div>
 </div>
 
 <div class="hud" id="controls">
   <div id="cam-row">
-    <button class="cam-btn active" data-m="0">SINEMATIK</button>
-    <button class="cam-btn" data-m="1">IKUTI</button>
-    <button class="cam-btn" data-m="2">BEBAS</button>
+    <button class="cam-btn active" data-m="0">🎬 SINEMATIK</button>
+    <button class="cam-btn" data-m="1">👁️ IKUTI</button>
+    <button class="cam-btn" data-m="2">🕹️ BEBAS</button>
   </div>
   <div class="keys">
-    <b>drag</b> orbit · <b>scroll / pinch</b> zoom<br>
-    <b>1 / 2 / 3</b> mode kamera · <b>WASD</b> geser · <b>Q/E</b> turun/naik
+    <b>drag</b> putar · <b>scroll</b> zoom<br>
+    <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
   </div>
-  <button class="cam-btn" id="audio-btn">▶ AKTIFKAN AUDIO</button>
-  <div class="aud-row"><label>Musik</label><input type="range" id="vol-music" min="0" max="100" value="35"><span id="vm-lbl">35%</span></div>
-  <div class="aud-row"><label>SFX</label><input type="range" id="vol-sfx" min="0" max="100" value="55"><span id="vs-lbl">55%</span></div>
+  <button class="cam-btn" id="audio-btn">🔊 AKTIFKAN AUDIO</button>
+  <div class="aud-row"><label>🎵 Musik</label><input type="range" id="vol-music" min="0" max="100" value="35"><span id="vm-lbl">35%</span></div>
+  <div class="aud-row"><label>💥 Efek</label><input type="range" id="vol-sfx" min="0" max="100" value="55"><span id="vs-lbl">55%</span></div>
 </div>
 
 <div class="hud" id="tape"></div>
@@ -148,9 +143,7 @@
 
 /* ═══════════ CONFIG ═══════════ */
 const SYMBOLS = {
-  BTC: { stream:'btcusdt', label:'BTC / USDT' },
-  ETH: { stream:'ethusdt', label:'ETH / USDT' },
-  SOL: { stream:'solusdt', label:'SOL / USDT' },
+  BTC: { stream:'btcusdt', label:'🎯 BTC / USDT' },
 };
 let curSym = 'BTC';
 const T_SHELL = 2000;      // ≥ $2K   → peluru kecil
@@ -161,8 +154,8 @@ const RIDGE_N = 140;
 
 /* ═══════════ THREE SETUP ═══════════ */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x05080a);
-scene.fog = new THREE.FogExp2(0x05080a, 0.00105);
+scene.background = new THREE.Color(0xfff9c4);
+scene.fog = new THREE.FogExp2(0xfff9c4, 0.0008);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 1, 6000);
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
@@ -170,15 +163,15 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x24343a, 0x05080a, .55));
-const moon = new THREE.DirectionalLight(0x8ab0c0, .35);
-moon.position.set(-300, 500, -200);
-scene.add(moon);
+scene.add(new THREE.HemisphereLight(0xffc107, 0xfff9c4, .8));
+const sun = new THREE.DirectionalLight(0xffeb3b, .6);
+sun.position.set(-300, 500, -200);
+scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x0a1114 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x90ee90 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
-const grid = new THREE.GridHelper(3000, 60, 0x14424a, 0x0e2a30);
+const grid = new THREE.GridHelper(3000, 60, 0xb0e0e6, 0xcce5ff);
 grid.position.y = .5;
 scene.add(grid);
 
@@ -189,7 +182,7 @@ scene.add(ridgeGroup);
 const ridgeBars = [];
 const ridgeGeo = new THREE.BoxGeometry(9,1,6);
 for (let i=0;i<RIDGE_N;i++){
-  const m = new THREE.Mesh(ridgeGeo, new THREE.MeshBasicMaterial({ color:0x1f6e52, transparent:true, opacity:.85 }));
+  const m = new THREE.Mesh(ridgeGeo, new THREE.MeshBasicMaterial({ color:0x4caf50, transparent:true, opacity:.85 }));
   m.position.x = (i - RIDGE_N/2)*11;
   ridgeGroup.add(m); ridgeBars.push(m);
 }
@@ -207,8 +200,8 @@ function pushRidge(p){
     const h = 12 + ((v-mn)/span)*180;
     b.scale.y = h; b.position.y = h/2;
     const up = v >= (priceHist[i-1] ?? v);
-    b.material.color.setHex(up ? 0x2fae72 : 0xb0313f);
-    if (i===priceHist.length-1) b.material.color.setHex(up ? 0x39ff88 : 0xff3b4d);
+    b.material.color.setHex(up ? 0x4caf50 : 0xff6b6b);
+    if (i===priceHist.length-1) b.material.color.setHex(up ? 0x81c784 : 0xff8a80);
   }
 }
 
@@ -258,7 +251,7 @@ const lastImpact = new THREE.Vector3(0,0,0);
 
 function spawnUnit(side, usd){
   if (units.length >= MAX_UNITS) return;
-  const color = side==='buy' ? 0x39ff88 : 0xff3b4d;
+  const color = side==='buy' ? 0x4caf50 : 0xff6b6b;
   const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
   const mag = Math.min(1, Math.log10(usd/T_SHELL+1)/2.4);
   const sx = (side==='buy'?-1:1)*(760 + Math.random()*260);
@@ -344,12 +337,12 @@ function addKill(kind, usd, liqSide){
   const d = document.createElement('div');
   if (kind==='liq'){
     d.className = 'kill liq';
-    d.innerHTML = '⚔ LIKUIDASI ' + (liqSide==='buy'?'SHORT':'LONG') + ' ' + fmtUsd(usd);
+    d.innerHTML = '💥 LEDAKAN ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
   } else {
     d.className = 'kill '+kind;
     const whale = usd >= T_WHALE;
-    d.innerHTML = (whale?'<span class="whale">⬥ WHALE </span>':'') +
-      (kind==='buy'?'LONG STRIKE ':'SHORT STRIKE ') + fmtUsd(usd);
+    d.innerHTML = (whale?'<span class="whale">🐋 PAUS </span>':'') +
+      (kind==='buy'?'📈 SERANGAN NAIK ':'📉 SERANGAN TURUN ') + fmtUsd(usd);
   }
   killsEl.prepend(d);
   while (killsEl.children.length > 7) killsEl.lastChild.remove();
@@ -577,19 +570,7 @@ setInterval(()=>{
   meterUpdate();
 }, 1000);
 
-/* symbol switch */
-document.querySelectorAll('.sym-btn[data-s]').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('.sym-btn[data-s]').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    curSym = b.dataset.s;
-    symEl.textContent = SYMBOLS[curSym].label;
-    priceHist.length = 0; flow.length = 0; volWindow.length = 0;
-    price = lastPrice = NaN;
-    priceEl.textContent = '—'; priceEl.className='';
-    connect();
-  };
-});
+/* BTC only - no symbol switching */
 
 /* ═══════════ CAMERA ═══════════ */
 let camMode = 0;
