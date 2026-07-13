@@ -87,7 +87,6 @@
   #fx-layer{position:fixed;inset:0;pointer-events:none;z-index:11;overflow:hidden}
   .fnum{position:absolute;transform:translate(-50%,-50%);font-family:var(--rounded);font-weight:800;font-size:15px;opacity:1;transition:transform .9s ease-out,opacity .9s ease-out;text-shadow:0 2px 8px rgba(0,0,0,.65);will-change:transform,opacity}
   .fnum.up{color:var(--long)} .fnum.dn{color:var(--short)}
-  .fnum.cheer{font-size:26px;text-shadow:0 2px 10px rgba(0,0,0,.5)}
   #unit-tip{position:fixed;z-index:12;pointer-events:none;background:rgba(10,16,12,.82);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-family:var(--rounded);font-size:11px;line-height:1.5;display:none;flex-direction:column;gap:1px;backdrop-filter:blur(6px);box-shadow:0 8px 22px rgba(0,0,0,.42)}
   #unit-tip.show{display:flex}
   #unit-tip b{font-size:11px;letter-spacing:.05em}
@@ -308,23 +307,15 @@ function buildSoldier(){
   return geo;
 }
 
-function skullTexture(){
-  const c = document.createElement('canvas'); c.width=c.height=64;
-  const g = c.getContext('2d');
-  g.font = '44px "Segoe UI Emoji","Noto Color Emoji",sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('💀', 32, 34);
-  return new THREE.CanvasTexture(c);
-}
-const SKULL_TEX = skullTexture();
-const skullMat = new THREE.SpriteMaterial({ map:SKULL_TEX, transparent:true, depthWrite:false });
+/* penanda kematian: kepulan debu lembut (bukan emoji) */
+const puffMat = new THREE.SpriteMaterial({ map:GLOW, color:0x2a2620, transparent:true, opacity:.5, depthWrite:false });
 const skulls = [];
 function spawnSkull(pos){
-  const spr = new THREE.Sprite(skullMat.clone());
-  spr.position.set(pos.x, 5, pos.z);
+  const spr = new THREE.Sprite(puffMat.clone());
+  spr.position.set(pos.x, 4, pos.z);
   spr.scale.set(.1,.1,1);
   scene.add(spr);
-  skulls.push({ spr, t:0, dur:.8 });
+  skulls.push({ spr, t:0, dur:.7 });
 }
 
 /* ═══════════ PASUKAN — prajurit kartun yang saling menembak ═══════════ */
@@ -589,8 +580,7 @@ function bumpStreak(side){
   else { streakSide = side; streakCount = 1; }
   if (streakCount >= 5 && streakCount % 5 === 0){
     const who = side==='buy' ? 'PEMBELI' : 'PENJUAL';
-    const fire = streakCount>=20 ? '🔥🔥🔥' : streakCount>=10 ? '🔥🔥' : '🔥';
-    streakEl.textContent = `${who} ${streakCount}× BERUNTUN ${fire}`;
+    streakEl.textContent = `${who} ${streakCount}× BERUNTUN`;
     streakEl.className = 'show ' + side;
     addShake(.8 + Math.min(2, streakCount*.05));
     clearTimeout(streakHide);
@@ -680,7 +670,7 @@ function meterUpdate(){
 let AC=null, masterG, musicG, sfxG, musicNodes=[];
 let audioOn = false;
 const audioBtn = document.getElementById('audio-btn');
-const MUSIC_LEVEL = .18, SFX_LEVEL = .5;
+const MUSIC_LEVEL = .38, SFX_LEVEL = .34;
 
 function initAudio(){
   AC = new (window.AudioContext||window.webkitAudioContext)();
@@ -740,9 +730,9 @@ function startMusic(){
     const now = AC.currentTime + .06;
     const chord = CHORDS[chordIdx];
     const idx = MELODY[seqStep % MELODY.length] % chord.length;
-    playPluck(chord[idx]*4, now, .05, .55);              // melodi (dua oktaf di atas)
-    if (seqStep % 2 === 0) playPluck(chord[idx]*8, now+.14, .022, .3); // gema tipis
-    if (seqStep % 4 === 0) playPluck(chord[0], now, .06, .7);          // bas akar
+    playPluck(chord[idx]*4, now, .10, .6);               // melodi (dua oktaf di atas)
+    if (seqStep % 2 === 0) playPluck(chord[idx]*8, now+.14, .045, .32); // gema tipis
+    if (seqStep % 4 === 0) playPluck(chord[0]*2, now, .11, .8);         // bas akar
     seqStep++;
   }, 300);
 }
@@ -763,15 +753,16 @@ initAudio();
 audioOn = true;
 audioBtn.textContent = 'AUDIO AKTIF';
 audioBtn.classList.add('active');
+/* Browser memblokir suara sampai ada satu interaksi pengguna. Kita coba
+   resume sedini mungkin pada gerakan/gesture apa pun (bergerak mouse,
+   scroll, sentuh, tekan tombol) supaya musik nyala secepatnya. */
+const RESUME_EVENTS = ['pointerdown','pointermove','keydown','touchstart','wheel','scroll','click'];
 const resumeAudioOnce = ()=>{
-  if (AC && AC.state === 'suspended') AC.resume();
-  removeEventListener('pointerdown', resumeAudioOnce);
-  removeEventListener('keydown', resumeAudioOnce);
-  removeEventListener('touchstart', resumeAudioOnce);
+  if (AC && AC.state === 'suspended'){ AC.resume(); }
+  if (AC && AC.state === 'running') RESUME_EVENTS.forEach(ev=>removeEventListener(ev, resumeAudioOnce));
 };
-addEventListener('pointerdown', resumeAudioOnce);
-addEventListener('keydown', resumeAudioOnce);
-addEventListener('touchstart', resumeAudioOnce);
+RESUME_EVENTS.forEach(ev=>addEventListener(ev, resumeAudioOnce, { passive:true }));
+if (AC) AC.resume().catch(()=>{});   // sebagian browser mengizinkan langsung
 
 function playBoom(mag, tier){
   if (!audioOn || !AC) return;
@@ -813,7 +804,7 @@ function playChargeHorn(){
 function playVolley(tier){
   if (!audioOn || !AC) return;
   const t0 = AC.currentTime;
-  const shots = tier===2 ? 7 : tier===1 ? 4 : 2;
+  const shots = tier===2 ? 5 : tier===1 ? 3 : 1;
   for (let i=0;i<shots;i++){
     const t = t0 + i*(.02+Math.random()*.03);
     const dur = .06;
@@ -822,7 +813,7 @@ function playVolley(tier){
     for (let j=0;j<ch.length;j++) ch[j] = (Math.random()*2-1)*Math.pow(1-j/ch.length,3);
     const src = AC.createBufferSource(); src.buffer = buf;
     const f = AC.createBiquadFilter(); f.type='highpass'; f.frequency.value=900;
-    const g = AC.createGain(); g.gain.value = .10+Math.random()*.06;
+    const g = AC.createGain(); g.gain.value = .045+Math.random()*.03;
     src.connect(f).connect(g).connect(sfxG); src.start(t);
   }
 }
@@ -1023,7 +1014,7 @@ function pickUnit(e){
 function showTip(u, x, y){
   const d = u.userData;
   tip.innerHTML =
-    `<b class="${d.side}">${d.side==='buy'?'BELI':'JUAL'} PAUS 🐋</b>` +
+    `<b class="${d.side}">ORDER ${d.side==='buy'?'BELI':'JUAL'} BESAR</b>` +
     `<span>${fmtUsd(d.usd)}</span>` +
     `<span>@ $${d.price.toLocaleString('en-US',{ maximumFractionDigits:2 })}</span>` +
     `<span class="tt">${new Date(d.ts).toLocaleTimeString('id-ID')}</span>`;
@@ -1037,13 +1028,11 @@ function hoverUnit(e){
   if (u){ showTip(u, e.clientX, e.clientY); cv.style.cursor='pointer'; }
   else { cv.style.cursor=''; if (performance.now() > pinnedT) hideTip(); }
 }
-const CHEERS = ['🎉','🔥','📣','💚','⚔️','🚀','🙌'];
 function spawnCheer(pos){
-  const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color:C_GOLD, transparent:true, opacity:.85, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
+  const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color:C_GOLD, transparent:true, opacity:.7, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
   rm.rotation.x = -Math.PI/2; rm.position.copy(pos); rm.position.y = 1.5;
   scene.add(rm);
   rings.push({ rm, t:0, dur:.7, max:16 });
-  floatNum(pos, CHEERS[Math.floor(Math.random()*CHEERS.length)], 'cheer');
   playCheer();
 }
 function onTap(e){
@@ -1121,10 +1110,11 @@ function tick(){
     const s = skulls[i];
     s.t += sdt/s.dur;
     if (s.t>=1){ scene.remove(s.spr); s.spr.material.dispose(); skulls.splice(i,1); continue; }
-    const e = s.t<.25 ? s.t/.25 : 1;
-    s.spr.scale.set(e*4.6, e*4.6, 1);
-    s.spr.position.y = 5 + s.t*7;
-    s.spr.material.opacity = s.t<.6 ? 1 : 1-(s.t-.6)/.4;
+    const e = s.t<.3 ? s.t/.3 : 1;
+    const g = 3 + e*3.5;
+    s.spr.scale.set(g, g, 1);
+    s.spr.position.y = 4 + s.t*6;
+    s.spr.material.opacity = (s.t<.4 ? .5 : .5*(1-(s.t-.4)/.6));
   }
 
   for (let i=units.length-1;i>=0;i--){
