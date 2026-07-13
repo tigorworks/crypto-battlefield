@@ -75,13 +75,26 @@
   @keyframes slidein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
   /* ── bawah kiri: controls, ringkas ── */
-  #controls{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:max(16px,env(safe-area-inset-left) + 12px);font-size:9.5px;line-height:1.7;letter-spacing:.04em;padding:10px 13px;max-width:230px}
+  #controls{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:max(16px,env(safe-area-inset-left) + 12px);font-size:9.5px;line-height:1.7;letter-spacing:.04em;padding:10px 13px;max-width:290px}
   #controls b{color:var(--ink);font-weight:600}
-  #cam-row{display:flex;gap:5px;margin-bottom:7px}
-  #cam-row .btn{padding:4px 8px;font-size:9px}
-  #audio-btn{margin-top:7px;width:100%}
+  #cam-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+  #cam-row .btn{padding:4px 8px;font-size:9px;white-space:nowrap}
+  #audio-row{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .vol-row{display:flex;align-items:center;gap:8px}
+  .vol-label{flex:none;width:32px;font-size:9px;letter-spacing:.08em;font-weight:700;color:var(--long);cursor:pointer;user-select:none;-webkit-user-select:none;font-family:var(--rounded);transition:color .15s}
+  .vol-label.muted{color:var(--muted);text-decoration:line-through}
+  .vol-slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;background:rgba(255,255,255,.14);outline:none;cursor:pointer}
+  .vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--long);box-shadow:0 0 6px rgba(45,214,165,.55);cursor:pointer;margin-top:-3.5px}
+  .vol-slider::-moz-range-thumb{width:11px;height:11px;border:none;border-radius:50%;background:var(--long);box-shadow:0 0 6px rgba(45,214,165,.55);cursor:pointer}
+  .vol-slider::-moz-range-track{height:4px;border-radius:999px;background:rgba(255,255,255,.14)}
+  .vol-slider::-moz-range-progress{height:4px;border-radius:999px;background:var(--long)}
+  .vol-slider.muted::-webkit-slider-thumb{background:var(--muted);box-shadow:none}
+  .vol-slider.muted::-moz-range-thumb{background:var(--muted);box-shadow:none}
+  .vol-slider.muted::-moz-range-progress{background:var(--muted)}
 
-  /* ── kanan atas: tombol layar penuh ── */
+  /* ── kanan atas: tombol bahasa & layar penuh ── */
+  #lang-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:calc(max(16px,env(safe-area-inset-right) + 12px) + 46px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px);font-family:var(--rounded);font-size:11px;font-weight:800;letter-spacing:.04em}
+  #lang-btn:hover{color:var(--long);border-color:rgba(45,214,165,.5)}
   #fs-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
   #fs-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #fs-btn:hover{color:var(--long);border-color:rgba(45,214,165,.5)}
@@ -112,6 +125,7 @@
     #controls{max-width:190px;padding:9px 10px}
     #cam-row{flex-wrap:wrap;gap:4px}
     #cam-row .btn{padding:4px 7px;font-size:8.5px}
+    .vol-label{width:28px;font-size:8.5px}
     #center-price{top:13%}
     #pressure{bottom:calc(max(16px,env(safe-area-inset-bottom) + 12px) + 112px);width:min(320px,90vw);padding:9px 12px}
     #pp-head{font-size:8px}
@@ -130,6 +144,8 @@
   <button class="btn warn" id="retry">SAMBUNG ULANG</button>
 </div>
 
+<button class="hud" id="lang-btn" title="Switch language" aria-label="Switch language">EN</button>
+
 <button class="hud" id="fs-btn" title="Layar penuh" aria-label="Layar penuh">
   <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
 </button>
@@ -140,16 +156,16 @@
 </div>
 
 <div class="hud panel" id="pressure">
-  <div id="pp-head">TEKANAN PASAR · 60 DETIK · <span class="l">PANJANG</span> <span class="vs">vs</span> <span class="s">PENDEK</span></div>
+  <div id="pp-head"><span id="pp-head-label"></span> <span class="l" id="pp-long-word"></span> <span class="vs">vs</span> <span class="s" id="pp-short-word"></span></div>
   <div id="pp-bar"><div id="pp-long" style="width:50%"></div><div id="pp-short"></div></div>
   <div id="pp-stats">
     <div class="pp-col pp-l">
       <div class="pp-main"><span id="pp-long-usd">$0</span> · <span id="pp-long-pct">50%</span></div>
-      <div class="pp-sub"><span id="pp-long-cnt">0</span> order beli</div>
+      <div class="pp-sub"><span id="pp-long-cnt">0</span> <span id="pp-long-orders"></span></div>
     </div>
     <div class="pp-col pp-s">
       <div class="pp-main"><span id="pp-short-pct">50%</span> · <span id="pp-short-usd">$0</span></div>
-      <div class="pp-sub"><span id="pp-short-cnt">0</span> order jual</div>
+      <div class="pp-sub"><span id="pp-short-cnt">0</span> <span id="pp-short-orders"></span></div>
     </div>
   </div>
 </div>
@@ -166,11 +182,17 @@
     <button class="btn" data-m="2">BEBAS</button>
     <button class="btn" data-m="3">AKSI</button>
   </div>
-  <div class="keys">
-    <b>drag</b> putar · <b>scroll</b> zoom<br>
-    <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
+  <div class="keys" id="keys-hint"></div>
+  <div id="audio-row">
+    <div class="vol-row">
+      <span class="vol-label" id="music-label" title="Klik untuk bisukan">MUSIK</span>
+      <input type="range" class="vol-slider" id="music-vol" min="0" max="100" value="100" step="1">
+    </div>
+    <div class="vol-row">
+      <span class="vol-label" id="sfx-label" title="Klik untuk bisukan">EFEK</span>
+      <input type="range" class="vol-slider" id="sfx-vol" min="0" max="100" value="100" step="1">
+    </div>
   </div>
-  <button class="btn" id="audio-btn">AUDIO AKTIF</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -208,10 +230,45 @@ const fill = new THREE.DirectionalLight(0xffffff, .18);
 fill.position.set(300, 200, 260);
 scene.add(fill);
 
-/* ═══════════ LAPANGAN — rumput gelap, kontras dengan pasukan ═══════════ */
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshLambertMaterial({ color:0x4a5c30 }));
+/* ═══════════ LAPANGAN — foto rumput asli (land.png), ubin diulang di seluruh lapangan ═══════════ */
+/* peta normal dari kecerahan kanvas — memberi rumput kesan bergelombang di bawah cahaya matahari */
+function normalFromCanvas(src, strength){
+  const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0,0,w,h).data;
+  const out = document.createElement('canvas'); out.width=w; out.height=h;
+  const octx = out.getContext('2d'), img = octx.createImageData(w,h);
+  const lum = (x,y)=>{ x=(x+w)%w; y=(y+h)%h; const i=(y*w+x)*4; return (d[i]*.299+d[i+1]*.587+d[i+2]*.114)/255; };
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+    const nx=(lum(x-1,y)-lum(x+1,y))*strength, ny=(lum(x,y-1)-lum(x,y+1))*strength, nz=1;
+    const len=Math.hypot(nx,ny,nz), i=(y*w+x)*4;
+    img.data[i]=(nx/len*.5+.5)*255; img.data[i+1]=(ny/len*.5+.5)*255; img.data[i+2]=(nz/len*.5+.5)*255; img.data[i+3]=255;
+  }
+  octx.putImageData(img,0,0);
+  return out;
+}
+const GROUND_REPEAT = 22;
+const groundMat = new THREE.MeshStandardMaterial({ color:0x4a5c30, roughness:1, metalness:0 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), groundMat);
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
+new THREE.TextureLoader().load('land.png', (tex)=>{
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(GROUND_REPEAT, GROUND_REPEAT);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  groundMat.color.set(0xffffff);   // biarkan warna asli foto, jangan ditimpa tint hijau
+  groundMat.map = tex;
+  groundMat.needsUpdate = true;
+  try {
+    // dibuka lewat file:// (bukan server lokal) membuat kanvas "tainted" — baca piksel gagal,
+    // tapi foto tanahnya sendiri (di atas) sudah tampil, jadi peta normal ini cukup dilewati saja
+    const nCanvas = document.createElement('canvas'); nCanvas.width = nCanvas.height = 512;
+    nCanvas.getContext('2d').drawImage(tex.image, 0, 0, 512, 512);
+    const normalMap = new THREE.CanvasTexture(normalFromCanvas(nCanvas, 1.8));
+    normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping;
+    normalMap.repeat.copy(tex.repeat);
+    groundMat.normalMap = normalMap;
+    groundMat.needsUpdate = true;
+  } catch(e){}
+});
 
 function patchTexture(){
   const c = document.createElement('canvas'); c.width=c.height=256;
@@ -648,8 +705,9 @@ function bumpStreak(side){
   if (side === streakSide) streakCount++;
   else { streakSide = side; streakCount = 1; }
   if (streakCount >= 5 && streakCount % 5 === 0){
-    const who = side==='buy' ? 'PEMBELI' : 'PENJUAL';
-    streakEl.textContent = `${who} ${streakCount}× BERUNTUN`;
+    const L = I18N[lang];
+    const who = side==='buy' ? L.buyer : L.seller;
+    streakEl.textContent = `${who} ${streakCount}${L.streakSuffix}`;
     streakEl.className = 'show ' + side;
     addShake(.8 + Math.min(2, streakCount*.05));
     clearTimeout(streakHide);
@@ -692,15 +750,16 @@ function explode(pos, color, mag, tier){
 
 /* ═══════════ KILLFEED — gabungan order flow & sorotan ═══════════ */
 const killsEl = document.getElementById('kills');
-function logKill(side, qty, killedN, tag){
+function logKill(side, qty, price, tag){
   const d = document.createElement('div');
   const time = new Date().toLocaleTimeString('en-GB');
-  const oppWord = side==='buy' ? 'merah' : 'hijau';
-  d.className = 'kill ' + (tag==='LIKUIDASI' ? 'liq' : side);
+  const L = I18N[lang];
+  const tagText = tag==='whale' ? L.whaleTag : tag==='liq' ? L.liqTag : null;
+  d.className = 'kill ' + (tag==='liq' ? 'liq' : side);
   d.innerHTML = `<span class="kt">[${time}]</span>` +
-    (tag ? `<span class="tag">${tag} </span>` : '') +
-    (side==='buy' ? 'BELI ' : 'JUAL ') + qty.toFixed(3) +
-    ` · ${killedN} ${oppWord}`;
+    (tagText ? `<span class="tag">${tagText} </span>` : '') +
+    (side==='buy' ? L.long+' ' : L.short+' ') + qty.toFixed(3) +
+    ` @ $${price.toLocaleString('en-US',{ maximumFractionDigits: price<10?4:2 })}`;
   killsEl.prepend(d);
   while (killsEl.children.length > 4) killsEl.lastChild.remove();
   setTimeout(()=>{ if(d.parentNode){ d.style.opacity='0'; d.style.transition='opacity .5s'; setTimeout(()=>d.remove(),550);} }, 7000);
@@ -736,10 +795,14 @@ function meterUpdate(){
   document.getElementById('pp-short-cnt').textContent = sc;
 }
 
-/* ═══════════ AUDIO — sederhana, satu tombol ═══════════ */
+/* ═══════════ AUDIO — musik latar & efek suara, masing-masing slider volume sendiri ═══════════ */
 let AC=null, masterG, musicG, sfxG, musicNodes=[];
-let audioOn = false;
-const audioBtn = document.getElementById('audio-btn');
+let musicOn = false, sfxOn = false;   // turunan dari volume > 0 — dipakai agar tak kerja sia-sia saat senyap
+const musicVolEl = document.getElementById('music-vol');
+const sfxVolEl = document.getElementById('sfx-vol');
+const musicLabelEl = document.getElementById('music-label');
+const sfxLabelEl = document.getElementById('sfx-label');
+let musicLastVol = 100, sfxLastVol = 100;   // volume terakhir sebelum dibisukan, untuk tombol mute
 const MUSIC_LEVEL = .3, SFX_LEVEL = .34;
 
 function initAudio(){
@@ -826,7 +889,7 @@ function startMusic(){
   });
   step16 = 0; bar = 0; nextStepTime = AC.currentTime + .1;
   seqTimer = setInterval(() => {              // penjadwal look-ahead agar ketukan rapat
-    if (!audioOn || !AC) return;
+    if (!musicOn || !AC) return;
     if (nextStepTime < AC.currentTime) nextStepTime = AC.currentTime + .05;
     while (nextStepTime < AC.currentTime + .12){
       scheduleStep(nextStepTime);
@@ -834,23 +897,36 @@ function startMusic(){
     }
   }, 40);
 }
-audioBtn.onclick = ()=>{
-  if (!AC){ initAudio(); audioOn = true; }
-  else {
-    audioOn = !audioOn;
-    if (audioOn) AC.resume(); else AC.suspend();
-  }
-  audioBtn.textContent = audioOn ? 'AUDIO AKTIF' : 'AKTIFKAN AUDIO';
-  audioBtn.classList.toggle('active', audioOn);
-};
+/* mengecat isian slider (hijau sampai posisi thumb) & tandai bisu lewat CSS class */
+function paintVol(el, muted){
+  const pct = +el.value, col = muted ? 'var(--muted)' : 'var(--long)';
+  el.classList.toggle('muted', muted);
+  el.style.background = `linear-gradient(to right, ${col} 0%, ${col} ${pct}%, rgba(255,255,255,.14) ${pct}%, rgba(255,255,255,.14) 100%)`;
+}
+function applyMusicVol(){
+  const pct = +musicVolEl.value, muted = pct===0;
+  musicOn = !muted;
+  if (musicG) musicG.gain.value = (pct/100)*MUSIC_LEVEL;
+  musicLabelEl.classList.toggle('muted', muted);
+  paintVol(musicVolEl, muted);
+}
+function applySfxVol(){
+  const pct = +sfxVolEl.value, muted = pct===0;
+  sfxOn = !muted;
+  if (sfxG) sfxG.gain.value = (pct/100)*SFX_LEVEL;
+  sfxLabelEl.classList.toggle('muted', muted);
+  paintVol(sfxVolEl, muted);
+}
+musicVolEl.oninput = ()=>{ if (!AC) initAudio(); if (+musicVolEl.value>0) musicLastVol = +musicVolEl.value; applyMusicVol(); };
+sfxVolEl.oninput   = ()=>{ if (!AC) initAudio(); if (+sfxVolEl.value>0)   sfxLastVol   = +sfxVolEl.value;   applySfxVol(); };
+musicLabelEl.onclick = ()=>{ if (!AC) initAudio(); musicVolEl.value = (+musicVolEl.value>0) ? 0 : musicLastVol; applyMusicVol(); };
+sfxLabelEl.onclick   = ()=>{ if (!AC) initAudio(); sfxVolEl.value   = (+sfxVolEl.value>0)   ? 0 : sfxLastVol;   applySfxVol(); };
 
-/* audio aktif otomatis — browser mensyaratkan satu gestur pengguna
+/* musik & efek aktif otomatis — browser mensyaratkan satu gestur pengguna
    sebelum AudioContext bisa benar-benar bersuara, jadi kita siapkan
    di awal lalu resume pada interaksi pertama apa pun */
 initAudio();
-audioOn = true;
-audioBtn.textContent = 'AUDIO AKTIF';
-audioBtn.classList.add('active');
+applyMusicVol(); applySfxVol();
 /* Browser memblokir suara sampai ada satu interaksi pengguna. Kita coba
    resume sedini mungkin pada gerakan/gesture apa pun (bergerak mouse,
    scroll, sentuh, tekan tombol) supaya musik nyala secepatnya. */
@@ -866,7 +942,7 @@ RESUME_EVENTS.forEach(ev=>addEventListener(ev, resumeAudioOnce, { passive:true }
 if (AC) AC.resume().catch(()=>{});   // sebagian browser mengizinkan langsung
 
 function playBoom(mag, tier){
-  if (!audioOn || !AC) return;
+  if (!sfxOn || !AC) return;
   const t = AC.currentTime;
   // sub thump
   const o = AC.createOscillator(), g = AC.createGain();
@@ -888,7 +964,7 @@ function playBoom(mag, tier){
   src.connect(f).connect(ng).connect(sfxG); src.start(t);
 }
 function playChargeHorn(){
-  if (!audioOn || !AC) return;
+  if (!sfxOn || !AC) return;
   const t = AC.currentTime;
   const o = AC.createOscillator(), g = AC.createGain();
   o.type='square';
@@ -902,8 +978,23 @@ function playChargeHorn(){
   o.connect(f).connect(g).connect(sfxG);
   o.start(t); o.stop(t+2.5);
 }
+function playCannon(){                      // tembakan unit paus (tank/heli/jet) — berat & dalam, beda dari rentetan prajurit biasa
+  if (!sfxOn || !AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type='sine';
+  o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(50, t+.09);
+  g.gain.setValueAtTime(.001,t); g.gain.exponentialRampToValueAtTime(.22, t+.006); g.gain.exponentialRampToValueAtTime(.001, t+.15);
+  o.connect(g).connect(sfxG); o.start(t); o.stop(t+.17);
+  const dur=.08, buf=AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate), ch=buf.getChannelData(0);
+  for (let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/ch.length,2);
+  const src=AC.createBufferSource(); src.buffer=buf;
+  const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1300; f.Q.value=1.1;
+  const ng=AC.createGain(); ng.gain.value=.18;
+  src.connect(f).connect(ng).connect(sfxG); src.start(t);
+}
 function playVolley(tier){
-  if (!audioOn || !AC) return;
+  if (!sfxOn || !AC) return;
   const t0 = AC.currentTime;
   const shots = tier===2 ? 5 : tier===1 ? 3 : 1;
   for (let i=0;i<shots;i++){
@@ -919,7 +1010,7 @@ function playVolley(tier){
   }
 }
 function playCheer(){
-  if (!audioOn || !AC) return;
+  if (!sfxOn || !AC) return;
   const t = AC.currentTime;
   const o = AC.createOscillator(), g = AC.createGain();
   o.type='triangle';
@@ -970,12 +1061,15 @@ function onTrade(p, qty, isBuy){
     if (tier===1) addShake(.5);
   }
   // order debu (<T_SHELL): hanya menambah tekanan/jumlah, tidak membunuh tanpa peluru
-  logKill(side, qty, killed, tier===2?'PAUS':null);
+  logKill(side, qty, p, tier===2?'whale':null);
 }
 
+let feedState = 'connecting';
 function setBadge(state){
+  feedState = state;
+  const L = I18N[lang];
   badgeEl.className = 'hud' + (state==='connecting' ? '' : ' '+state);
-  badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':'MENYAMBUNG…';
+  badgeTextEl.textContent = state==='live'?L.live:state==='dead'?L.dead:L.connecting;
   retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
 }
 
@@ -1014,14 +1108,15 @@ function connectBinanceVision(){
       try {
         const o = JSON.parse(ev.data).o;
         const qty = parseFloat(o.q);
-        const usd = parseFloat(o.ap)*qty;
+        const liqPrice = parseFloat(o.ap);
+        const usd = liqPrice*qty;
         const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
         const side = isBuy ? 'buy' : 'sell';
         const n = usd>=T_WHALE ? 10 : 4;
         fireVolley(side, usd>=T_WHALE?2:1, n);
         const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
         explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), usd>=T_WHALE?2:1);
-        logKill(side, qty, n, 'LIKUIDASI');
+        logKill(side, qty, liqPrice, 'liq');
       } catch(e){}
     };
   } catch(e){}
@@ -1084,10 +1179,39 @@ retryBtn.onclick = ()=>{ retries=0; feedIdx=0; connect(); };
 /* stats tiap detik */
 setInterval(meterUpdate, 1000);
 
-/* ═══════════ CAMERA — statis & sederhana, seluruh lapangan langsung terlihat ═══════════ */
+/* ═══════════ CAMERA ═══════════ */
 let camMode = 0;
 const orbit = { theta:.22, phi:.4, radius:540, target:new THREE.Vector3(0,10,0) };
 const _camTgt = new THREE.Vector3();
+/* mode SINEMATIK: beberapa preset shot yang bergantian tiap belasan detik, menyatu lewat lerp
+   supaya terasa seperti editor memotong-motong sudut kamera, bukan satu kamera yang goyang terus */
+function cineWide(lt,t,frontX,dur){
+  const portrait = innerHeight > innerWidth;
+  return { theta:.22+Math.sin(t*.05)*.12, phi:.4+Math.sin(t*.08)*.03,
+    radius:560+Math.abs(frontX)*(portrait?1.7:1.1), tx:frontX*.6, ty:10, tz:0 };
+}
+function cineClash(lt,t,frontX,dur){                          // dolly rendah menyusuri garis bentrok
+  const sweep = Math.sin(lt/dur*Math.PI*2)*90;
+  return { theta:Math.PI/2+Math.sin(lt*.15)*.2, phi:.17+Math.sin(lt*.2)*.02,
+    radius:230, tx:frontX, ty:7, tz:sweep };
+}
+function cineTrack(lt,t,frontX,dur){                          // dari belakang pasukan yang sedang menang
+  const side = buyShare>=0.5 ? -1 : 1;
+  const baseTheta = side<0 ? -1.3 : 1.3;
+  return { theta:baseTheta+Math.sin(lt*.25)*.2, phi:.2+Math.sin(lt*.3)*.025,
+    radius:300, tx:frontX-side*25, ty:12, tz:Math.sin(lt*.2)*55 };
+}
+function cineAerial(lt,t,frontX,dur){                         // sapuan tinggi ala drone
+  return { theta:-.6+(lt/dur)*1.8, phi:.56+Math.sin(lt*.1)*.03,
+    radius:760+Math.abs(frontX)*.6, tx:frontX*.4, ty:10, tz:0 };
+}
+const CINE_SHOTS = [
+  { run:cineWide,   dur:18 },
+  { run:cineClash,  dur:12 },
+  { run:cineTrack,  dur:14 },
+  { run:cineAerial, dur:16 },
+];
+let cineIdx = 0, cineShotStart = 0;
 /* mode AKSI: buntuti koloni yang menang, sesekali potong ke unit paus */
 let aksiWin = -1, heroUnit = null, heroUntil = 0, heroCooldown = 0;
 const followPos = new THREE.Vector3(0,10,0);
@@ -1114,10 +1238,24 @@ fsBtn.onclick = ()=>{
 function syncFsIcon(){
   const on = !!fsElement();
   fsBtn.innerHTML = on ? FS_EXIT : FS_ENTER;
-  fsBtn.title = on ? 'Keluar layar penuh' : 'Layar penuh';
+  fsBtn.title = on ? I18N[lang].fsExit : I18N[lang].fsEnter;
 }
 addEventListener('fullscreenchange', syncFsIcon);
 addEventListener('webkitfullscreenchange', syncFsIcon);
+
+/* ═══════════ WAKE LOCK — layar tak tidur/terkunci selama tab ini aktif ═══════════ */
+let wakeLock = null;
+async function requestWakeLock(){
+  if (!('wakeLock' in navigator)) return;   // browser lama / konteks tak aman (bukan https) — biarkan layar tidur seperti biasa
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+  } catch(e){}   // mis. ditolak karena mode hemat baterai — abaikan saja
+}
+requestWakeLock();
+addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible') requestWakeLock();   // wake lock lepas otomatis saat tab disembunyikan — minta lagi saat kembali
+});
 
 addEventListener('keydown', e=>{
   if (e.key==='1') setCamMode(0);
@@ -1182,12 +1320,12 @@ function pickUnit(e){
   return o;
 }
 function showTip(u, x, y){
-  const d = u.userData;
+  const d = u.userData, L = I18N[lang];
   tip.innerHTML =
-    `<b class="${d.side}">ORDER ${d.side==='buy'?'BELI':'JUAL'} BESAR</b>` +
+    `<b class="${d.side}">${d.side==='buy'?L.bigBuy:L.bigSell}</b>` +
     `<span>${fmtUsd(d.usd)}</span>` +
     `<span>@ $${d.price.toLocaleString('en-US',{ maximumFractionDigits:2 })}</span>` +
-    `<span class="tt">${new Date(d.ts).toLocaleTimeString('id-ID')}</span>`;
+    `<span class="tt">${new Date(d.ts).toLocaleTimeString('en-GB')}</span>`;
   tip.style.left = Math.min(innerWidth-150, x+14) + 'px';
   tip.style.top  = Math.max(8, y-8) + 'px';
   tip.classList.add('show');
@@ -1310,6 +1448,7 @@ function tick(){
         u.fireT = .13;
         const from = u.obj.position.clone(); from.y += 2;
         fireBullet(u.side, from, crowdPoint(u.defender, 14), true, u.defender, true); // peluru besar, jangkauan jauh
+        playCannon();
       }
     } else {
       u.obj.position.lerpVectors(u.start, u.end, k);
@@ -1377,14 +1516,17 @@ function tick(){
   }
 
   if (camMode===0){
-    orbit.theta = .22 + Math.sin(t*.05)*.12;
-    orbit.phi = .4 + Math.sin(t*.08)*.03;
-    // ikuti pertempuran yang bergeser & mundur saat pasukan menyebar, agar tak ada sisi terpotong
-    const portrait = innerHeight > innerWidth;
-    const rTarget = 560 + Math.abs(frontX)*(portrait?1.7:1.1);
-    orbit.radius += (rTarget-orbit.radius)*dt*.6;
-    _camTgt.set(frontX*0.6, 10, 0);
-    orbit.target.lerp(_camTgt, dt);
+    const shotDef = CINE_SHOTS[cineIdx];
+    if (t - cineShotStart > shotDef.dur){
+      let ni; do { ni = (Math.random()*CINE_SHOTS.length)|0; } while (ni===cineIdx && CINE_SHOTS.length>1);
+      cineIdx = ni; cineShotStart = t;
+    }
+    const shot = shotDef.run(t-cineShotStart, t, frontX, shotDef.dur);
+    orbit.theta  += (shot.theta  - orbit.theta )*dt*.8;
+    orbit.phi    += (shot.phi    - orbit.phi   )*dt*.8;
+    orbit.radius += (shot.radius - orbit.radius)*dt*.7;
+    _camTgt.set(shot.tx, shot.ty, shot.tz);
+    orbit.target.lerp(_camTgt, dt*.8);
   } else if (camMode===1){
     followPos.lerp(lastImpact, dt*2.2);
     orbit.target.lerp(new THREE.Vector3(followPos.x,15,followPos.z), dt*2.2);
@@ -1442,6 +1584,66 @@ addEventListener('resize', ()=>{
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
+/* ═══════════ BAHASA — EN/ID, default EN, tersimpan di localStorage ═══════════ */
+const I18N = {
+  en: {
+    connecting:'CONNECTING…', live:'LIVE', dead:'DISCONNECTED', retry:'RECONNECT',
+    fsEnter:'Fullscreen', fsExit:'Exit fullscreen',
+    pressureLabel:'MARKET PRESSURE · 60s ·', long:'BUY', short:'SELL',
+    ordersLong:'buy orders', ordersShort:'sell orders',
+    camCinematic:'CINEMATIC', camFollow:'FOLLOW', camFree:'FREE', camAction:'ACTION',
+    keysLine1:'<b>drag</b> rotate · <b>scroll</b> zoom',
+    keysLine2:'<b>1/2/3</b> camera · <b>WASD</b> pan · <b>Q/E</b> height',
+    musicLabel:'MUSIC', sfxLabel:'SFX', muteTitle:'Click to mute',
+    bigBuy:'BIG BUY ORDER', bigSell:'BIG SELL ORDER',
+    buyer:'BUYERS', seller:'SELLERS', streakSuffix:'× STREAK',
+    whaleTag:'WHALE', liqTag:'LIQUIDATION',
+    langBtnTitle:'Switch language',
+  },
+  id: {
+    connecting:'MENYAMBUNG…', live:'LANGSUNG', dead:'TERPUTUS', retry:'SAMBUNG ULANG',
+    fsEnter:'Layar penuh', fsExit:'Keluar layar penuh',
+    pressureLabel:'TEKANAN PASAR · 60 DETIK ·', long:'BELI', short:'JUAL',
+    ordersLong:'order beli', ordersShort:'order jual',
+    camCinematic:'SINEMATIK', camFollow:'IKUTI', camFree:'BEBAS', camAction:'AKSI',
+    keysLine1:'<b>drag</b> putar · <b>scroll</b> zoom',
+    keysLine2:'<b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi',
+    musicLabel:'MUSIK', sfxLabel:'EFEK', muteTitle:'Klik untuk bisukan',
+    bigBuy:'ORDER BELI BESAR', bigSell:'ORDER JUAL BESAR',
+    buyer:'PEMBELI', seller:'PENJUAL', streakSuffix:'× BERUNTUN',
+    whaleTag:'PAUS', liqTag:'LIKUIDASI',
+    langBtnTitle:'Ganti bahasa',
+  },
+};
+let lang = 'en';
+try { const saved = localStorage.getItem('bf-lang'); if (saved==='en' || saved==='id') lang = saved; } catch(e){}
+const langBtn = document.getElementById('lang-btn');
+function applyLanguage(){
+  const L = I18N[lang];
+  document.documentElement.lang = lang;
+  langBtn.textContent = lang.toUpperCase();
+  langBtn.title = L.langBtnTitle;
+  retryBtn.textContent = L.retry;
+  setBadge(feedState);
+  fsBtn.title = fsElement() ? L.fsExit : L.fsEnter;
+  document.getElementById('pp-head-label').textContent = L.pressureLabel;
+  document.getElementById('pp-long-word').textContent = L.long;
+  document.getElementById('pp-short-word').textContent = L.short;
+  document.getElementById('pp-long-orders').textContent = L.ordersLong;
+  document.getElementById('pp-short-orders').textContent = L.ordersShort;
+  const camLabels = [L.camCinematic, L.camFollow, L.camFree, L.camAction];
+  document.querySelectorAll('.btn[data-m]').forEach(b=>{ b.textContent = camLabels[+b.dataset.m]; });
+  document.getElementById('keys-hint').innerHTML = L.keysLine1 + '<br>' + L.keysLine2;
+  musicLabelEl.textContent = L.musicLabel; musicLabelEl.title = L.muteTitle;
+  sfxLabelEl.textContent = L.sfxLabel; sfxLabelEl.title = L.muteTitle;
+}
+langBtn.onclick = ()=>{
+  lang = lang==='en' ? 'id' : 'en';
+  try { localStorage.setItem('bf-lang', lang); } catch(e){}
+  applyLanguage();
+};
+applyLanguage();
 
 connect();
 tick();
