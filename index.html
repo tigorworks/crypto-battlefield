@@ -168,7 +168,7 @@
 
 /* ═══════════ CONFIG ═══════════ */
 const STREAM = 'btcusdt';
-const T_SHELL = 300;       // ≥ $300  → tembakan kecil terlihat
+const T_SHELL = 80;        // ≥ $80   → tembakan kecil (lebih sering, lebih interaktif)
 const T_HEAVY = 25000;     // ≥ $25K  → tembakan berat + sorotan
 const T_WHALE = 100000;    // ≥ $100K → serangan tank
 const MAX_UNITS = 30;
@@ -637,11 +637,6 @@ function explode(pos, color, mag, tier){
     l.position.copy(pos); l.position.y = 30;
     scene.add(l);
     setTimeout(()=>scene.remove(l), tier===2?400:220);
-  }
-  if (tier===2){
-    const f = document.getElementById('flash');
-    f.style.transition='none'; f.style.opacity=.14;
-    requestAnimationFrame(()=>{ f.style.transition='opacity .7s'; f.style.opacity=0; });
   }
   lastImpact.copy(pos);
   playBoom(mag, tier);
@@ -1121,21 +1116,18 @@ function tick(){
     }
     embers.attr.needsUpdate = true;
   }
-  if (mood < -.55 && Math.random() < dt*.5){   // petir saat badai
-    const f = document.getElementById('flash');
-    f.style.transition='none'; f.style.opacity=.45;
-    requestAnimationFrame(()=>{ f.style.transition='opacity .4s'; f.style.opacity=0; });
-  }
 
   updateCrowd(buyCrowd, sdt, t);
   updateCrowd(sellCrowd, sdt, t);
   // bala bantuan HANYA masuk saat jumlah di bawah target (persentase buy/sell).
   // pengurangan jumlah terjadi lewat peluru lawan — prajurit mati karena tertembak, bukan kabur.
+  // isi cepat beberapa sekaligus supaya seimbang dengan laju kematian → banyak pergerakan masuk/mati.
   regenTimer -= dt;
   if (regenTimer <= 0){
-    regenTimer = .1;
+    regenTimer = .06;
     for (const c of [buyCrowd, sellCrowd]){
-      if (c.count < c.target) reviveSoldier(c);
+      let n = Math.min(8, c.target - c.count);   // isi cepat agar seimbang dengan laju kematian
+      while (n-- > 0) reviveSoldier(c);
     }
   }
 
