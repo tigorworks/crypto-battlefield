@@ -63,7 +63,7 @@
   .pp-sub{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.03em}
 
   /* ── bawah kanan: killfeed ringkas ── */
-  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:260px;max-width:calc(100vw - 32px);padding:9px 11px;text-align:left}
+  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:300px;max-width:calc(100vw - 32px);padding:9px 11px;text-align:left}
   #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:7px;font-weight:600;font-family:var(--rounded)}
   #kills{overflow:hidden;max-height:112px}
   .kill{font-size:10px;padding:4px 8px;margin-bottom:3px;background:rgba(255,255,255,.04);border-radius:7px;border-left:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -105,7 +105,7 @@
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
   @media (max-width:760px){
-    #killfeed{width:165px;padding:8px 9px}
+    #killfeed{width:168px;padding:8px 9px}
     #killfeed h4{font-size:8px}
     .kill{font-size:9px;padding:3px 6px}
     #controls .keys{display:none}
@@ -695,7 +695,7 @@ function logKill(side, qty, killedN, tag){
   d.innerHTML = `<span class="kt">[${time}]</span>` +
     (tag ? `<span class="tag">${tag} </span>` : '') +
     (side==='buy' ? 'BELI ' : 'JUAL ') + qty.toFixed(3) +
-    ` — ${killedN} ${oppWord} down`;
+    ` · ${killedN} ${oppWord}`;
   killsEl.prepend(d);
   while (killsEl.children.length > 4) killsEl.lastChild.remove();
   setTimeout(()=>{ if(d.parentNode){ d.style.opacity='0'; d.style.transition='opacity .5s'; setTimeout(()=>d.remove(),550);} }, 7000);
