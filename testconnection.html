@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tes Koneksi Exchange — WebSocket</title>
+<style>
+  :root{
+    --bg:#0d1411; --panel:rgba(18,26,22,.85); --line:rgba(255,255,255,.08);
+    --ink:#eef1fb; --muted:#8891b8;
+    --ok:#2dd6a5; --warn:#ffc857; --bad:#ff6584; --wait:#7b86a8;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --rounded:'Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#16241d,#0d1411);color:var(--ink);
+    font-family:var(--rounded);min-height:100vh;padding:max(18px,env(safe-area-inset-top)) 16px 40px;-webkit-text-size-adjust:100%}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:19px;margin:6px 0 4px;letter-spacing:.02em}
+  .sub{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px}
+  .sub b{color:var(--ink)}
+  .bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px}
+  #summary{font-size:14px;font-weight:700}
+  #summary b{color:var(--ok)}
+  button{font-family:var(--rounded);font-weight:700;font-size:13px;letter-spacing:.03em;
+    background:var(--ok);color:#062018;border:none;border-radius:9px;padding:9px 16px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 14px;font-size:11px;color:var(--muted);margin-bottom:18px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .dot.l{background:var(--ok)} .dot.o{background:var(--warn)} .dot.f{background:var(--bad)}
+  .dot.t{background:var(--bad);opacity:.6} .dot.c{background:var(--wait)}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 14px;
+    display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(8px)}
+  .chead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .cname{font-weight:700;font-size:14px}
+  .badge{font-size:10px;font-weight:800;letter-spacing:.09em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .badge.c{background:rgba(123,134,168,.18);color:var(--wait);animation:pulse 1.1s infinite}
+  .badge.o{background:rgba(255,200,87,.16);color:var(--warn)}
+  .badge.l{background:rgba(45,214,165,.16);color:var(--ok)}
+  .badge.f{background:rgba(255,101,132,.16);color:var(--bad)}
+  .badge.t{background:rgba(255,101,132,.12);color:var(--bad)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .lat{display:flex;gap:14px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .lat b{color:var(--ink);font-weight:600}
+  .url{font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.7;word-break:break-all;line-height:1.4}
+  .sample{font-family:var(--mono);font-size:10px;color:var(--ok);opacity:.85;word-break:break-all;line-height:1.45;
+    max-height:56px;overflow:hidden;min-height:14px}
+  .sample.bad{color:var(--bad)}
+  footer{color:var(--muted);font-size:12px;line-height:1.6;margin-top:22px}
+  footer code{font-family:var(--mono);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tes Koneksi Exchange (WebSocket)</h1>
+  <p class="sub">
+    Beberapa ISP di Indonesia memblokir stream WebSocket Binance. Halaman ini mencoba menyambung ke
+    feed perdagangan BTC publik dari sejumlah bursa besar langsung dari <b>jaringan/perangkatmu saat ini</b>,
+    lalu menandai mana yang bisa tembus. Pilih bursa berstatus <b>LIVE</b> untuk dipakai sebagai sumber data.
+  </p>
+
+  <div class="bar">
+    <span id="summary">Menyambung…</span>
+    <button id="retry">Tes Ulang</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot l"></i> LIVE — data mengalir</span>
+    <span><i class="dot o"></i> TERHUBUNG — socket terbuka, menunggu data</span>
+    <span><i class="dot c"></i> MENYAMBUNG</span>
+    <span><i class="dot t"></i> TIMEOUT — tak terbuka (kemungkinan diblokir)</span>
+    <span><i class="dot f"></i> GAGAL</span>
+  </div>
+
+  <div id="grid"></div>
+
+  <footer>
+    Catatan: hasil hanya berlaku untuk koneksi ini. Bursa yang sama bisa berbeda hasil di Wi-Fi vs data seluler,
+    atau di ISP lain. <b>TERHUBUNG</b> berarti jaringan bisa membuka socket meski data belum sempat terlihat —
+    itu sudah cukup untuk dipakai. Semua endpoint memakai <code>wss://</code> (aman), hanya membaca data publik,
+    dan tidak mengirim kredensial apa pun.
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* Endpoint stream perdagangan BTC publik tiap bursa. `sub` = pesan langganan
+   yang dikirim setelah socket terbuka (boleh fungsi bila perlu timestamp). */
+const EXCHANGES = [
+  { name:'Binance (Spot)',    url:'wss://stream.binance.com:9443/ws/btcusdt@aggTrade' },
+  { name:'Binance (Vision)',  url:'wss://data-stream.binance.vision/ws/btcusdt@aggTrade' },
+  { name:'Binance Futures',   url:'wss://fstream.binance.com/ws/btcusdt@aggTrade' },
+  { name:'Bybit (Spot)',      url:'wss://stream.bybit.com/v5/public/spot',
+    sub:{ op:'subscribe', args:['publicTrade.BTCUSDT'] } },
+  { name:'OKX',               url:'wss://ws.okx.com:8443/ws/v5/public',
+    sub:{ op:'subscribe', args:[{ channel:'trades', instId:'BTC-USDT' }] } },
+  { name:'Coinbase',          url:'wss://ws-feed.exchange.coinbase.com',
+    sub:{ type:'subscribe', product_ids:['BTC-USD'], channels:['matches'] } },
+  { name:'Kraken',            url:'wss://ws.kraken.com',
+    sub:{ event:'subscribe', pair:['XBT/USD'], subscription:{ name:'trade' } } },
+  { name:'Bitget',            url:'wss://ws.bitget.com/v2/ws/public',
+    sub:{ op:'subscribe', args:[{ instType:'SPOT', channel:'trade', instId:'BTCUSDT' }] } },
+  { name:'Gate.io',           url:'wss://api.gateio.ws/ws/v4/',
+    sub:() => ({ time:Math.floor(Date.now()/1000), channel:'spot.trades', event:'subscribe', payload:['BTC_USDT'] }) },
+  { name:'MEXC',              url:'wss://wbs.mexc.com/ws',
+    sub:{ method:'SUBSCRIPTION', params:['spot@public.deals.v3.api@BTCUSDT'] } },
+  { name:'KuCoin',            kucoin:true, url:'wss://…kucoin (via token REST)' },
+];
+
+const TIMEOUT = 9000;
+const grid = document.getElementById('grid');
+const summaryEl = document.getElementById('summary');
+const retryBtn = document.getElementById('retry');
+let sockets = [];
+
+const BADGE = {
+  connecting:['MENYAMBUNG…','c'], open:['TERHUBUNG','o'], live:['LIVE','l'],
+  failed:['GAGAL','f'], timeout:['TIMEOUT','t'],
+};
+function fmt(ms){ return (ms==null) ? '—' : Math.round(ms)+' ms'; }
+function setBadge(el, status){
+  const [txt,cls] = BADGE[status];
+  const b = el.querySelector('.badge');
+  b.textContent = txt; b.className = 'badge '+cls;
+  el.dataset.status = status;
+  updateSummary();
+}
+function makeCard(ex){
+  const el = document.createElement('div'); el.className='card';
+  el.innerHTML =
+    '<div class="chead"><span class="cname"></span><span class="badge c">MENYAMBUNG…</span></div>'+
+    '<div class="lat"><span>Buka: <b class="bopen">—</b></span><span>Data: <b class="bmsg">—</b></span></div>'+
+    '<div class="url"></div>'+
+    '<div class="sample"></div>';
+  el.querySelector('.cname').textContent = ex.name;
+  el.querySelector('.url').textContent = ex.url;
+  el.dataset.status = 'connecting';
+  grid.appendChild(el);
+  return el;
+}
+function updateSummary(){
+  const total = EXCHANGES.length;
+  const live = grid.querySelectorAll('.card[data-status="live"]').length;
+  const open = grid.querySelectorAll('.card[data-status="open"]').length;
+  const pending = grid.querySelectorAll('.card[data-status="connecting"]').length;
+  summaryEl.innerHTML = 'Bisa dipakai: <b>'+(live+open)+'</b> / '+total+
+    ' &nbsp;·&nbsp; LIVE '+live+' · terhubung '+open + (pending?(' · menyisakan '+pending+' menyambung…'):'');
+}
+
+function connectWS(url, sub, el){
+  const sampleEl = el.querySelector('.sample');
+  const t0 = performance.now();
+  let ws, closedByUs = false;
+  const timer = setTimeout(() => {
+    if (el.dataset.status === 'connecting') setBadge(el, 'timeout');
+    cleanup();
+  }, TIMEOUT);
+  function cleanup(){
+    closedByUs = true;
+    try { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; ws.close(); } catch(e){}
+  }
+  try { ws = new WebSocket(url); }
+  catch(e){ setBadge(el,'failed'); sampleEl.textContent = String(e.message||e); sampleEl.classList.add('bad'); clearTimeout(timer); return; }
+  sockets.push(ws);
+  ws.onopen = () => {
+    el.querySelector('.bopen').textContent = fmt(performance.now()-t0);
+    if (el.dataset.status === 'connecting') setBadge(el, 'open');
+    if (sub){ try { ws.send(JSON.stringify(typeof sub==='function' ? sub() : sub)); } catch(e){} }
+  };
+  ws.onmessage = (m) => {
+    el.querySelector('.bmsg').textContent = fmt(performance.now()-t0);
+    setBadge(el, 'live');
+    sampleEl.classList.remove('bad');
+    sampleEl.textContent = (typeof m.data === 'string') ? m.data.slice(0,150) : '[data biner diterima]';
+    clearTimeout(timer);
+    setTimeout(cleanup, 400);   // sudah terbukti hidup, lepaskan koneksi
+  };
+  ws.onerror = () => {
+    if (el.dataset.status === 'connecting'){ setBadge(el,'failed'); sampleEl.textContent = 'Koneksi ditolak / diblokir'; sampleEl.classList.add('bad'); }
+    clearTimeout(timer);
+  };
+  ws.onclose = () => {
+    if (closedByUs) return;
+    if (el.dataset.status === 'connecting'){ setBadge(el,'failed'); sampleEl.textContent = 'Tertutup sebelum terbuka'; sampleEl.classList.add('bad'); }
+    clearTimeout(timer);
+  };
+}
+
+async function testKucoin(el){
+  const sampleEl = el.querySelector('.sample');
+  try {
+    const r = await fetch('https://api.kucoin.com/api/v1/bullet-public', { method:'POST' });
+    const j = await r.json();
+    const srv = j.data.instanceServers[0];
+    const url = srv.endpoint + '?token=' + j.data.token + '&connectId=' + Date.now();
+    el.querySelector('.url').textContent = srv.endpoint;
+    connectWS(url, { id:Date.now(), type:'subscribe', topic:'/market/match:BTC-USDT', response:true }, el);
+  } catch(e){
+    setBadge(el,'failed');
+    sampleEl.textContent = 'Token REST gagal (CORS/diblokir): ' + (e.message||e);
+    sampleEl.classList.add('bad');
+  }
+}
+
+function runAll(){
+  sockets.forEach(s => { try { s.onclose=null; s.close(); } catch(e){} });
+  sockets = [];
+  grid.innerHTML = '';
+  retryBtn.disabled = true;
+  setTimeout(() => retryBtn.disabled = false, TIMEOUT + 500);
+  for (const ex of EXCHANGES){
+    const el = makeCard(ex);
+    if (ex.kucoin) testKucoin(el);
+    else connectWS(ex.url, ex.sub, el);
+  }
+  updateSummary();
+}
+retryBtn.onclick = runAll;
+runAll();
+})();
+</script>
+</body>
+</html>
