@@ -261,6 +261,80 @@ function makeWhale(color){
   return g;
 }
 
+/* ═══════════ ARMADA ORDER BOOK — barisan BID vs ASK yang saling berhadapan ═══════════ */
+const BOOK_LEVELS = 10;
+const TROOPS_PER_LEVEL = 6;
+const FRONT_BASE = 50, LEVEL_GAP = 34, ROW_GAP = 20, PUSH_RANGE = 90;
+
+const troopGeo = new THREE.CylinderGeometry(2.2, 5, 18, 6);
+const troopMx = new THREE.Matrix4(), troopQuat = new THREE.Quaternion(), troopPos = new THREE.Vector3(), troopScl = new THREE.Vector3();
+
+function makeArmy(color, side){ // side: -1 = beli (kiri), 1 = jual (kanan)
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.4 });
+  const mesh = new THREE.InstancedMesh(troopGeo, mat, BOOK_LEVELS*TROOPS_PER_LEVEL);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(mesh);
+  const base = [], scaleCur = [], scaleTgt = [], phase = [];
+  for (let lvl=0; lvl<BOOK_LEVELS; lvl++){
+    const x = side*(FRONT_BASE + lvl*LEVEL_GAP);
+    for (let r=0; r<TROOPS_PER_LEVEL; r++){
+      const z = (r-(TROOPS_PER_LEVEL-1)/2)*ROW_GAP + (Math.random()-.5)*4;
+      base.push(new THREE.Vector3(x, 9, z));
+      scaleCur.push(0); scaleTgt.push(0);
+      phase.push(Math.random()*Math.PI*2);
+    }
+  }
+  return { mesh, base, scaleCur, scaleTgt, phase };
+}
+const buyArmy = makeArmy(C_LONG, -1);
+const sellArmy = makeArmy(C_SHORT, 1);
+let bookPush = 0, bookPushTarget = 0;
+
+function updateBook(bidsRaw, asksRaw){
+  const bids = bidsRaw.slice(0, BOOK_LEVELS).map(l=>parseFloat(l[1]));
+  const asks = asksRaw.slice(0, BOOK_LEVELS).map(l=>parseFloat(l[1]));
+  const maxQty = Math.max(1e-9, ...bids, ...asks);
+  for (let lvl=0; lvl<BOOK_LEVELS; lvl++){
+    const bq = bids[lvl]||0, sq = asks[lvl]||0;
+    const bCount = bq>0 ? Math.max(1, Math.round((bq/maxQty)*TROOPS_PER_LEVEL)) : 0;
+    const sCount = sq>0 ? Math.max(1, Math.round((sq/maxQty)*TROOPS_PER_LEVEL)) : 0;
+    for (let r=0;r<TROOPS_PER_LEVEL;r++){
+      const idx = lvl*TROOPS_PER_LEVEL + r;
+      buyArmy.scaleTgt[idx] = r<bCount ? 1 : 0;
+      sellArmy.scaleTgt[idx] = r<sCount ? 1 : 0;
+    }
+  }
+  const totalBid = bids.reduce((a,b)=>a+b,0), totalAsk = asks.reduce((a,b)=>a+b,0);
+  const tot = totalBid+totalAsk || 1;
+  bookPushTarget = ((totalBid/tot) - .5) * PUSH_RANGE * 2;
+}
+
+function updateArmy(army, dt, t){
+  for (let i=0;i<army.base.length;i++){
+    army.scaleCur[i] += (army.scaleTgt[i]-army.scaleCur[i]) * Math.min(1, dt*3.2);
+    const s = army.scaleCur[i];
+    const b = army.base[i];
+    if (s <= .002){ troopScl.set(.0001,.0001,.0001); }
+    else troopScl.set(s,s,s);
+    const bob = Math.sin(t*2.4 + army.phase[i]) * .6 * s;
+    troopPos.set(b.x + bookPush, b.y + bob, b.z);
+    troopMx.compose(troopPos, troopQuat, troopScl);
+    army.mesh.setMatrixAt(i, troopMx);
+  }
+  army.mesh.instanceMatrix.needsUpdate = true;
+}
+
+let skirmishTimer = 1;
+function skirmish(dt){
+  skirmishTimer -= dt;
+  if (skirmishTimer > 0) return;
+  skirmishTimer = .9 + Math.random()*.9;
+  const z = (Math.random()-.5)*ROW_GAP*TROOPS_PER_LEVEL;
+  const x = bookPush + (Math.random()-.5)*12;
+  const mag = .16 + Math.random()*.2;
+  explode(new THREE.Vector3(x, 4, z), Math.random()>.5?C_LONG:C_SHORT, mag, 'buy', 0, 0, false);
+}
+
 /* ═══════════ UNIT (peluru / komet / paus) ═══════════ */
 const units = [];
 const lastImpact = new THREE.Vector3(0,0,0);
@@ -498,8 +572,8 @@ const modeRealBtn = document.getElementById('mode-real');
 const modeDummyBtn = document.getElementById('mode-dummy');
 
 let price = NaN, lastPrice = NaN, tradeCount = 0, volWindow = [];
-let ws = null, wsLiq = null, live = false, retries = 0, connectGuard = null;
-let dummyMode = false, dummyTimer = null, dummyBase = 65000;
+let ws = null, wsLiq = null, wsBook = null, live = false, retries = 0, connectGuard = null;
+let dummyMode = false, dummyTimer = null, dummyBase = 65000, dummyBias = 0;
 
 function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
@@ -526,6 +600,8 @@ function resetStats(){
   tapeEl.innerHTML = '';
   price = lastPrice = NaN;
   priceEl.textContent = '—'; priceEl.className = '';
+  buyArmy.scaleTgt.fill(0); sellArmy.scaleTgt.fill(0);
+  bookPushTarget = 0;
 }
 
 function connect(){
@@ -561,14 +637,25 @@ function connect(){
       } catch(e){}
     };
   } catch(e){}
+
+  /* depth10 — kedalaman order book, dipakai untuk formasi pasukan */
+  try {
+    wsBook = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@depth10@100ms`);
+    wsBook.onmessage = (ev)=>{
+      try {
+        const d = JSON.parse(ev.data);
+        if (d.bids && d.asks) updateBook(d.bids, d.asks);
+      } catch(e){}
+    };
+  } catch(e){}
 }
 function disconnect(){
   live = false;
   if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
-  for (const s of [ws, wsLiq]){
+  for (const s of [ws, wsLiq, wsBook]){
     if (s){ s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
   }
-  ws = wsLiq = null;
+  ws = wsLiq = wsBook = null;
 }
 function autoRetry(){
   if (retries >= 5) return;
@@ -598,6 +685,21 @@ function startDummy(){
       const pos = new THREE.Vector3((Math.random()-.5)*500, 0, (Math.random()-.5)*500);
       explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), isBuy?'buy':'sell', usd, usd>=T_WHALE?2:1, true);
     }
+    dummyBias += (Math.random()-.5)*.08;
+    dummyBias = Math.max(-.35, Math.min(.35, dummyBias));
+    const bids=[], asks=[];
+    let bp = dummyBase, ap = dummyBase;
+    for (let i=0;i<BOOK_LEVELS;i++){
+      bp -= dummyBase*(0.00007+Math.random()*0.00006);
+      ap += dummyBase*(0.00007+Math.random()*0.00006);
+      let bq = .08 + Math.random()*1.3*(1+dummyBias);
+      let aq = .08 + Math.random()*1.3*(1-dummyBias);
+      if (Math.random()<.1) bq *= 2.2+Math.random()*2.4;   // dinding beli
+      if (Math.random()<.1) aq *= 2.2+Math.random()*2.4;   // dinding jual
+      bids.push([bp.toFixed(2), Math.max(.01,bq).toFixed(4)]);
+      asks.push([ap.toFixed(2), Math.max(.01,aq).toFixed(4)]);
+    }
+    updateBook(bids, asks);
   }, 260);
 }
 function stopDummy(){
@@ -676,6 +778,11 @@ function tick(){
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), .05);
   const t = clock.elapsedTime;
+
+  bookPush += (bookPushTarget - bookPush) * Math.min(1, dt*1.6);
+  updateArmy(buyArmy, dt, t);
+  updateArmy(sellArmy, dt, t);
+  skirmish(dt);
 
   for (let i=units.length-1;i>=0;i--){
     const u = units[i];
