@@ -3,34 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>BTC Battlefield — Live</title>
+<title>⚔️ BTC Cartoon Battlefield</title>
 <style>
   :root{
-    --bg-1:#0a0c18;
-    --bg-2:#1b2050;
-    --ink:#eef1fb;
-    --muted:#8891b8;
-    --panel:rgba(19,22,42,.82);
-    --line:rgba(255,255,255,.08);
-    --long:#2dd6a5;
-    --short:#ff6584;
-    --gold:#ffc857;
+    --bg-1:#1a1a2e;
+    --bg-2:#6c5ce7;
+    --ink:#fff8dc;
+    --muted:#e8d5b7;
+    --panel:rgba(108,92,231,.75);
+    --line:rgba(255,255,255,.15);
+    --long:#2ecc71;
+    --short:#e74c3c;
+    --gold:#f39c12;
     --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
-    --rounded:'SF Pro Rounded','SFRounded',ui-rounded,system-ui,'Segoe UI',Roboto,sans-serif;
+    --rounded:'Comic Sans MS', 'SF Pro Rounded','SFRounded',cursive,system-ui,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,var(--bg-2) 0%,var(--bg-1) 60%);font-family:var(--mono);color:var(--muted)}
+  html,body{height:100%;overflow:hidden;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);font-family:var(--rounded);color:var(--muted)}
   canvas{display:block}
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--rounded)}
 
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+  .panel{background:var(--panel);border:3px solid rgba(255,255,255,.3);border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
 
-  .btn{background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--muted);font-size:10px;padding:5px 11px;border-radius:9px;cursor:pointer;letter-spacing:.09em;transition:border-color .15s,color .15s,background .15s}
-  .btn:hover{color:var(--ink);background:rgba(255,255,255,.07)}
-  .btn.active{color:var(--long);border-color:rgba(45,214,165,.5);background:rgba(45,214,165,.1)}
-  .btn.active.gold{color:var(--gold);border-color:rgba(255,200,87,.5);background:rgba(255,200,87,.1)}
-  .btn.warn{color:var(--short);border-color:rgba(255,101,132,.5)}
+  .btn{background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.3);color:var(--ink);font-size:11px;padding:7px 13px;border-radius:12px;cursor:pointer;letter-spacing:.08em;transition:all .2s;font-weight:600;transform:scale(1)}
+  .btn:hover{color:var(--ink);background:rgba(255,255,255,.25);transform:scale(1.05)}
+  .btn.active{color:#fff;border-color:var(--long);background:var(--long);box-shadow:0 0 12px rgba(46,204,113,.6)}
+  .btn.active.gold{color:#333;border-color:var(--gold);background:var(--gold);box-shadow:0 0 12px rgba(243,156,18,.6)}
+  .btn.warn{color:#fff;border-color:var(--short);background:rgba(231,76,60,.3)}
 
   /* ── top-left: price ── */
   #price-panel{top:16px;left:16px;padding:12px 16px;min-width:210px}
@@ -52,23 +52,23 @@
   #retry{display:none;margin-top:8px}
 
   /* ── top-center: battle meter LONG vs SHORT ── */
-  #battle{top:16px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:10px 14px}
-  #battle h4{font-size:9px;letter-spacing:.24em;text-align:center;font-weight:600;margin-bottom:8px;font-family:var(--rounded);color:var(--muted)}
+  #battle{top:16px;left:50%;transform:translateX(-50%);width:min(480px,92vw);padding:12px 16px}
+  #battle h4{font-size:11px;letter-spacing:.12em;text-align:center;font-weight:700;margin-bottom:10px;font-family:var(--rounded);color:var(--ink)}
   #battle h4 .long-lbl{color:var(--long)} #battle h4 .short-lbl{color:var(--short)}
-  #meter{height:12px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.06)}
-  #m-long{background:linear-gradient(90deg,#123a30,var(--long));transition:width .4s}
-  #m-short{background:linear-gradient(90deg,var(--short),#3a1220);transition:width .4s;flex:1}
+  #meter{height:16px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2)}
+  #m-long{background:linear-gradient(90deg,#27ae60,var(--long));transition:width .4s;box-shadow:0 0 10px rgba(46,204,113,.5)}
+  #m-short{background:linear-gradient(90deg,var(--short),#c0392b);transition:width .4s;flex:1;box-shadow:inset 0 0 10px rgba(231,76,60,.5)}
   #meter-lbl{display:flex;justify-content:space-between;font-size:10px;margin-top:6px;font-variant-numeric:tabular-nums}
   #meter-lbl .l{color:var(--long)} #meter-lbl .s{color:var(--short)}
   #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}
 
   /* ── top-right: killfeed ── */
-  #killfeed{top:16px;right:16px;width:250px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
-  #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:8px;font-weight:600;font-family:var(--rounded)}
-  .kill{font-size:11px;padding:6px 10px;margin-bottom:5px;background:rgba(255,255,255,.04);border-radius:9px;border-right:2px solid;animation:slidein .28s ease-out;font-variant-numeric:tabular-nums}
-  .kill.buy{border-color:var(--long);color:var(--long)}
-  .kill.sell{border-color:var(--short);color:var(--short)}
-  .kill.liq{border-color:var(--gold);color:var(--gold)}
+  #killfeed{top:16px;right:16px;width:280px;max-width:calc(100vw - 32px);padding:12px 14px;text-align:right}
+  #killfeed h4{font-size:12px;letter-spacing:.1em;color:var(--ink);margin-bottom:10px;font-weight:700;font-family:var(--rounded)}
+  .kill{font-size:12px;padding:8px 12px;margin-bottom:6px;background:rgba(255,255,255,.12);border-radius:12px;border-left:3px solid;animation:slidein .35s ease-out;font-variant-numeric:tabular-nums;font-weight:600}
+  .kill.buy{border-color:var(--long);color:var(--long);background:rgba(46,204,113,.15)}
+  .kill.sell{border-color:var(--short);color:var(--short);background:rgba(231,76,60,.15)}
+  .kill.liq{border-color:var(--gold);color:var(--gold);background:rgba(243,156,18,.15)}
   .kill .whale{color:var(--gold);font-weight:600}
   @keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
 
@@ -99,47 +99,47 @@
 
 <div class="hud panel" id="price-panel">
   <div id="symbol-row">
-    <span id="symbol">BTC / USDT</span>
-    <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span></span>
+    <span id="symbol">🎮 BTC BATTLE</span>
+    <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">CONNECTING…</span></span>
   </div>
   <div id="price">—</div>
-  <div id="sub-row"><span id="tps">0</span> trade/s · vol 1m <span id="vol1m">$0</span></div>
+  <div id="sub-row"><span id="tps">0</span> zap/s · action <span id="vol1m">$0</span></div>
   <div id="mode-switch">
-    <button class="btn active" id="mode-real" data-mode="real">DATA REAL</button>
-    <button class="btn gold" id="mode-dummy" data-mode="dummy">DATA DUMMY</button>
+    <button class="btn active" id="mode-real" data-mode="real">🌍 REAL</button>
+    <button class="btn gold" id="mode-dummy" data-mode="dummy">🎲 SIMULATION</button>
   </div>
-  <button class="btn warn" id="retry">SAMBUNG ULANG</button>
+  <button class="btn warn" id="retry">🔄 RECONNECT</button>
 </div>
 
 <div class="hud panel" id="battle">
-  <h4>TEKANAN PASAR · 60 DETIK · <span class="long-lbl">PANJANG</span> vs <span class="short-lbl">PENDEK</span></h4>
+  <h4>⚔️ POWER BATTLE · 60 SEC · <span class="long-lbl">🟢 BULLISH</span> vs <span class="short-lbl">🔴 BEARISH</span></h4>
   <div id="meter"><div id="m-long" style="width:50%"></div><div id="m-short"></div></div>
   <div id="meter-lbl">
     <span class="l"><b id="long-usd">$0</b> · <span id="long-pct">50%</span></span>
     <span class="s"><span id="short-pct">50%</span> · <b id="short-usd">$0</b></span>
   </div>
   <div id="meter-cnt">
-    <span id="long-n">0 order beli</span>
-    <span id="short-n">0 order jual</span>
+    <span id="long-n">0 buy moves</span>
+    <span id="short-n">0 sell moves</span>
   </div>
 </div>
 
 <div class="hud panel" id="killfeed">
-  <h4>SOROTAN</h4>
+  <h4>🎬 HIGHLIGHTS</h4>
   <div id="kills"></div>
 </div>
 
 <div class="hud panel" id="controls">
   <div id="cam-row">
-    <button class="btn active" data-m="0">SINEMATIK</button>
-    <button class="btn" data-m="1">IKUTI</button>
-    <button class="btn" data-m="2">BEBAS</button>
+    <button class="btn active" data-m="0">📹 CINEMATIC</button>
+    <button class="btn" data-m="1">👁️ FOLLOW</button>
+    <button class="btn" data-m="2">🎮 FREE</button>
   </div>
   <div class="keys">
-    <b>drag</b> putar · <b>scroll</b> zoom<br>
-    <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
+    <b>drag</b> spin · <b>scroll</b> zoom<br>
+    <b>1/2/3</b> views · <b>WASD</b> move · <b>Q/E</b> height
   </div>
-  <button class="btn" id="audio-btn">AKTIFKAN AUDIO</button>
+  <button class="btn" id="audio-btn">🔊 SOUND ON</button>
 </div>
 
 <div class="hud" id="tape"></div>
@@ -353,12 +353,12 @@ function addKill(kind, usd, liqSide){
   const d = document.createElement('div');
   if (kind==='liq'){
     d.className = 'kill liq';
-    d.innerHTML = 'LIKUIDASI ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
+    d.innerHTML = '💥 BOOM! ' + (liqSide==='buy'?'SHORT':'LONG') + ' ' + fmtUsd(usd);
   } else {
     d.className = 'kill '+kind;
     const whale = usd >= T_WHALE;
-    d.innerHTML = (whale?'<span class="whale">PAUS </span>':'') +
-      (kind==='buy'?'BELI BESAR ':'JUAL BESAR ') + fmtUsd(usd);
+    d.innerHTML = (whale?'<span class="whale">🐋 WHALE </span>':'') +
+      (kind==='buy'?'🟢 BIG BUY ':'🔴 BIG SELL ') + fmtUsd(usd);
   }
   killsEl.prepend(d);
   while (killsEl.children.length > 7) killsEl.lastChild.remove();
@@ -386,8 +386,8 @@ function meterUpdate(){
   document.getElementById('short-usd').textContent = fmtUsd(su);
   document.getElementById('long-pct').textContent = lp+'%';
   document.getElementById('short-pct').textContent = (100-lp)+'%';
-  document.getElementById('long-n').textContent = bn.toLocaleString()+' order beli';
-  document.getElementById('short-n').textContent = sn.toLocaleString()+' order jual';
+  document.getElementById('long-n').textContent = bn.toLocaleString()+' buy moves';
+  document.getElementById('short-n').textContent = sn.toLocaleString()+' sell moves';
 }
 
 /* ═══════════ AUDIO — sederhana, satu tombol ═══════════ */
@@ -445,7 +445,7 @@ audioBtn.onclick = ()=>{
     audioOn = !audioOn;
     if (audioOn) AC.resume(); else AC.suspend();
   }
-  audioBtn.textContent = audioOn ? 'AUDIO AKTIF' : 'AKTIFKAN AUDIO';
+  audioBtn.textContent = audioOn ? '🔊 SOUND ON' : '🔊 SOUND ON';
   audioBtn.classList.toggle('active', audioOn);
 };
 
@@ -517,7 +517,7 @@ function onTrade(p, qty, isBuy){
 
 function setBadge(state){
   badgeEl.className = state==='connecting' ? '' : state;
-  badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':state==='dummy'?'MODE DUMMY':'MENYAMBUNG…';
+  badgeTextEl.textContent = state==='live'?'LIVE':state==='dead'?'OFFLINE':state==='dummy'?'SIMULATION':'CONNECTING…';
   retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
 }
 
