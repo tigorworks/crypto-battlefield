@@ -542,13 +542,26 @@ function fireBullet(side, from, to, kills, defender){
                  target:to.clone(), traveled:0, dist, color: side==='buy'?C_LONG:C_SHORT });
   if (Math.random() < .5) makeSpark(from, side==='buy'?C_LONG:C_SHORT, 9, .1);  // kilatan moncong sebagian
 }
+/* titik di posisi pasukan saat ini — ikut garis depan yang bergerak */
+function crowdPoint(crowd, jitter){
+  const bias = crowd.pressBias || 0;
+  const N = crowd.slots.length, start = Math.floor(Math.random()*N);
+  let s = null;
+  for (let k=0;k<N;k++){ const c = crowd.slots[(start+k)%N]; if (c.active && !c.dying){ s = c; break; } }
+  let x, z;
+  if (s){ x = s.base.x + bias; z = s.base.z; }
+  else { x = crowd.sign*(40+Math.random()*80) + bias; z = (Math.random()-.5)*230; }
+  // tetap di sisi pasukannya sendiri terhadap garis depan (sama seperti clamp prajurit)
+  if (crowd.sign < 0) x = Math.min(x, frontX - 16); else x = Math.max(x, frontX + 16);
+  return new THREE.Vector3(x + (Math.random()-.5)*jitter, 5+Math.random()*3, z + (Math.random()-.5)*jitter);
+}
 function fireVolley(side, tier, killed){
-  const atk = side==='buy' ? -1 : 1;
-  const n = Math.max(killed, tier===2?18:tier===1?9:3);
+  const attacker = side==='buy' ? buyCrowd : sellCrowd;
   const defender = side==='buy' ? sellCrowd : buyCrowd;
+  const n = Math.max(killed, tier===2?18:tier===1?9:3);
   for (let i=0;i<n;i++){
-    const from = new THREE.Vector3(atk*(85+Math.random()*80), 5+Math.random()*3.5, (Math.random()-.5)*230);
-    const to   = new THREE.Vector3(-atk*(25+Math.random()*95), 5+Math.random()*3, (Math.random()-.5)*230);
+    const from = crowdPoint(attacker, 8);   // dari prajurit penyerang
+    const to   = crowdPoint(defender, 10);  // ke posisi prajurit lawan yang sebenarnya
     fireBullet(side, from, to, i<killed, defender);
   }
   playVolley(tier);
