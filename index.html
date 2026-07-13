@@ -735,7 +735,7 @@ function meterUpdate(){
 let AC=null, masterG, musicG, sfxG, musicNodes=[];
 let audioOn = false;
 const audioBtn = document.getElementById('audio-btn');
-const MUSIC_LEVEL = .38, SFX_LEVEL = .34;
+const MUSIC_LEVEL = .3, SFX_LEVEL = .34;
 
 function initAudio(){
   AC = new (window.AudioContext||window.webkitAudioContext)();
@@ -745,61 +745,89 @@ function initAudio(){
   startMusic();
 }
 
-/* musik ambient generatif: drone lembut + pad berganti akor */
-const CHORDS = [ [55,82.4,110,164.8], [49,73.4,98,146.8], [58.3,87.3,116.5,174.6], [43.7,65.4,87.3,130.8] ];
-const MELODY = [0,2,1,3,2,1,3,2];   // pola arpeggio melintasi nada akor
-let chordIdx = 0, chordTimer = null, seqTimer = null, seqStep = 0;
-function playPluck(freq, when, level, dur){
+/* ── musik latar generatif bertema "battlefield": genderang perang + bas menghentak +
+   motif kuningan (brass) epik dalam progresi minor Am – F – C – G ── */
+const BARS = [
+  { root:55.00, padA:110.00, padB:164.81, mel:[220.00, 261.63, 329.63] }, // Am
+  { root:43.65, padA: 87.31, padB:130.81, mel:[174.61, 220.00, 261.63] }, // F
+  { root:65.41, padA:130.81, padB:196.00, mel:[261.63, 329.63, 392.00] }, // C
+  { root:49.00, padA: 98.00, padB:146.83, mel:[196.00, 246.94, 293.66] }, // G
+];
+const STEP = 0.2;   // detik per langkah (16 langkah = 1 bar)
+let seqTimer = null, step16 = 0, bar = 0, nextStepTime = 0;
+
+function playKick(t, lvl){
   const o = AC.createOscillator(), g = AC.createGain();
-  o.type = 'triangle'; o.frequency.value = freq;
-  g.gain.setValueAtTime(.0001, when);
-  g.gain.exponentialRampToValueAtTime(level, when+.02);
-  g.gain.exponentialRampToValueAtTime(.0001, when+dur);
-  o.connect(g).connect(musicG); o.start(when); o.stop(when+dur+.05);
+  o.type='sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t+.12);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.5*lvl, t+.008); g.gain.exponentialRampToValueAtTime(.0001, t+.3);
+  o.connect(g).connect(musicG); o.start(t); o.stop(t+.32);
+}
+function playSnare(t, lvl){
+  const dur=.2, buf=AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate), ch=buf.getChannelData(0);
+  for (let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/ch.length, 1.4);
+  const src=AC.createBufferSource(); src.buffer=buf;
+  const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1500;
+  const g=AC.createGain(); g.gain.value=.17*lvl;
+  src.connect(hp).connect(g).connect(musicG); src.start(t);
+  const o=AC.createOscillator(), og=AC.createGain();      // "crack" nada
+  o.type='triangle'; o.frequency.setValueAtTime(340, t); o.frequency.exponentialRampToValueAtTime(170, t+.1);
+  og.gain.setValueAtTime(.11*lvl, t); og.gain.exponentialRampToValueAtTime(.0001, t+.12);
+  o.connect(og).connect(musicG); o.start(t); o.stop(t+.14);
+}
+function playBass(freq, t, dur, lvl){
+  const o=AC.createOscillator(), g=AC.createGain(), f=AC.createBiquadFilter();
+  o.type='sawtooth'; o.frequency.value=freq;
+  f.type='lowpass'; f.frequency.value=300; f.Q.value=3;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(lvl, t+.01); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(f).connect(g).connect(musicG); o.start(t); o.stop(t+dur+.05);
+}
+function playBrass(freq, t, dur, lvl){
+  const o=AC.createOscillator(), o2=AC.createOscillator(), g=AC.createGain(), f=AC.createBiquadFilter();
+  o.type='sawtooth'; o2.type='sawtooth'; o.frequency.value=freq; o2.frequency.value=freq; o2.detune.value=9;
+  f.type='lowpass'; f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(2200, t+.09); f.Q.value=1;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(lvl, t+.06);
+  g.gain.setValueAtTime(lvl, t+dur*.55); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(f); o2.connect(f); f.connect(g).connect(musicG);
+  o.start(t); o2.start(t); o.stop(t+dur+.05); o2.stop(t+dur+.05);
+}
+function retunePad(b, t){
+  if (!musicNodes.length) return;
+  musicNodes[0].o.frequency.linearRampToValueAtTime(b.padA, t+.9);
+  musicNodes[1].o.frequency.linearRampToValueAtTime(b.padB, t+.9);
+}
+function scheduleStep(t){
+  const b = BARS[bar];
+  if (step16===0 || step16===4 || step16===8 || step16===12 || step16===14) playKick(t, step16%4===0?1:.6); // genderang
+  if (step16===4 || step16===12) playSnare(t, .9);                    // backbeat
+  if (bar===3 && step16>=13) playSnare(t, .55);                       // roll penutup bar
+  if (step16===0||step16===3||step16===6||step16===8||step16===11||step16===14) playBass(b.root, t, .17, .5); // bas menghentak
+  if (step16===0)  playBrass(b.mel[0], t, .5, .26);                   // motif kuningan
+  if (step16===6)  playBrass(b.mel[1], t, .45, .22);
+  if (step16===10) playBrass(b.mel[2], t, .5, .24);
+  if (step16===0)  retunePad(b, t);
+  if (++step16 >= 16){ step16 = 0; bar = (bar+1)%BARS.length; }
 }
 function startMusic(){
-  const lp = AC.createBiquadFilter();
-  lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.7;
-  lp.connect(musicG);
-  const lfo = AC.createOscillator(), lfoG = AC.createGain();
-  lfo.frequency.value=.06; lfoG.gain.value=180;
+  // pad drone minor (atmosfer), 2 osilator lewat lowpass ber-LFO lambat
+  const lp = AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=520; lp.Q.value=.6; lp.connect(musicG);
+  const lfo = AC.createOscillator(), lfoG = AC.createGain(); lfo.frequency.value=.05; lfoG.gain.value=180;
   lfo.connect(lfoG).connect(lp.frequency); lfo.start();
-  musicNodes = CHORDS[0].map((f,i)=>{
+  musicNodes = [BARS[0].padA, BARS[0].padB].map((f,i)=>{
     const o = AC.createOscillator(), g = AC.createGain();
-    o.type = i<2 ? 'sawtooth' : 'triangle';
-    o.frequency.value = f;
-    o.detune.value = (Math.random()-.5)*8;
-    g.gain.value = i<2 ? .05 : .035;
-    o.connect(g).connect(lp);
-    o.start();
+    o.type='sawtooth'; o.frequency.value=f; o.detune.value=(Math.random()-.5)*6;
+    g.gain.value = i===0 ? .05 : .038;
+    o.connect(g).connect(lp); o.start();
     return { o, g };
   });
-  // desis angin
-  const buf = AC.createBuffer(1, AC.sampleRate*2, AC.sampleRate);
-  const ch = buf.getChannelData(0);
-  for (let i=0;i<ch.length;i++) ch[i] = (Math.random()*2-1)*.3;
-  const noise = AC.createBufferSource(); noise.buffer=buf; noise.loop=true;
-  const nf = AC.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=300; nf.Q.value=.4;
-  const ng = AC.createGain(); ng.gain.value=.02;
-  noise.connect(nf).connect(ng).connect(musicG);
-  noise.start();
-  chordTimer = setInterval(()=>{
-    chordIdx = (chordIdx+1)%CHORDS.length;
-    const t = AC.currentTime;
-    musicNodes.forEach((n,i)=> n.o.frequency.exponentialRampToValueAtTime(CHORDS[chordIdx][i], t+4));
-  }, 9000);
-
-  // arpeggio melodi lembut + nada bas — bikin terasa seperti musik latar
-  seqTimer = setInterval(()=>{
+  step16 = 0; bar = 0; nextStepTime = AC.currentTime + .1;
+  seqTimer = setInterval(() => {              // penjadwal look-ahead agar ketukan rapat
     if (!audioOn || !AC) return;
-    const now = AC.currentTime + .06;
-    const chord = CHORDS[chordIdx];
-    const idx = MELODY[seqStep % MELODY.length] % chord.length;
-    playPluck(chord[idx]*4, now, .10, .6);               // melodi (dua oktaf di atas)
-    if (seqStep % 2 === 0) playPluck(chord[idx]*8, now+.14, .045, .32); // gema tipis
-    if (seqStep % 4 === 0) playPluck(chord[0]*2, now, .11, .8);         // bas akar
-    seqStep++;
-  }, 300);
+    if (nextStepTime < AC.currentTime) nextStepTime = AC.currentTime + .05;
+    while (nextStepTime < AC.currentTime + .12){
+      scheduleStep(nextStepTime);
+      nextStepTime += STEP;
+    }
+  }, 40);
 }
 audioBtn.onclick = ()=>{
   if (!AC){ initAudio(); audioOn = true; }
@@ -919,7 +947,9 @@ function onTrade(p, qty, isBuy){
   const usd = p*qty;
   flow.push({ t:performance.now(), usd, buy:isBuy });
   priceEl.textContent = '$'+p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 });
-  priceEl.className = pct24>=0 ? 'up':'down';
+  if (p > lastPrice) priceEl.className = 'up';        // harga naik → hijau
+  else if (p < lastPrice) priceEl.className = 'down'; // harga turun → merah
+  // harga sama → warna dipertahankan
 
   const side = isBuy ? 'buy' : 'sell';
   const defender = isBuy ? sellCrowd : buyCrowd;
