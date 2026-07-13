@@ -229,34 +229,24 @@ function glowTexture(){
 const GLOW = glowTexture();
 const ringGeo = new THREE.RingGeometry(1, 1.35, 48);
 
-/* ═══════════ MODEL PAUS (whale) — bulat & bersahabat ═══════════ */
-function makeWhale(color){
+/* ═══════════ SKUAD BESAR — gerombolan pasukan untuk order raksasa ═══════════ */
+function makeSquad(color){
   const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.55 });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), mat);
-  body.scale.set(3.2, 1.15, 1.25);
-  g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.92, 16, 12), mat);
-  head.position.set(2.6, .1, 0); head.scale.set(1.15, .95, 1.05);
-  g.add(head);
-  const tail = new THREE.Mesh(new THREE.ConeGeometry(.95, 2.2, 4), mat);
-  tail.rotation.z = Math.PI/2; tail.rotation.y = Math.PI/4;
-  tail.position.set(-3.6, .25, 0); tail.scale.set(1, 1, .25);
-  g.add(tail);
-  for (const s of [-1,1]){
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(.5, 1.6, 4), mat);
-    fin.rotation.x = s*Math.PI/2.4; fin.rotation.z = -.5;
-    fin.position.set(.8, -.35, s*1.1); fin.scale.set(1,1,.3);
-    g.add(fin);
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.5 });
+  const N = 9;
+  for (let i=0;i<N;i++){
+    const a = (i/N)*Math.PI*2 + Math.random()*.5;
+    const r = Math.random()*2.4;
+    const x = Math.cos(a)*r, z = Math.sin(a)*r;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(.26, .34, 1.3, 6), mat);
+    body.position.set(x, .75, z);
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.3, 8, 6), mat);
+    head.position.set(x, 1.5, z);
+    g.add(head);
   }
-  const eyeMat = new THREE.MeshBasicMaterial({ color:0x10121f });
-  for (const s of [-1,1]){
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(.14, 10, 8), eyeMat);
-    eye.position.set(3.35, .35, s*.55);
-    g.add(eye);
-  }
-  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, opacity:.6, blending:THREE.AdditiveBlending, depthWrite:false }));
-  aura.scale.set(14,14,1);
+  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, opacity:.55, blending:THREE.AdditiveBlending, depthWrite:false }));
+  aura.scale.set(13,13,1);
   g.add(aura);
   return g;
 }
@@ -345,17 +335,15 @@ function spawnUnit(side, usd){
   const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
   const mag = Math.min(1, Math.log10(usd/T_SHELL+1)/2.4);
   const sx = (side==='buy'?-1:1)*(760 + Math.random()*260);
-  const start = new THREE.Vector3(sx, tier===2 ? 190+Math.random()*80 : 6, (Math.random()-.5)*720);
+  const start = new THREE.Vector3(sx, tier===2 ? 4 : 6, (Math.random()-.5)*720);
   const end = new THREE.Vector3((Math.random()-.5)*560, 0, (Math.random()-.5)*560);
   let obj, trail=null;
 
   if (tier===2){
-    obj = makeWhale(color);
-    const sc = 9 + mag*8;                 // makin besar order, makin besar pausnya
+    obj = makeSquad(color);
+    const sc = 9 + mag*8;                 // makin besar order, makin besar skuadnya
     obj.scale.set(sc, sc, sc);
-    obj.lookAt(end);
-    obj.rotateY(side==='buy' ? -Math.PI/2 : Math.PI/2);
-    playWhaleHorn();
+    playChargeHorn();
   } else {
     obj = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
     const s = tier===1 ? 22+mag*22 : 9+mag*14;
@@ -545,7 +533,7 @@ function playBoom(mag, tier){
   const ng = AC.createGain(); ng.gain.value=.1+mag*.2;
   src.connect(f).connect(ng).connect(sfxG); src.start(t);
 }
-function playWhaleHorn(){
+function playChargeHorn(){
   if (!audioOn || !AC) return;
   const t = AC.currentTime;
   const o = AC.createOscillator(), g = AC.createGain();
@@ -796,16 +784,10 @@ function tick(){
     }
     const k = u.t;
     if (u.tier===2){
-      /* paus: melayang lalu menukik di akhir */
-      const cruise = Math.min(k/.75, 1);
-      u.obj.position.lerpVectors(u.start, new THREE.Vector3(u.end.x, u.start.y, u.end.z), cruise);
-      if (k>.75){
-        const dive = (k-.75)/.25;
-        u.obj.position.y = u.start.y*(1-dive*dive);
-        u.obj.rotation.z = (u.side==='buy'?-1:1)*dive*.9;
-      }
-      u.obj.position.y += Math.sin(t*2+u.start.z)*2;
-      u.obj.rotation.x = Math.sin(t*3)*0.06;
+      /* skuad besar: menyerbu lurus di darat menuju target */
+      u.obj.position.lerpVectors(u.start, u.end, k);
+      u.obj.position.y = u.start.y + Math.abs(Math.sin(t*7 + u.start.z))*1.4;
+      u.obj.rotation.y = Math.sin(t*5 + u.start.z)*.05;
     } else {
       u.obj.position.lerpVectors(u.start, u.end, k);
       u.obj.position.y = u.start.y + Math.sin(k*Math.PI)*u.apex;
