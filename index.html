@@ -81,6 +81,11 @@
   #cam-row .btn{padding:4px 8px;font-size:9px}
   #audio-btn{margin-top:7px;width:100%}
 
+  /* ── kanan atas: tombol layar penuh ── */
+  #fs-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
+  #fs-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #fs-btn:hover{color:var(--long);border-color:rgba(45,214,165,.5)}
+
   #flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:#fff;opacity:0}
 
   /* ── lapisan efek: angka damage melayang & streak ── */
@@ -124,6 +129,10 @@
   <span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span>
   <button class="btn warn" id="retry">SAMBUNG ULANG</button>
 </div>
+
+<button class="hud" id="fs-btn" title="Layar penuh" aria-label="Layar penuh">
+  <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+</button>
 
 <div class="hud" id="center-price">
   <div id="cp-value">—</div>
@@ -571,14 +580,22 @@ function crowdPoint(crowd, jitter){
   if (crowd.sign < 0) x = Math.min(x, frontX - 16); else x = Math.max(x, frontX + 16);
   return new THREE.Vector3(x + (Math.random()-.5)*jitter, 5+Math.random()*3, z + (Math.random()-.5)*jitter);
 }
+/* titik tanah kosong di sisi lawan — target peluru yang TIDAK membunuh (meleset ke tanah) */
+function groundPoint(defender){
+  const bias = defender.pressBias || 0;
+  let x = defender.sign*(50+Math.random()*150) + bias;
+  if (defender.sign < 0) x = Math.min(x, frontX - 22); else x = Math.max(x, frontX + 22);
+  return new THREE.Vector3(x, 1.4, (Math.random()-.5)*260);
+}
 function fireVolley(side, tier, killed){
   const attacker = side==='buy' ? buyCrowd : sellCrowd;
   const defender = side==='buy' ? sellCrowd : buyCrowd;
   const n = Math.max(killed, tier===2?34:tier===1?16:6);   // tracer lebih padat = serangan lebih intens
   for (let i=0;i<n;i++){
-    const from = crowdPoint(attacker, 8);   // dari prajurit penyerang
-    const to   = crowdPoint(defender, 10);  // ke posisi prajurit lawan yang sebenarnya
-    fireBullet(side, from, to, i<killed, defender);
+    const kills = i < killed;
+    const from = crowdPoint(attacker, 8);                              // dari prajurit penyerang
+    const to   = kills ? crowdPoint(defender, 10) : groundPoint(defender); // yang membunuh → prajurit, meleset → tanah
+    fireBullet(side, from, to, kills, defender);
   }
   playVolley(tier);
 }
@@ -590,7 +607,7 @@ function ambientFire(){
     const defender = side==='buy' ? sellCrowd : buyCrowd;
     if (attacker.count <= 0) continue;
     const n = 2 + (Math.random()*3|0);
-    for (let i=0;i<n;i++) fireBullet(side, crowdPoint(attacker,8), crowdPoint(defender,10), false, defender);
+    for (let i=0;i<n;i++) fireBullet(side, crowdPoint(attacker,8), groundPoint(defender), false, defender);  // ke tanah, tidak kena prajurit
   }
   playVolley(0);
 }
@@ -1001,6 +1018,28 @@ function setCamMode(m){
   document.querySelectorAll('.btn[data-m]').forEach(b=>b.classList.toggle('active', +b.dataset.m===m));
 }
 document.querySelectorAll('.btn[data-m]').forEach(b=> b.onclick=()=>setCamMode(+b.dataset.m));
+
+/* ═══════════ LAYAR PENUH ═══════════ */
+const fsBtn = document.getElementById('fs-btn');
+const FS_ENTER = '<svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+const FS_EXIT  = '<svg viewBox="0 0 24 24" width="17" height="17"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>';
+function fsElement(){ return document.fullscreenElement || document.webkitFullscreenElement; }
+fsBtn.onclick = ()=>{
+  const el = document.documentElement;
+  if (!fsElement()){
+    (el.requestFullscreen || el.webkitRequestFullscreen || (()=>{})).call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen || (()=>{})).call(document);
+  }
+};
+function syncFsIcon(){
+  const on = !!fsElement();
+  fsBtn.innerHTML = on ? FS_EXIT : FS_ENTER;
+  fsBtn.title = on ? 'Keluar layar penuh' : 'Layar penuh';
+}
+addEventListener('fullscreenchange', syncFsIcon);
+addEventListener('webkitfullscreenchange', syncFsIcon);
+
 addEventListener('keydown', e=>{
   if (e.key==='1') setCamMode(0);
   if (e.key==='2') setCamMode(1);
