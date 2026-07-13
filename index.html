@@ -48,19 +48,22 @@
   #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.5),0 0 34px rgba(255,101,132,.5),0 12px 30px rgba(0,0,0,.5)}
   #cp-sub{font-size:14px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
   #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
-  #cp-status{font-size:13px;font-weight:800;letter-spacing:.1em;margin-top:6px;text-shadow:0 2px 14px rgba(0,0,0,.5);white-space:nowrap}
-  #cp-status.up{color:var(--long)} #cp-status.down{color:var(--short)}
+  /* ── bawah tengah: tekanan pasar (panjang vs pendek), widget sendiri ── */
+  #pressure{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:320px;max-width:calc(100vw - 32px);padding:11px 15px;text-align:center}
+  #pp-head{font-size:9px;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-bottom:8px;font-family:var(--rounded);white-space:nowrap}
+  #pp-head .l{color:var(--long);font-weight:800} #pp-head .s{color:var(--short);font-weight:800}
+  #pp-bar{height:7px;display:flex;overflow:hidden;border-radius:999px;background:rgba(0,0,0,.28);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  #pp-long{background:var(--long);transition:width .4s}
+  #pp-short{background:var(--short);transition:width .4s;flex:1}
+  #pp-stats{display:flex;justify-content:space-between;margin-top:8px;font-size:10.5px;font-variant-numeric:tabular-nums}
+  .pp-col.pp-s{text-align:right}
+  .pp-main{font-weight:800}
+  .pp-l .pp-main{color:var(--long)}
+  .pp-s .pp-main{color:var(--short)}
+  .pp-sub{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.03em}
 
-  /* ── di bawah harga: tekanan pasar, ringkas ── */
-  #battle{top:calc(14% + 128px);left:50%;transform:translateX(-50%);width:min(260px,70vw);pointer-events:none}
-  #meter{height:7px;display:flex;overflow:hidden;border-radius:999px;background:rgba(0,0,0,.28);box-shadow:0 2px 8px rgba(0,0,0,.3)}
-  #m-long{background:var(--long);transition:width .4s}
-  #m-short{background:var(--short);transition:width .4s;flex:1}
-  #meter-lbl{display:flex;justify-content:space-between;font-size:9px;margin-top:4px;font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 1px 6px rgba(0,0,0,.6)}
-  #meter-lbl .l{color:var(--long)} #meter-lbl .s{color:var(--short)}
-
-  /* ── bawah tengah: killfeed ringkas ── */
-  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:290px;max-width:calc(100vw - 32px);padding:9px 11px;text-align:left}
+  /* ── bawah kanan: killfeed ringkas ── */
+  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:260px;max-width:calc(100vw - 32px);padding:9px 11px;text-align:left}
   #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:7px;font-weight:600;font-family:var(--rounded)}
   #kills{overflow:hidden;max-height:112px}
   .kill{font-size:10px;padding:4px 8px;margin-bottom:3px;background:rgba(255,255,255,.04);border-radius:7px;border-left:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -82,12 +85,15 @@
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
   @media (max-width:760px){
-    #battle{top:calc(13% + 118px);width:min(220px,72vw)}
-    #killfeed{width:220px}
+    #killfeed{width:165px;padding:8px 9px}
+    #killfeed h4{font-size:8px}
+    .kill{font-size:9px;padding:3px 6px}
     #controls .keys{display:none}
-    #controls{max-width:210px}
+    #controls{max-width:165px;padding:9px 11px}
     #center-price{top:13%}
-    #cp-status{font-size:11px}
+    #pressure{bottom:calc(max(16px,env(safe-area-inset-bottom) + 12px) + 112px);width:min(320px,90vw);padding:9px 12px}
+    #pp-head{font-size:8px}
+    #pp-stats{font-size:9.5px}
   }
 </style>
 </head>
@@ -102,14 +108,20 @@
 <div class="hud" id="center-price">
   <div id="cp-value">—</div>
   <div id="cp-sub">BTC / USDT <span id="cp-pct">0.00%</span></div>
-  <div id="cp-status"></div>
 </div>
 
-<div class="hud" id="battle">
-  <div id="meter"><div id="m-long" style="width:50%"></div><div id="m-short"></div></div>
-  <div id="meter-lbl">
-    <span class="l" id="long-pct">50%</span>
-    <span class="s" id="short-pct">50%</span>
+<div class="hud panel" id="pressure">
+  <div id="pp-head">TEKANAN PASAR · 60 DETIK · <span class="l">PANJANG</span> <span class="vs">vs</span> <span class="s">PENDEK</span></div>
+  <div id="pp-bar"><div id="pp-long" style="width:50%"></div><div id="pp-short"></div></div>
+  <div id="pp-stats">
+    <div class="pp-col pp-l">
+      <div class="pp-main"><span id="pp-long-usd">$0</span> · <span id="pp-long-pct">50%</span></div>
+      <div class="pp-sub"><span id="pp-long-cnt">0</span> order beli</div>
+    </div>
+    <div class="pp-col pp-s">
+      <div class="pp-main"><span id="pp-short-pct">50%</span> · <span id="pp-short-usd">$0</span></div>
+      <div class="pp-sub"><span id="pp-short-cnt">0</span> order jual</div>
+    </div>
   </div>
 </div>
 
@@ -473,23 +485,27 @@ function logKill(side, qty, killedN, tag){
   setTimeout(()=>{ if(d.parentNode){ d.style.opacity='0'; d.style.transition='opacity .5s'; setTimeout(()=>d.remove(),550);} }, 7000);
 }
 
-/* ═══════════ BATTLE METER (long vs short 60s) ═══════════ */
+/* ═══════════ TEKANAN PASAR (panjang vs pendek, 60s) ═══════════ */
 let flow = [];   // {t, usd, buy}
+function fmtUsd(n){
+  if (n>=1e6) return '$'+(n/1e6).toFixed(1)+'M';
+  if (n>=1e3) return '$'+Math.round(n/1e3)+'K';
+  return '$'+Math.round(n);
+}
 function meterUpdate(){
   const now = performance.now();
   flow = flow.filter(f=>now-f.t < 60000);
-  let bu=0, su=0;
-  for (const f of flow){ if (f.buy) bu+=f.usd; else su+=f.usd; }
+  let bu=0, su=0, bc=0, sc=0;
+  for (const f of flow){ if (f.buy){ bu+=f.usd; bc++; } else { su+=f.usd; sc++; } }
   const tot = bu+su || 1;
   const lp = Math.round(bu/tot*100);
-  document.getElementById('m-long').style.width = lp+'%';
-  document.getElementById('long-pct').textContent = lp+'%';
-  document.getElementById('short-pct').textContent = (100-lp)+'%';
-
-  if (bu+su > 0){
-    cpStatusEl.textContent = lp>=50 ? 'PEMBELI SEDANG UNGGUL!' : 'PENJUAL SEDANG UNGGUL!';
-    cpStatusEl.className = lp>=50 ? 'up':'down';
-  }
+  document.getElementById('pp-long').style.width = lp+'%';
+  document.getElementById('pp-long-pct').textContent = lp+'%';
+  document.getElementById('pp-short-pct').textContent = (100-lp)+'%';
+  document.getElementById('pp-long-usd').textContent = fmtUsd(bu);
+  document.getElementById('pp-short-usd').textContent = fmtUsd(su);
+  document.getElementById('pp-long-cnt').textContent = bc;
+  document.getElementById('pp-short-cnt').textContent = sc;
 }
 
 /* ═══════════ AUDIO — sederhana, satu tombol ═══════════ */
@@ -609,7 +625,6 @@ function playChargeHorn(){
 /* ═══════════ DATA FEED — REAL (Binance) atau DUMMY (simulasi lokal) ═══════════ */
 const priceEl = document.getElementById('cp-value');
 const cpPctEl = document.getElementById('cp-pct');
-const cpStatusEl = document.getElementById('cp-status');
 const badgeEl = document.getElementById('feed-badge');
 const badgeTextEl = document.getElementById('feed-text');
 const retryBtn = document.getElementById('retry');
