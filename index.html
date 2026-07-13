@@ -590,7 +590,7 @@ function groundPoint(defender){
 function fireVolley(side, tier, killed){
   const attacker = side==='buy' ? buyCrowd : sellCrowd;
   const defender = side==='buy' ? sellCrowd : buyCrowd;
-  const n = Math.max(killed, tier===2?34:tier===1?16:6);   // tracer lebih padat = serangan lebih intens
+  const n = killed + (tier===2 ? 3 : 1);   // sebagian besar peluru mengenai prajurit; hanya sedikit yang meleset
   for (let i=0;i<n;i++){
     const kills = i < killed;
     const from = crowdPoint(attacker, 8);                              // dari prajurit penyerang
@@ -606,7 +606,7 @@ function ambientFire(){
     const attacker = side==='buy' ? buyCrowd : sellCrowd;
     const defender = side==='buy' ? sellCrowd : buyCrowd;
     if (attacker.count <= 0) continue;
-    const n = 2 + (Math.random()*3|0);
+    const n = 1 + (Math.random()<.4 ? 1 : 0);   // sedikit saja — cukup agar tak sepi, tidak boros peluru
     for (let i=0;i<n;i++) fireBullet(side, crowdPoint(attacker,8), groundPoint(defender), false, defender);  // ke tanah, tidak kena prajurit
   }
   playVolley(0);
