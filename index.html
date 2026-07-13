@@ -340,18 +340,20 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
       active: i<CROWD_START,
       dying:false, dieT:0,
       walking:i<CROWD_START, walkT:0,
+      retreating:false, retreatT:0,
       phase: Math.random()*Math.PI*2,
     });
   }
-  return { mesh, slots, count:CROWD_START, q, sign };
+  return { mesh, slots, count:CROWD_START, target:CROWD_START, q, sign };
 }
 const buyCrowd = makeCrowd(C_LONG, -1);
 const sellCrowd = makeCrowd(C_SHORT, 1);
 
+/* mati HANYA karena tertembak (dipanggil saat peluru mendarat) */
 function killSoldier(crowd, n){
   for (let k=0;k<n;k++){
     let idx=-1;
-    for (let i=0;i<crowd.slots.length;i++){ if (crowd.slots[i].active && !crowd.slots[i].dying){ idx=i; if (Math.random()<.4) break; } }
+    for (let i=0;i<crowd.slots.length;i++){ if (crowd.slots[i].active && !crowd.slots[i].dying && !crowd.slots[i].retreating){ idx=i; if (Math.random()<.4) break; } }
     if (idx<0) break;
     const s = crowd.slots[idx];
     s.dying = true; s.dieT = 0;
@@ -359,14 +361,24 @@ function killSoldier(crowd, n){
     spawnSkull(s.base);
   }
 }
+/* bala bantuan masuk (order baru di sisi ini) */
 function reviveSoldier(crowd){
   if (crowd.count >= CROWD_MAX) return;
   let idx=-1;
-  for (let i=0;i<crowd.slots.length;i++){ if (!crowd.slots[i].active && !crowd.slots[i].dying){ idx=i; if (Math.random()<.4) break; } }
+  for (let i=0;i<crowd.slots.length;i++){ const c=crowd.slots[i]; if (!c.active && !c.dying && !c.retreating){ idx=i; if (Math.random()<.4) break; } }
   if (idx<0) return;
   const s = crowd.slots[idx];
-  s.active = true; s.walking = true; s.walkT = 0;
+  s.active = true; s.walking = true; s.walkT = 0; s.retreating = false;
   crowd.count++;
+}
+/* mundur keluar (bukan mati) — order sisi ini berkurang */
+function retreatSoldier(crowd){
+  let idx=-1;
+  for (let i=0;i<crowd.slots.length;i++){ const c=crowd.slots[i]; if (c.active && !c.dying && !c.retreating && !c.walking){ idx=i; if (Math.random()<.4) break; } }
+  if (idx<0) return;
+  const s = crowd.slots[idx];
+  s.retreating = true; s.retreatT = 0;
+  crowd.count = Math.max(0, crowd.count-1);
 }
 function resetCrowd(crowd){
   crowd.count = CROWD_START;
@@ -374,6 +386,7 @@ function resetCrowd(crowd){
     s.active = i<CROWD_START;
     s.dying = false; s.dieT = 0;
     s.walking = i<CROWD_START; s.walkT = 0;
+    s.retreating = false; s.retreatT = 0;
   });
 }
 function updateCrowd(crowd, dt, t){
@@ -388,6 +401,14 @@ function updateCrowd(crowd, dt, t){
       sc = s.dieT < .55 ? 1 : Math.max(0, 1-(s.dieT-.55)/.45);
       bob = -s.dieT*1.2;
       if (s.dieT>=1){ s.dying=false; s.active=false; }
+    } else if (s.retreating){
+      s.retreatT = Math.min(1, s.retreatT + dt*.7);
+      const e = s.retreatT*s.retreatT;                        // mundur ke arah datang, lalu hilang
+      x = s.base.x+bias + (s.spawnFrom.x-(s.base.x+bias))*e;
+      z = s.base.z + (s.spawnFrom.z-s.base.z)*e;
+      bob = Math.abs(Math.sin(t*9+s.phase))*.9;
+      sc = 1;
+      if (s.retreatT>=1){ s.retreating=false; s.active=false; }
     } else if (s.walking){
       s.walkT = Math.min(1, s.walkT + dt*.75);
       const e = 1-(1-s.walkT)*(1-s.walkT);
@@ -675,7 +696,13 @@ function meterUpdate(){
   for (const f of flow){ if (f.buy){ bu+=f.usd; bc++; } else { su+=f.usd; sc++; } }
   const tot = bu+su || 1;
   const lp = Math.round(bu/tot*100);
-  if (tot > 1){ buyShare = bu/tot; moodTarget = Math.max(-1, Math.min(1, (buyShare-0.5)*3)); }
+  if (tot > 1){
+    buyShare = bu/tot;
+    moodTarget = Math.max(-1, Math.min(1, (buyShare-0.5)*3));
+    // jumlah prajurit tiap sisi mencerminkan persentase buy/sell
+    buyCrowd.target  = Math.max(8, Math.min(CROWD_MAX, Math.round(buyShare*2*CROWD_START)));
+    sellCrowd.target = Math.max(8, Math.min(CROWD_MAX, Math.round((1-buyShare)*2*CROWD_START)));
+  }
   document.getElementById('pp-long').style.width = lp+'%';
   document.getElementById('pp-long-pct').textContent = lp+'%';
   document.getElementById('pp-short-pct').textContent = (100-lp)+'%';
@@ -887,9 +914,8 @@ function onTrade(p, qty, isBuy){
   } else if (usd >= T_SHELL){
     fireVolley(side, tier, killed);        // peluru yang membunuh saat mendarat
     if (tier===1) addShake(.5);
-  } else {
-    killSoldier(defender, killed);          // order kecil: tumbang seketika
   }
+  // order debu (<T_SHELL): hanya menambah tekanan/jumlah, tidak membunuh tanpa peluru
   logKill(side, qty, killed, tier===2?'PAUS':null);
 }
 
@@ -936,7 +962,7 @@ function connect(){
         const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
         const side = isBuy ? 'buy' : 'sell';
         const n = usd>=T_WHALE ? 10 : 4;
-        killSoldier(isBuy?sellCrowd:buyCrowd, n);
+        fireVolley(side, usd>=T_WHALE?2:1, n);   // likuidasi = hujan peluru (mati karena tertembak)
         const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
         explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), usd>=T_WHALE?2:1);
         logKill(side, qty, n, 'LIKUIDASI');
@@ -1122,10 +1148,14 @@ function tick(){
 
   updateCrowd(buyCrowd, sdt, t);
   updateCrowd(sellCrowd, sdt, t);
+  // giring jumlah tiap pasukan ke target (persentase buy/sell): bantuan masuk / mundur keluar
   regenTimer -= dt;
   if (regenTimer <= 0){
-    regenTimer = .11;
-    reviveSoldier(Math.random()<.5 ? buyCrowd : sellCrowd);
+    regenTimer = .1;
+    for (const c of [buyCrowd, sellCrowd]){
+      if (c.count < c.target) reviveSoldier(c);
+      else if (c.count > c.target) retreatSoldier(c);
+    }
   }
 
   for (let i=skulls.length-1;i>=0;i--){
