@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>BTC Battlefield — Live</title>
 <style>
   :root{
@@ -32,7 +32,7 @@
   .btn.warn{color:var(--short);border-color:rgba(255,101,132,.5)}
 
   /* ── top-left: status live sederhana, tiru referensi ── */
-  #feed-badge{top:16px;left:16px;display:inline-flex;align-items:center;gap:7px;background:rgba(10,16,10,.5);padding:6px 12px;border-radius:7px;font-size:11px;letter-spacing:.12em;font-weight:700;color:var(--muted);font-family:var(--rounded)}
+  #feed-badge{top:max(16px,env(safe-area-inset-top) + 12px);left:max(16px,env(safe-area-inset-left) + 12px);display:inline-flex;align-items:center;gap:7px;background:rgba(10,16,10,.5);padding:6px 12px;border-radius:7px;font-size:11px;letter-spacing:.12em;font-weight:700;color:var(--muted);font-family:var(--rounded)}
   #feed-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
   #feed-badge.live{color:var(--long)}
   #feed-badge.live #feed-dot{background:var(--long);box-shadow:0 0 8px var(--long);animation:pulse 1.6s ease-in-out infinite}
@@ -52,7 +52,7 @@
   #cp-status.up{color:var(--long)} #cp-status.down{color:var(--short)}
 
   /* ── bawah, tengah: battle meter LONG vs SHORT ── */
-  #battle{bottom:16px;left:50%;transform:translateX(-50%);width:min(420px,90vw);padding:10px 14px}
+  #battle{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:min(420px,90vw);padding:10px 14px}
   #battle h4{font-size:9px;letter-spacing:.24em;text-align:center;font-weight:600;margin-bottom:8px;font-family:var(--rounded);color:var(--muted)}
   #battle h4 .long-lbl{color:var(--long)} #battle h4 .short-lbl{color:var(--short)}
   #meter{height:12px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.06)}
@@ -63,7 +63,7 @@
   #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}
 
   /* ── bawah kanan: killfeed gabungan ── */
-  #killfeed{bottom:16px;right:16px;width:310px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
+  #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:310px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
   #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:8px;font-weight:600;font-family:var(--rounded)}
   #kills{overflow:hidden;max-height:120px}
   .kill{font-size:10.5px;padding:5px 9px;margin-bottom:4px;background:rgba(255,255,255,.04);border-radius:8px;border-right:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -75,7 +75,7 @@
   @keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
 
   /* ── bawah kiri: controls ── */
-  #controls{bottom:16px;left:16px;font-size:10px;line-height:1.8;letter-spacing:.05em;padding:12px 16px;max-width:270px}
+  #controls{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:max(16px,env(safe-area-inset-left) + 12px);font-size:10px;line-height:1.8;letter-spacing:.05em;padding:12px 16px;max-width:270px}
   #controls b{color:var(--ink);font-weight:600}
   #cam-row{display:flex;gap:6px;margin-bottom:8px}
   #audio-btn{margin-top:8px;width:100%}
@@ -85,7 +85,7 @@
 
   @media (max-width:760px){
     #battle{display:none}
-    #killfeed{width:172px;bottom:auto;top:16px;right:16px}
+    #killfeed{width:172px;bottom:auto;top:max(16px,env(safe-area-inset-top) + 12px);right:max(16px,env(safe-area-inset-right) + 12px)}
     #controls .keys{display:none}
     #controls{max-width:220px}
     #center-price{top:14%}
@@ -602,7 +602,7 @@ function onTrade(p, qty, isBuy){
 }
 
 function setBadge(state){
-  badgeEl.className = state==='connecting' ? '' : state;
+  badgeEl.className = 'hud' + (state==='connecting' ? '' : ' '+state);
   badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':'MENYAMBUNG…';
   retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
 }
