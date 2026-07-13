@@ -29,38 +29,30 @@
   .btn{background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--muted);font-size:10px;padding:5px 11px;border-radius:9px;cursor:pointer;letter-spacing:.09em;transition:border-color .15s,color .15s,background .15s}
   .btn:hover{color:var(--ink);background:rgba(255,255,255,.07)}
   .btn.active{color:var(--long);border-color:rgba(45,214,165,.5);background:rgba(45,214,165,.1)}
-  .btn.active.gold{color:var(--gold);border-color:rgba(255,200,87,.5);background:rgba(255,200,87,.1)}
   .btn.warn{color:var(--short);border-color:rgba(255,101,132,.5)}
 
-  /* ── top-left: koneksi & mode ── */
-  #price-panel{top:16px;left:16px;padding:12px 16px;min-width:210px}
-  #symbol-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:6px}
-  #symbol{font-size:11px;letter-spacing:.18em;color:var(--ink);font-family:var(--rounded);font-weight:600}
+  /* ── top-left: badge koneksi kecil ── */
+  #price-panel{top:16px;left:16px;padding:8px 12px}
   #feed-badge{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.1em;padding:3px 9px 3px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-family:var(--rounded)}
   #feed-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
   #feed-badge.live{border-color:rgba(45,214,165,.5);color:var(--long)}
   #feed-badge.live #feed-dot{background:var(--long);box-shadow:0 0 8px var(--long);animation:pulse 1.6s ease-in-out infinite}
   #feed-badge.dead{border-color:rgba(255,101,132,.5);color:var(--short)}
   #feed-badge.dead #feed-dot{background:var(--short)}
-  #feed-badge.dummy{border-color:rgba(255,200,87,.5);color:var(--gold)}
-  #feed-badge.dummy #feed-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  #sub-row{font-size:10px;margin-top:2px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
-  #mode-switch{margin-top:10px;display:flex;gap:6px}
+  #sub-row{font-size:10px;margin-top:6px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
   #retry{display:none;margin-top:8px}
 
-  /* ── tengah atas: harga besar mengambang di atas lapangan ── */
-  #center-price{top:19%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:9}
-  #cp-value{font-size:clamp(38px,6.4vw,80px);font-weight:800;color:#1c2b1a;letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 rgba(255,255,255,.35),0 10px 26px rgba(10,20,10,.4);transition:color .15s}
-  #cp-value.up{color:var(--long);text-shadow:0 3px 0 rgba(255,255,255,.25),0 0 34px rgba(45,214,165,.55),0 10px 26px rgba(10,20,10,.35)}
-  #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(255,255,255,.25),0 0 34px rgba(255,101,132,.5),0 10px 26px rgba(10,20,10,.35)}
-  #cp-sub{font-size:15px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#28361f;text-shadow:0 2px 10px rgba(255,255,255,.5);font-family:var(--rounded)}
+  /* ── tengah atas: harga besar mengambang di atas lapangan, kontras tinggi ── */
+  #center-price{top:16%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:9}
+  #cp-value{font-size:clamp(38px,6.4vw,80px);font-weight:800;color:#fff;letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 rgba(0,0,0,.18),0 2px 4px rgba(0,0,0,.5),0 12px 30px rgba(0,0,0,.55),0 0 44px rgba(0,0,0,.35)}
+  #cp-sub{font-size:15px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
   #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
-  #cp-status{font-size:15px;font-weight:800;letter-spacing:.1em;margin-top:8px;text-shadow:0 2px 14px rgba(0,0,0,.3),0 0 2px rgba(255,255,255,.6);font-family:var(--rounded)}
+  #cp-status{font-size:15px;font-weight:800;letter-spacing:.1em;margin-top:8px;text-shadow:0 2px 14px rgba(0,0,0,.5)}
   #cp-status.up{color:var(--long)} #cp-status.down{color:var(--short)}
 
-  /* ── top-center: battle meter LONG vs SHORT ── */
-  #battle{top:16px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:10px 14px}
+  /* ── bawah, tengah: battle meter LONG vs SHORT ── */
+  #battle{bottom:16px;left:50%;transform:translateX(-50%);width:min(420px,90vw);padding:10px 14px}
   #battle h4{font-size:9px;letter-spacing:.24em;text-align:center;font-weight:600;margin-bottom:8px;font-family:var(--rounded);color:var(--muted)}
   #battle h4 .long-lbl{color:var(--long)} #battle h4 .short-lbl{color:var(--short)}
   #meter{height:12px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.06)}
@@ -70,35 +62,33 @@
   #meter-lbl .l{color:var(--long)} #meter-lbl .s{color:var(--short)}
   #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}
 
-  /* ── top-right: killfeed ── */
-  #killfeed{top:16px;right:16px;width:250px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
+  /* ── bawah kanan: killfeed gabungan ── */
+  #killfeed{bottom:16px;right:16px;width:310px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
   #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:8px;font-weight:600;font-family:var(--rounded)}
-  .kill{font-size:11px;padding:6px 10px;margin-bottom:5px;background:rgba(255,255,255,.04);border-radius:9px;border-right:2px solid;animation:slidein .28s ease-out;font-variant-numeric:tabular-nums}
+  #kills{overflow:hidden;max-height:210px}
+  .kill{font-size:10.5px;padding:5px 9px;margin-bottom:4px;background:rgba(255,255,255,.04);border-radius:8px;border-right:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kill .kt{opacity:.55;margin-right:4px}
   .kill.buy{border-color:var(--long);color:var(--long)}
   .kill.sell{border-color:var(--short);color:var(--short)}
   .kill.liq{border-color:var(--gold);color:var(--gold)}
-  .kill .whale{color:var(--gold);font-weight:600}
+  .kill .tag{color:var(--gold);font-weight:700}
   @keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
 
-  /* ── bottom-left: controls ── */
+  /* ── bawah kiri: controls ── */
   #controls{bottom:16px;left:16px;font-size:10px;line-height:1.8;letter-spacing:.05em;padding:12px 16px;max-width:270px}
   #controls b{color:var(--ink);font-weight:600}
   #cam-row{display:flex;gap:6px;margin-bottom:8px}
   #audio-btn{margin-top:8px;width:100%}
 
-  /* ── bottom-right: tape ── */
-  #tape{bottom:16px;right:16px;font-size:10px;text-align:right;letter-spacing:.06em;font-variant-numeric:tabular-nums}
-  #tape div{margin-top:2px;opacity:.85}
-
   #flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:#fff;opacity:0}
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
   @media (max-width:760px){
-    #battle{top:auto;bottom:96px}
-    #killfeed{width:172px}
+    #battle{display:none}
+    #killfeed{width:172px;bottom:auto;top:16px;right:16px;max-height:160px}
     #controls .keys{display:none}
     #controls{max-width:220px}
-    #center-price{top:16%}
+    #center-price{top:14%}
   }
 </style>
 </head>
@@ -106,15 +96,8 @@
 <div id="flash"></div>
 
 <div class="hud panel" id="price-panel">
-  <div id="symbol-row">
-    <span id="symbol">BTC / USDT</span>
-    <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span></span>
-  </div>
+  <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span></span>
   <div id="sub-row"><span id="tps">0</span> trade/s · vol 1m <span id="vol1m">$0</span></div>
-  <div id="mode-switch">
-    <button class="btn active" id="mode-real" data-mode="real">DATA REAL</button>
-    <button class="btn gold" id="mode-dummy" data-mode="dummy">DATA DUMMY</button>
-  </div>
   <button class="btn warn" id="retry">SAMBUNG ULANG</button>
 </div>
 
@@ -138,7 +121,7 @@
 </div>
 
 <div class="hud panel" id="killfeed">
-  <h4>SOROTAN</h4>
+  <h4>KILLFEED</h4>
   <div id="kills"></div>
 </div>
 
@@ -152,10 +135,8 @@
     <b>drag</b> putar · <b>scroll</b> zoom<br>
     <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
   </div>
-  <button class="btn" id="audio-btn">AKTIFKAN AUDIO</button>
+  <button class="btn" id="audio-btn">AUDIO AKTIF</button>
 </div>
-
-<div class="hud" id="tape"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -184,16 +165,16 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xcfe9ff, 0x6f8f4a, 1.05));
-const sun = new THREE.DirectionalLight(0xfff3d6, .85);
+scene.add(new THREE.HemisphereLight(0xcfe9ff, 0x38471f, .85));
+const sun = new THREE.DirectionalLight(0xfff3d6, .7);
 sun.position.set(-260, 420, -180);
 scene.add(sun);
-const fill = new THREE.DirectionalLight(0xffffff, .25);
+const fill = new THREE.DirectionalLight(0xffffff, .18);
 fill.position.set(300, 200, 260);
 scene.add(fill);
 
-/* ═══════════ LAPANGAN — rumput datar & sederhana ═══════════ */
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshLambertMaterial({ color:0x7fa055 }));
+/* ═══════════ LAPANGAN — rumput gelap, kontras dengan pasukan ═══════════ */
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshLambertMaterial({ color:0x4a5c30 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
@@ -201,9 +182,9 @@ function patchTexture(){
   const c = document.createElement('canvas'); c.width=c.height=256;
   const g = c.getContext('2d');
   const r = g.createRadialGradient(128,128,0,128,128,128);
-  r.addColorStop(0,'rgba(122,104,58,.32)');
-  r.addColorStop(.6,'rgba(110,96,56,.16)');
-  r.addColorStop(1,'rgba(110,96,56,0)');
+  r.addColorStop(0,'rgba(70,58,32,.4)');
+  r.addColorStop(.6,'rgba(58,50,30,.2)');
+  r.addColorStop(1,'rgba(58,50,30,0)');
   g.fillStyle=r; g.fillRect(0,0,256,256);
   return new THREE.CanvasTexture(c);
 }
@@ -254,7 +235,7 @@ const soldierGeo = new THREE.ConeGeometry(2.6, 8, 6);
 const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
 
 function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.35 });
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.65 });
   const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -340,8 +321,8 @@ const tankHullGeo = new THREE.BoxGeometry(9,4,6);
 const tankTurretGeo = new THREE.CylinderGeometry(2.4,2.6,2.2,10);
 const tankBarrelGeo = new THREE.CylinderGeometry(.35,.35,6,8);
 const tankMat = {
-  buy: new THREE.MeshLambertMaterial({ color:C_LONG, emissive:C_LONG, emissiveIntensity:.4 }),
-  sell: new THREE.MeshLambertMaterial({ color:C_SHORT, emissive:C_SHORT, emissiveIntensity:.4 }),
+  buy: new THREE.MeshLambertMaterial({ color:C_LONG, emissive:C_LONG, emissiveIntensity:.6 }),
+  sell: new THREE.MeshLambertMaterial({ color:C_SHORT, emissive:C_SHORT, emissiveIntensity:.6 }),
 };
 const tankAuraMat = {
   buy: new THREE.SpriteMaterial({ map:GLOW, color:C_LONG, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false }),
@@ -395,7 +376,7 @@ function spawnTank(side, usd){
 
 /* ═══════════ LEDAKAN ═══════════ */
 const booms = [], rings = [];
-function explode(pos, color, mag, side, usd, tier, isLiq){
+function explode(pos, color, mag, tier){
   const n = 22 + Math.floor(mag*(tier===2?90:36));
   const geo = new THREE.BufferGeometry();
   const px = new Float32Array(n*3), vel = [];
@@ -429,38 +410,27 @@ function explode(pos, color, mag, side, usd, tier, isLiq){
   }
   lastImpact.copy(pos);
   playBoom(mag, tier);
-  if (isLiq) addKill('liq', usd, side);
-  else if (usd >= T_HEAVY) addKill(side, usd);
 }
 
-/* ═══════════ KILLFEED & TAPE ═══════════ */
+/* ═══════════ KILLFEED — gabungan order flow & sorotan ═══════════ */
 const killsEl = document.getElementById('kills');
 function fmtUsd(v){
   if (v>=1e6) return '$'+(v/1e6).toFixed(2)+'M';
   if (v>=1e3) return '$'+(v/1e3).toFixed(0)+'K';
   return '$'+v.toFixed(0);
 }
-function addKill(kind, usd, liqSide){
+function logKill(side, qty, killedN, tag){
   const d = document.createElement('div');
-  if (kind==='liq'){
-    d.className = 'kill liq';
-    d.innerHTML = 'LIKUIDASI ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
-  } else {
-    d.className = 'kill '+kind;
-    const whale = usd >= T_WHALE;
-    d.innerHTML = (whale?'<span class="whale">TANK </span>':'') +
-      (kind==='buy'?'BELI BESAR ':'JUAL BESAR ') + fmtUsd(usd);
-  }
+  const time = new Date().toLocaleTimeString('en-GB');
+  const oppWord = side==='buy' ? 'merah' : 'hijau';
+  d.className = 'kill ' + (tag==='LIKUIDASI' ? 'liq' : side);
+  d.innerHTML = `<span class="kt">[${time}]</span>` +
+    (tag ? `<span class="tag">${tag} </span>` : '') +
+    (side==='buy' ? 'BELI ' : 'JUAL ') + qty.toFixed(3) +
+    ` — ${killedN} ${oppWord} down`;
   killsEl.prepend(d);
-  while (killsEl.children.length > 7) killsEl.lastChild.remove();
-  setTimeout(()=>{ if(d.parentNode){ d.style.opacity='0'; d.style.transition='opacity .6s'; setTimeout(()=>d.remove(),650);} }, 10000);
-}
-const tapeEl = document.getElementById('tape');
-const tape = [];
-function addTape(side, usd, price){
-  tape.unshift(`<div style="color:${side==='buy'?'var(--long)':'var(--short)'}">${side==='buy'?'▲':'▼'} ${fmtUsd(usd)} @ ${price.toLocaleString('en-US',{maximumFractionDigits:2})}</div>`);
-  if (tape.length>5) tape.pop();
-  tapeEl.innerHTML = tape.join('');
+  while (killsEl.children.length > 10) killsEl.lastChild.remove();
+  setTimeout(()=>{ if(d.parentNode){ d.style.opacity='0'; d.style.transition='opacity .5s'; setTimeout(()=>d.remove(),550);} }, 7000);
 }
 
 /* ═══════════ BATTLE METER (long vs short 60s) ═══════════ */
@@ -545,6 +515,23 @@ audioBtn.onclick = ()=>{
   audioBtn.classList.toggle('active', audioOn);
 };
 
+/* audio aktif otomatis — browser mensyaratkan satu gestur pengguna
+   sebelum AudioContext bisa benar-benar bersuara, jadi kita siapkan
+   di awal lalu resume pada interaksi pertama apa pun */
+initAudio();
+audioOn = true;
+audioBtn.textContent = 'AUDIO AKTIF';
+audioBtn.classList.add('active');
+const resumeAudioOnce = ()=>{
+  if (AC && AC.state === 'suspended') AC.resume();
+  removeEventListener('pointerdown', resumeAudioOnce);
+  removeEventListener('keydown', resumeAudioOnce);
+  removeEventListener('touchstart', resumeAudioOnce);
+};
+addEventListener('pointerdown', resumeAudioOnce);
+addEventListener('keydown', resumeAudioOnce);
+addEventListener('touchstart', resumeAudioOnce);
+
 function playBoom(mag, tier){
   if (!audioOn || !AC) return;
   const t = AC.currentTime;
@@ -592,12 +579,9 @@ const badgeTextEl = document.getElementById('feed-text');
 const tpsEl = document.getElementById('tps');
 const volEl = document.getElementById('vol1m');
 const retryBtn = document.getElementById('retry');
-const modeRealBtn = document.getElementById('mode-real');
-const modeDummyBtn = document.getElementById('mode-dummy');
 
 let price = NaN, lastPrice = NaN, tradeCount = 0, volWindow = [], priceAnchor = NaN;
 let ws = null, wsLiq = null, live = false, retries = 0, connectGuard = null;
-let dummyMode = false, dummyTimer = null, dummyBase = 65000;
 
 function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
@@ -607,56 +591,34 @@ function onTrade(p, qty, isBuy){
   volWindow.push({ t:performance.now(), usd });
   flow.push({ t:performance.now(), usd, buy:isBuy });
   priceEl.textContent = p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 });
-  const dir = p>=lastPrice ? 'up':'down';
-  priceEl.className = dir;
   const pct = priceAnchor>0 ? (p-priceAnchor)/priceAnchor*100 : 0;
   cpPctEl.textContent = (pct>=0?'▲ ':'▼ ')+Math.abs(pct).toFixed(2)+'%';
   cpPctEl.className = pct>=0 ? 'up':'down';
 
   const side = isBuy ? 'buy' : 'sell';
   const defender = isBuy ? sellCrowd : buyCrowd;
-  if (usd >= T_WHALE){
-    killSoldier(defender, 10);
-    spawnTank(side, usd);
-    addTape(side, usd, p);
-  } else if (usd >= T_HEAVY){
-    killSoldier(defender, 4);
-    spawnShot(side, usd, true);
-    addTape(side, usd, p);
-  } else if (usd >= T_SHELL){
-    killSoldier(defender, 1);
-    spawnShot(side, usd, false);
-    addTape(side, usd, p);
-  } else {
-    killSoldier(defender, 1); // trade kecil tetap melukai musuh, tanpa efek 3D
-  }
+  const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
+  const killed = tier===2 ? 10 : tier===1 ? 4 : 1;
+  killSoldier(defender, killed);
+  if (usd >= T_WHALE) spawnTank(side, usd);
+  else if (usd >= T_SHELL) spawnShot(side, usd, tier===1);
+  logKill(side, qty, killed, tier===2?'TANK':null);
 }
 
 function setBadge(state){
   badgeEl.className = state==='connecting' ? '' : state;
-  badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':state==='dummy'?'MODE DUMMY':'MENYAMBUNG…';
+  badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':'MENYAMBUNG…';
   retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
 }
 
-function resetStats(){
-  flow.length = 0; volWindow.length = 0; tape.length = 0;
-  tapeEl.innerHTML = '';
-  price = lastPrice = NaN; priceAnchor = NaN;
-  priceEl.textContent = '—'; priceEl.className = '';
-  cpPctEl.textContent = '0.00%'; cpPctEl.className = '';
-  cpStatusEl.textContent = ''; cpStatusEl.className = '';
-  resetCrowd(buyCrowd); resetCrowd(sellCrowd);
-}
-
 function connect(){
-  if (dummyMode) return;
   disconnect();
   setBadge('connecting');
 
   /* spot aggTrade — semua transaksi buy/sell */
   try { ws = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@aggTrade`); }
   catch(e){ setBadge('dead'); return; }
-  connectGuard = setTimeout(()=>{ if(!live && !dummyMode){ setBadge('dead'); autoRetry(); } }, 6000);
+  connectGuard = setTimeout(()=>{ if(!live){ setBadge('dead'); autoRetry(); } }, 6000);
   ws.onmessage = (ev)=>{
     if (!live){ live=true; retries=0; clearTimeout(connectGuard); setBadge('live'); }
     try {
@@ -664,8 +626,8 @@ function connect(){
       onTrade(parseFloat(d.p), parseFloat(d.q), d.m===false); /* m=false → taker beli (long) */
     } catch(e){}
   };
-  ws.onerror = ()=>{ clearTimeout(connectGuard); if(!live && !dummyMode){ setBadge('dead'); autoRetry(); } };
-  ws.onclose = ()=>{ if(live && !dummyMode){ live=false; setBadge('dead'); autoRetry(); } };
+  ws.onerror = ()=>{ clearTimeout(connectGuard); if(!live){ setBadge('dead'); autoRetry(); } };
+  ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
 
   /* futures forceOrder — likuidasi long/short sungguhan */
   try {
@@ -673,12 +635,15 @@ function connect(){
     wsLiq.onmessage = (ev)=>{
       try {
         const o = JSON.parse(ev.data).o;
-        const usd = parseFloat(o.ap)*parseFloat(o.q);
+        const qty = parseFloat(o.q);
+        const usd = parseFloat(o.ap)*qty;
         const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
         const side = isBuy ? 'buy' : 'sell';
-        killSoldier(isBuy?sellCrowd:buyCrowd, usd>=T_WHALE?10:4);
+        const n = usd>=T_WHALE ? 10 : 4;
+        killSoldier(isBuy?sellCrowd:buyCrowd, n);
         const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
-        explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), side, usd, usd>=T_WHALE?2:1, true);
+        explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), usd>=T_WHALE?2:1);
+        logKill(side, qty, n, 'LIKUIDASI');
       } catch(e){}
     };
   } catch(e){}
@@ -694,53 +659,9 @@ function disconnect(){
 function autoRetry(){
   if (retries >= 5) return;
   retries++;
-  setTimeout(()=>{ if(!live && !dummyMode) connect(); }, 4000);
+  setTimeout(()=>{ if(!live) connect(); }, 4000);
 }
 retryBtn.onclick = ()=>{ retries=0; connect(); };
-
-/* simulasi lokal — dipakai saat sumber data asli tidak bisa dijangkau */
-function startDummy(){
-  disconnect();
-  setBadge('dummy');
-  dummyBase = isFinite(price) ? price : 65000;
-  dummyTimer = setInterval(()=>{
-    const n = 1 + Math.floor(Math.random()*3);
-    for (let i=0;i<n;i++){
-      dummyBase *= 1 + (Math.random()-.5)*0.0006;
-      const roll = Math.random();
-      let qty;
-      if (roll > .997) qty = 1.5 + Math.random()*4;          // whale ~0.3%
-      else if (roll > .96) qty = .4 + Math.random()*1.2;     // berat ~3.7%
-      else if (roll > .7) qty = .05 + Math.random()*.35;     // sedang ~26%
-      else qty = .0005 + Math.random()*.03;                  // kecil ~70%
-      onTrade(dummyBase, qty, Math.random() > .48);
-    }
-    if (Math.random() < .02){
-      const usd = 5000 + Math.random()*150000;
-      const isBuy = Math.random() > .5;
-      const side = isBuy ? 'buy' : 'sell';
-      killSoldier(isBuy?sellCrowd:buyCrowd, usd>=T_WHALE?10:4);
-      const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
-      explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), side, usd, usd>=T_WHALE?2:1, true);
-    }
-  }, 260);
-}
-function stopDummy(){
-  if (dummyTimer){ clearInterval(dummyTimer); dummyTimer = null; }
-}
-
-function setMode(m){
-  const wantDummy = m === 'dummy';
-  if (wantDummy === dummyMode) return;
-  dummyMode = wantDummy;
-  modeRealBtn.classList.toggle('active', !dummyMode);
-  modeDummyBtn.classList.toggle('active', dummyMode);
-  resetStats();
-  if (dummyMode){ stopDummy(); startDummy(); }
-  else { stopDummy(); retries = 0; connect(); }
-}
-modeRealBtn.onclick = ()=>setMode('real');
-modeDummyBtn.onclick = ()=>setMode('dummy');
 
 /* stats tiap detik */
 setInterval(()=>{
@@ -826,7 +747,7 @@ function tick(){
     if (u.t>=1){
       scene.remove(u.obj);
       if (u.tier!==2 && u.obj.material) u.obj.material.dispose();
-      explode(u.end, u.color, u.mag, u.side, u.usd, u.tier, false);
+      explode(u.end, u.color, u.mag, u.tier);
       units.splice(i,1); continue;
     }
     const k = u.t;
