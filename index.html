@@ -3,84 +3,87 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>BTC Battlefield — Live</title>
+<title>🎪 BTC Cartoon Battle — Live 🎪</title>
 <style>
   :root{
-    --bg-1:#0a0c18;
-    --bg-2:#1b2050;
-    --ink:#eef1fb;
-    --muted:#8891b8;
-    --panel:rgba(19,22,42,.82);
-    --line:rgba(255,255,255,.08);
-    --long:#2dd6a5;
-    --short:#ff6584;
-    --gold:#ffc857;
+    --bg-1:#87CEEB;
+    --bg-2:#B0E0E6;
+    --ink:#1a1a1a;
+    --muted:#555555;
+    --panel:rgba(255,255,255,.88);
+    --line:rgba(100,100,100,.15);
+    --long:#00CC66;
+    --short:#FF6B35;
+    --gold:#FFD700;
     --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
-    --rounded:'SF Pro Rounded','SFRounded',ui-rounded,system-ui,'Segoe UI',Roboto,sans-serif;
+    --rounded:'Comic Sans MS','SF Pro Rounded','SFRounded',ui-rounded,system-ui,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,var(--bg-2) 0%,var(--bg-1) 60%);font-family:var(--mono);color:var(--muted)}
+  html,body{height:100%;overflow:hidden;background:linear-gradient(180deg,#FFB6C1 0%,#87CEEB 50%,#98FB98 100%);font-family:var(--rounded);color:var(--muted)}
   canvas{display:block}
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--rounded)}
 
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+  .panel{background:var(--panel);border:3px solid #FF69B4;border-radius:20px;backdrop-filter:blur(10px);box-shadow:0 8px 16px rgba(255,105,180,.3);transform:skewX(-1deg)}
 
-  .btn{background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--muted);font-size:10px;padding:5px 11px;border-radius:9px;cursor:pointer;letter-spacing:.09em;transition:border-color .15s,color .15s,background .15s}
-  .btn:hover{color:var(--ink);background:rgba(255,255,255,.07)}
-  .btn.active{color:var(--long);border-color:rgba(45,214,165,.5);background:rgba(45,214,165,.1)}
-  .btn.active.gold{color:var(--gold);border-color:rgba(255,200,87,.5);background:rgba(255,200,87,.1)}
-  .btn.warn{color:var(--short);border-color:rgba(255,101,132,.5)}
+  .btn{background:linear-gradient(135deg, #FFB6C1, #FFE4E1);border:2px solid #FF69B4;color:var(--ink);font-size:11px;font-weight:bold;padding:7px 13px;border-radius:12px;cursor:pointer;letter-spacing:.05em;transition:all .2s;box-shadow:0 4px 8px rgba(0,0,0,.1)}
+  .btn:hover{transform:scale(1.05);box-shadow:0 6px 12px rgba(255,105,180,.4)}
+  .btn.active{color:#fff;background:linear-gradient(135deg, var(--long), #00DD77);border-color:var(--long);box-shadow:0 0 16px rgba(0,204,102,.5)}
+  .btn.active.gold{color:#333;background:linear-gradient(135deg, var(--gold), #FFED4E);border-color:var(--gold);box-shadow:0 0 16px rgba(255,215,0,.5)}
+  .btn.warn{color:white;background:linear-gradient(135deg, var(--short), #FF8C00);border-color:var(--short);box-shadow:0 0 12px rgba(255,107,53,.4)}
 
   /* ── top-left: price ── */
-  #price-panel{top:16px;left:16px;padding:12px 16px;min-width:210px}
-  #symbol-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:6px}
-  #symbol{font-size:11px;letter-spacing:.18em;color:var(--ink);font-family:var(--rounded);font-weight:600}
-  #feed-badge{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.1em;padding:3px 9px 3px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-family:var(--rounded)}
-  #feed-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
-  #feed-badge.live{border-color:rgba(45,214,165,.5);color:var(--long)}
-  #feed-badge.live #feed-dot{background:var(--long);box-shadow:0 0 8px var(--long);animation:pulse 1.6s ease-in-out infinite}
-  #feed-badge.dead{border-color:rgba(255,101,132,.5);color:var(--short)}
+  #price-panel{top:16px;left:16px;padding:15px 18px;min-width:240px;border-radius:25px}
+  #symbol-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:8px}
+  #symbol{font-size:13px;letter-spacing:.12em;color:var(--ink);font-family:var(--rounded);font-weight:700;text-transform:uppercase}
+  #feed-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.08em;padding:4px 11px 4px 8px;border:2px solid var(--ink);border-radius:999px;color:var(--ink);font-family:var(--rounded);background:rgba(255,255,255,.6);font-weight:bold}
+  #feed-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  #feed-badge.live{border-color:var(--long);color:var(--long);background:rgba(0,204,102,.15)}
+  #feed-badge.live #feed-dot{background:var(--long);box-shadow:0 0 10px var(--long);animation:pulse 1.2s ease-in-out infinite}
+  #feed-badge.dead{border-color:var(--short);color:var(--short);background:rgba(255,107,53,.15)}
   #feed-badge.dead #feed-dot{background:var(--short)}
-  #feed-badge.dummy{border-color:rgba(255,200,87,.5);color:var(--gold)}
-  #feed-badge.dummy #feed-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.6s ease-in-out infinite}
+  #feed-badge.dummy{border-color:var(--gold);color:#CC8800;background:rgba(255,215,0,.2)}
+  #feed-badge.dummy #feed-dot{background:var(--gold);box-shadow:0 0 10px var(--gold);animation:pulse 1.2s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  #price{font-size:32px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  #price.up{color:var(--long)} #price.down{color:var(--short)}
-  #sub-row{font-size:10px;margin-top:4px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
-  #mode-switch{margin-top:10px;display:flex;gap:6px}
-  #retry{display:none;margin-top:8px}
+  #price{font-size:36px;font-weight:900;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-shadow:2px 2px 4px rgba(0,0,0,.1)}
+  #price.up{color:var(--long);animation:bounce .6s} #price.down{color:var(--short);animation:shake .3s}
+  @keyframes bounce{0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)}}
+  @keyframes shake{0%,100%{transform:translateX(0)} 25%{transform:translateX(-2px)} 75%{transform:translateX(2px)}}
+  #sub-row{font-size:11px;margin-top:6px;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
+  #mode-switch{margin-top:12px;display:flex;gap:8px}
+  #retry{display:none;margin-top:10px}
 
   /* ── top-center: battle meter LONG vs SHORT ── */
-  #battle{top:16px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:10px 14px}
-  #battle h4{font-size:9px;letter-spacing:.24em;text-align:center;font-weight:600;margin-bottom:8px;font-family:var(--rounded);color:var(--muted)}
-  #battle h4 .long-lbl{color:var(--long)} #battle h4 .short-lbl{color:var(--short)}
-  #meter{height:12px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.06)}
-  #m-long{background:linear-gradient(90deg,#123a30,var(--long));transition:width .4s}
-  #m-short{background:linear-gradient(90deg,var(--short),#3a1220);transition:width .4s;flex:1}
-  #meter-lbl{display:flex;justify-content:space-between;font-size:10px;margin-top:6px;font-variant-numeric:tabular-nums}
+  #battle{top:16px;left:50%;transform:translateX(-50%);width:min(500px,94vw);padding:14px 18px;border-radius:25px}
+  #battle h4{font-size:12px;letter-spacing:.15em;text-align:center;font-weight:700;margin-bottom:10px;font-family:var(--rounded);color:var(--ink);text-transform:uppercase}
+  #battle h4 .long-lbl{color:var(--long);font-weight:900} #battle h4 .short-lbl{color:var(--short);font-weight:900}
+  #meter{height:18px;display:flex;overflow:hidden;border-radius:999px;background:rgba(100,100,100,.2);border:2px solid rgba(0,0,0,.1);box-shadow:inset 0 2px 4px rgba(0,0,0,.1)}
+  #m-long{background:linear-gradient(90deg,#00DD77,var(--long));transition:width .5s;box-shadow:inset 0 1px 2px rgba(255,255,255,.3)}
+  #m-short{background:linear-gradient(90deg,var(--short),#FF8C00);transition:width .5s;flex:1;box-shadow:inset 0 1px 2px rgba(255,255,255,.2)}
+  #meter-lbl{display:flex;justify-content:space-between;font-size:11px;margin-top:8px;font-variant-numeric:tabular-nums;font-weight:bold}
   #meter-lbl .l{color:var(--long)} #meter-lbl .s{color:var(--short)}
-  #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}
+  #meter-cnt{display:flex;justify-content:space-between;font-size:10px;margin-top:4px;opacity:.9;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:500}
 
   /* ── top-right: killfeed ── */
-  #killfeed{top:16px;right:16px;width:250px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
-  #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:8px;font-weight:600;font-family:var(--rounded)}
-  .kill{font-size:11px;padding:6px 10px;margin-bottom:5px;background:rgba(255,255,255,.04);border-radius:9px;border-right:2px solid;animation:slidein .28s ease-out;font-variant-numeric:tabular-nums}
-  .kill.buy{border-color:var(--long);color:var(--long)}
-  .kill.sell{border-color:var(--short);color:var(--short)}
-  .kill.liq{border-color:var(--gold);color:var(--gold)}
-  .kill .whale{color:var(--gold);font-weight:600}
-  @keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+  #killfeed{top:16px;right:16px;width:280px;max-width:calc(100vw - 32px);padding:14px 16px;text-align:right;border-radius:25px}
+  #killfeed h4{font-size:12px;letter-spacing:.12em;color:var(--ink);margin-bottom:10px;font-weight:700;font-family:var(--rounded);text-transform:uppercase}
+  .kill{font-size:12px;padding:8px 12px;margin-bottom:6px;background:linear-gradient(135deg, rgba(255,255,255,.7), rgba(255,255,255,.5));border-radius:12px;border-left:4px solid;animation:slidein .3s ease-out;font-variant-numeric:tabular-nums;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+  .kill.buy{border-color:var(--long);color:var(--long);background:linear-gradient(135deg, rgba(0,204,102,.15), rgba(0,204,102,.08))}
+  .kill.sell{border-color:var(--short);color:var(--short);background:linear-gradient(135deg, rgba(255,107,53,.15), rgba(255,107,53,.08))}
+  .kill.liq{border-color:var(--gold);color:#CC8800;background:linear-gradient(135deg, rgba(255,215,0,.15), rgba(255,215,0,.08))}
+  .kill .whale{color:var(--gold);font-weight:900;text-transform:uppercase}
+  @keyframes slidein{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
 
   /* ── bottom-left: controls ── */
-  #controls{bottom:16px;left:16px;font-size:10px;line-height:1.8;letter-spacing:.05em;padding:12px 16px;max-width:270px}
-  #controls b{color:var(--ink);font-weight:600}
-  #cam-row{display:flex;gap:6px;margin-bottom:8px}
-  #audio-btn{margin-top:8px;width:100%}
+  #controls{bottom:16px;left:16px;font-size:11px;line-height:1.9;letter-spacing:.03em;padding:14px 18px;max-width:300px;border-radius:25px}
+  #controls b{color:var(--ink);font-weight:700;text-transform:uppercase}
+  #controls .keys{color:var(--muted);font-size:10px;margin-bottom:8px}
+  #cam-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  #audio-btn{margin-top:10px;width:100%;padding:9px 13px;font-size:12px}
 
   /* ── bottom-right: tape ── */
-  #tape{bottom:16px;right:16px;font-size:10px;text-align:right;letter-spacing:.06em;font-variant-numeric:tabular-nums}
-  #tape div{margin-top:2px;opacity:.85}
+  #tape{bottom:16px;right:16px;font-size:11px;text-align:right;letter-spacing:.04em;font-variant-numeric:tabular-nums;font-weight:500}
+  #tape div{margin-top:3px;opacity:.95;text-shadow:1px 1px 2px rgba(255,255,255,.5)}
 
   #flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:#fff;opacity:0}
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
@@ -99,47 +102,47 @@
 
 <div class="hud panel" id="price-panel">
   <div id="symbol-row">
-    <span id="symbol">BTC / USDT</span>
-    <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span></span>
+    <span id="symbol">🎪 BTC / USDT 🎪</span>
+    <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">Nyambung...</span></span>
   </div>
   <div id="price">—</div>
   <div id="sub-row"><span id="tps">0</span> trade/s · vol 1m <span id="vol1m">$0</span></div>
   <div id="mode-switch">
-    <button class="btn active" id="mode-real" data-mode="real">DATA REAL</button>
-    <button class="btn gold" id="mode-dummy" data-mode="dummy">DATA DUMMY</button>
+    <button class="btn active" id="mode-real" data-mode="real">🎬 DATA REAL</button>
+    <button class="btn gold" id="mode-dummy" data-mode="dummy">🎭 DEMO</button>
   </div>
-  <button class="btn warn" id="retry">SAMBUNG ULANG</button>
+  <button class="btn warn" id="retry">🔄 COBA LAGI</button>
 </div>
 
 <div class="hud panel" id="battle">
-  <h4>TEKANAN PASAR · 60 DETIK · <span class="long-lbl">PANJANG</span> vs <span class="short-lbl">PENDEK</span></h4>
+  <h4>⚔️ ARENA PERTEMPURAN · 60 DETIK · <span class="long-lbl">PANJANG 📈</span> vs <span class="short-lbl">PENDEK 📉</span></h4>
   <div id="meter"><div id="m-long" style="width:50%"></div><div id="m-short"></div></div>
   <div id="meter-lbl">
     <span class="l"><b id="long-usd">$0</b> · <span id="long-pct">50%</span></span>
     <span class="s"><span id="short-pct">50%</span> · <b id="short-usd">$0</b></span>
   </div>
   <div id="meter-cnt">
-    <span id="long-n">0 order beli</span>
-    <span id="short-n">0 order jual</span>
+    <span id="long-n">0 pembeli</span>
+    <span id="short-n">0 penjual</span>
   </div>
 </div>
 
 <div class="hud panel" id="killfeed">
-  <h4>SOROTAN</h4>
+  <h4>🎬 SOROTAN TERKINI</h4>
   <div id="kills"></div>
 </div>
 
 <div class="hud panel" id="controls">
   <div id="cam-row">
-    <button class="btn active" data-m="0">SINEMATIK</button>
-    <button class="btn" data-m="1">IKUTI</button>
-    <button class="btn" data-m="2">BEBAS</button>
+    <button class="btn active" data-m="0">🎥 SINEMATIK</button>
+    <button class="btn" data-m="1">👁️ IKUTI</button>
+    <button class="btn" data-m="2">🆓 BEBAS</button>
   </div>
   <div class="keys">
     <b>drag</b> putar · <b>scroll</b> zoom<br>
-    <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
+    <b>1/2/3</b> kamera · <b>WASD</b> geser
   </div>
-  <button class="btn" id="audio-btn">AKTIFKAN AUDIO</button>
+  <button class="btn" id="audio-btn">🔊 AKTIFKAN AUDIO</button>
 </div>
 
 <div class="hud" id="tape"></div>
@@ -160,8 +163,8 @@ const C_LONG = 0x2dd6a5, C_SHORT = 0xff6584, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f
 
 /* ═══════════ THREE SETUP ═══════════ */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0e1130);
-scene.fog = new THREE.FogExp2(0x0e1130, 0.0009);
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.0007);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 1, 6000);
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
@@ -169,19 +172,19 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x3a3f7a, 0x0e1130, .85));
-const key = new THREE.DirectionalLight(0xffc857, .5);
+scene.add(new THREE.HemisphereLight(0xFFD700, 0x87CEEB, .95));
+const key = new THREE.DirectionalLight(0xFFFF99, .6);
 key.position.set(-300, 500, -200);
 scene.add(key);
-const rim = new THREE.DirectionalLight(0x2dd6a5, .3);
+const rim = new THREE.DirectionalLight(0x00DD77, .4);
 rim.position.set(400, 250, 300);
 scene.add(rim);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x171b3e }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x90EE90 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
-const grid = new THREE.GridHelper(3000, 60, 0x2dd6a5, 0x232a5c);
-grid.material.transparent = true; grid.material.opacity = .35;
+const grid = new THREE.GridHelper(3000, 60, 0xFFB6C1, 0xE6E6FA);
+grid.material.transparent = true; grid.material.opacity = .4;
 grid.position.y = .5;
 scene.add(grid);
 
@@ -353,12 +356,12 @@ function addKill(kind, usd, liqSide){
   const d = document.createElement('div');
   if (kind==='liq'){
     d.className = 'kill liq';
-    d.innerHTML = 'LIKUIDASI ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
+    d.innerHTML = '💥 LIKUIDASI ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
   } else {
     d.className = 'kill '+kind;
     const whale = usd >= T_WHALE;
-    d.innerHTML = (whale?'<span class="whale">PAUS </span>':'') +
-      (kind==='buy'?'BELI BESAR ':'JUAL BESAR ') + fmtUsd(usd);
+    d.innerHTML = (whale?'<span class="whale">🐳 PAUS </span>':'') +
+      (kind==='buy'?'📈 BELI ' :'📉 JUAL ') + fmtUsd(usd);
   }
   killsEl.prepend(d);
   while (killsEl.children.length > 7) killsEl.lastChild.remove();
@@ -445,7 +448,7 @@ audioBtn.onclick = ()=>{
     audioOn = !audioOn;
     if (audioOn) AC.resume(); else AC.suspend();
   }
-  audioBtn.textContent = audioOn ? 'AUDIO AKTIF' : 'AKTIFKAN AUDIO';
+  audioBtn.textContent = audioOn ? '🔊 MUSIK AKTIF' : '🔊 AKTIFKAN AUDIO';
   audioBtn.classList.toggle('active', audioOn);
 };
 
@@ -517,7 +520,7 @@ function onTrade(p, qty, isBuy){
 
 function setBadge(state){
   badgeEl.className = state==='connecting' ? '' : state;
-  badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':state==='dummy'?'MODE DUMMY':'MENYAMBUNG…';
+  badgeTextEl.textContent = state==='live'?'🎬 LANGSUNG':state==='dead'?'⚠️ PUTUS':state==='dummy'?'🎭 DEMO':'🔄 Nyambung…';
   retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
 }
 
