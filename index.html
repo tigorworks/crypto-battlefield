@@ -527,6 +527,7 @@ function spawnBigUnit(side, usd){
 
 /* ═══════════ TEMBAK-TEMBAKAN — peluru pelacak, kilatan moncong & percikan ═══════════ */
 const bullets = [], sparks = [], bigUnitObjs = [];
+let lastFireT = 0;   // waktu tembakan terakhir (ms) — agar tak pernah ada jeda kosong
 const bulletGeo = new THREE.BoxGeometry(1,1,1);
 const bulletMat = {
   buy:  new THREE.MeshBasicMaterial({ color:0xd8fff1 }),
@@ -548,6 +549,7 @@ function fireBullet(side, from, to, kills, defender, big){
   const m = new THREE.Mesh(bulletGeo, bulletMat[side]);
   m.position.copy(from);
   scene.add(m);
+  lastFireT = performance.now();
   const vel = to.clone().sub(from); const dist = vel.length(); vel.normalize();
   const col = side==='buy'?C_LONG:C_SHORT;
   bullets.push({ m, pos:from.clone(), vel, speed:(big?520:640)+Math.random()*180, kills, defender, side,
@@ -579,6 +581,18 @@ function fireVolley(side, tier, killed){
     fireBullet(side, from, to, i<killed, defender);
   }
   playVolley(tier);
+}
+/* tembakan latar saat pasar sepi — mengisi jeda supaya baku tembak tak pernah kosong.
+   hanya visual (tidak membunuh) agar jumlah pasukan tetap mewakili persentase buy/sell. */
+function ambientFire(){
+  for (const side of ['buy','sell']){
+    const attacker = side==='buy' ? buyCrowd : sellCrowd;
+    const defender = side==='buy' ? sellCrowd : buyCrowd;
+    if (attacker.count <= 0) continue;
+    const n = 2 + (Math.random()*3|0);
+    for (let i=0;i<n;i++) fireBullet(side, crowdPoint(attacker,8), crowdPoint(defender,10), false, defender);
+  }
+  playVolley(0);
 }
 
 /* ═══════════ JUICE — getar layar, jeda hantam, angka melayang, streak ═══════════ */
@@ -1143,6 +1157,8 @@ function tick(){
       while (n-- > 0) reviveSoldier(c);
     }
   }
+  // jangan pernah ada jeda tembakan lebih dari ~0.25 detik
+  if (performance.now() - lastFireT > 250) ambientFire();
 
   for (let i=skulls.length-1;i>=0;i--){
     const s = skulls[i];
