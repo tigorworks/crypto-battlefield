@@ -164,6 +164,7 @@
     <button class="btn active" data-m="0">SINEMATIK</button>
     <button class="btn" data-m="1">IKUTI</button>
     <button class="btn" data-m="2">BEBAS</button>
+    <button class="btn" data-m="3">AKSI</button>
   </div>
   <div class="keys">
     <b>drag</b> putar · <b>scroll</b> zoom<br>
@@ -530,6 +531,10 @@ function spawnBigUnit(side, usd){
   scene.add(obj);
   bigUnitObjs.push(obj);
   playChargeHorn();
+  // mode AKSI: potong sejenak ke unit paus yang datang (dibatasi agar tak patah-patah)
+  if (camMode===3 && performance.now() > heroCooldown){
+    heroUnit = obj; heroUntil = performance.now()+2600; heroCooldown = performance.now()+7000;
+  }
   units.push({ obj, start, end, apex:0, t:0, dur:2.0, side, usd, mag, color, tier:2,
                fly:pick.fly, rotor, defender: side==='buy'?sellCrowd:buyCrowd, fireT:.2 });
 }
@@ -1083,6 +1088,8 @@ setInterval(meterUpdate, 1000);
 let camMode = 0;
 const orbit = { theta:.22, phi:.4, radius:540, target:new THREE.Vector3(0,10,0) };
 const _camTgt = new THREE.Vector3();
+/* mode AKSI: buntuti koloni yang menang, sesekali potong ke unit paus */
+let aksiWin = -1, heroUnit = null, heroUntil = 0, heroCooldown = 0;
 const followPos = new THREE.Vector3(0,10,0);
 const keys = {};
 function setCamMode(m){
@@ -1116,6 +1123,7 @@ addEventListener('keydown', e=>{
   if (e.key==='1') setCamMode(0);
   if (e.key==='2') setCamMode(1);
   if (e.key==='3') setCamMode(2);
+  if (e.key==='4') setCamMode(3);
   keys[e.key.toLowerCase()] = true;
 });
 addEventListener('keyup', e=> keys[e.key.toLowerCase()]=false);
@@ -1381,6 +1389,26 @@ function tick(){
     followPos.lerp(lastImpact, dt*2.2);
     orbit.target.lerp(new THREE.Vector3(followPos.x,15,followPos.z), dt*2.2);
     orbit.radius += (340-orbit.radius)*dt*.8;
+  } else if (camMode===3){
+    // AKSI: buntuti koloni yang menang dari sudut rendah & dinamis
+    if (buyShare > 0.55) aksiWin = -1;          // beli menang (kiri) — histeresis
+    else if (buyShare < 0.45) aksiWin = 1;      // jual menang (kanan)
+    if (heroUnit && heroUnit.parent && performance.now() < heroUntil){
+      // hero-cut: kelilingi unit paus dari dekat sejenak
+      _camTgt.copy(heroUnit.position); _camTgt.y += 8;
+      orbit.target.lerp(_camTgt, dt*3);
+      orbit.theta += dt*0.5 * (heroUnit.userData.side==='buy' ? 1 : -1);
+      orbit.phi    += (0.22 - orbit.phi)*dt*2.5;
+      orbit.radius += (95  - orbit.radius)*dt*2.5;
+    } else {
+      heroUnit = null;
+      _camTgt.set(frontX - aksiWin*20, 14, Math.sin(t*0.18)*70);        // fokus depan pasukan menang, menyapu pelan
+      orbit.target.lerp(_camTgt, dt*1.4);
+      const baseTheta = aksiWin < 0 ? -1.35 : 1.35;                     // kamera di belakang pasukan menang, menghadap musuh
+      orbit.theta  += (baseTheta + Math.sin(t*0.2)*0.3 - orbit.theta)*dt*1.5;
+      orbit.phi    += (0.17 + Math.sin(t*0.35)*0.035 - orbit.phi)*dt*1.5;  // rendah + goyang halus
+      orbit.radius += (175 - orbit.radius)*dt*1.5;                      // dekat
+    }
   } else {
     const sp = 300*dt;
     const fwd = new THREE.Vector3(Math.sin(orbit.theta),0,Math.cos(orbit.theta));
