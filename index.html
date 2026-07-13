@@ -151,69 +151,55 @@
 
 /* ═══════════ CONFIG ═══════════ */
 const STREAM = 'btcusdt';
-const T_SHELL = 2000;      // ≥ $2K   → peluru kecil
-const T_HEAVY = 25000;     // ≥ $25K  → komet berat + killfeed
-const T_WHALE = 100000;    // ≥ $100K → paus raksasa
+const T_SHELL = 300;       // ≥ $300  → tembakan kecil terlihat
+const T_HEAVY = 25000;     // ≥ $25K  → tembakan berat + sorotan
+const T_WHALE = 100000;    // ≥ $100K → serangan tank
 const MAX_UNITS = 30;
-const RIDGE_N = 140;
+const CROWD_MAX = 80;      // jumlah maksimum prajurit per sisi
+const CROWD_START = 48;    // jumlah awal prajurit per sisi
 const C_LONG = 0x2dd6a5, C_SHORT = 0xff6584, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f5a;
 
 /* ═══════════ THREE SETUP ═══════════ */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0e1130);
-scene.fog = new THREE.FogExp2(0x0e1130, 0.0009);
+scene.fog = new THREE.FogExp2(0x0e1130, 0.0011);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 1, 6000);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 1, 6000);
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x3a3f7a, 0x0e1130, .85));
+scene.add(new THREE.HemisphereLight(0x3a3f7a, 0x0e1130, .9));
 const key = new THREE.DirectionalLight(0xffc857, .5);
 key.position.set(-300, 500, -200);
 scene.add(key);
-const rim = new THREE.DirectionalLight(0x2dd6a5, .3);
+const rim = new THREE.DirectionalLight(0x2dd6a5, .25);
 rim.position.set(400, 250, 300);
 scene.add(rim);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x171b3e }));
+/* ═══════════ LAPANGAN — datar & sederhana ═══════════ */
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshLambertMaterial({ color:0x141833 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
-const grid = new THREE.GridHelper(3000, 60, 0x2dd6a5, 0x232a5c);
-grid.material.transparent = true; grid.material.opacity = .35;
-grid.position.y = .5;
-scene.add(grid);
 
-/* ═══════════ PRICE RIDGE ═══════════ */
-const ridgeGroup = new THREE.Group();
-ridgeGroup.position.set(0,0,-700);
-scene.add(ridgeGroup);
-const ridgeBars = [];
-const ridgeGeo = new THREE.BoxGeometry(9,1,6);
-for (let i=0;i<RIDGE_N;i++){
-  const m = new THREE.Mesh(ridgeGeo, new THREE.MeshBasicMaterial({ color:C_LONG, transparent:true, opacity:.85 }));
-  m.position.x = (i - RIDGE_N/2)*11;
-  ridgeGroup.add(m); ridgeBars.push(m);
+function patchTexture(){
+  const c = document.createElement('canvas'); c.width=c.height=256;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(128,128,0,128,128,128);
+  r.addColorStop(0,'rgba(45,60,110,.55)');
+  r.addColorStop(.6,'rgba(30,40,80,.28)');
+  r.addColorStop(1,'rgba(20,24,51,0)');
+  g.fillStyle=r; g.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(c);
 }
-const priceHist = [];
-function pushRidge(p){
-  if (!isFinite(p)) return;
-  priceHist.push(p);
-  if (priceHist.length > RIDGE_N) priceHist.shift();
-  const mn = Math.min(...priceHist), mx = Math.max(...priceHist);
-  const span = Math.max(mx-mn, 1e-9);
-  for (let i=0;i<ridgeBars.length;i++){
-    const b = ridgeBars[i], v = priceHist[i];
-    if (v===undefined){ b.visible=false; continue; }
-    b.visible = true;
-    const h = 12 + ((v-mn)/span)*180;
-    b.scale.y = h; b.position.y = h/2;
-    const up = v >= (priceHist[i-1] ?? v);
-    b.material.color.setHex(up ? C_LONG : C_SHORT);
-    if (i===priceHist.length-1) b.material.color.setHex(up ? 0x7de9c8 : 0xffa0b3);
-  }
-}
+const field = new THREE.Mesh(
+  new THREE.PlaneGeometry(560,440),
+  new THREE.MeshBasicMaterial({ map:patchTexture(), transparent:true, depthWrite:false })
+);
+field.rotation.x = -Math.PI/2;
+field.position.y = .4;
+scene.add(field);
 
 /* ═══════════ TEXTURES / GEOMETRY BERSAMA ═══════════ */
 function glowTexture(){
@@ -228,174 +214,155 @@ function glowTexture(){
 }
 const GLOW = glowTexture();
 const ringGeo = new THREE.RingGeometry(1, 1.35, 48);
+const IDENT_Q = new THREE.Quaternion();
 
-/* ═══════════ SKUAD BESAR — gerombolan pasukan untuk order raksasa ═══════════ */
-function makeSquad(color){
-  const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.5 });
-  const N = 9;
-  for (let i=0;i<N;i++){
-    const a = (i/N)*Math.PI*2 + Math.random()*.5;
-    const r = Math.random()*2.4;
-    const x = Math.cos(a)*r, z = Math.sin(a)*r;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(.26, .34, 1.3, 6), mat);
-    body.position.set(x, .75, z);
-    g.add(body);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.3, 8, 6), mat);
-    head.position.set(x, 1.5, z);
-    g.add(head);
+/* ═══════════ PASUKAN — kerumunan sederhana yang saling menyerang ═══════════ */
+const soldierGeo = new THREE.ConeGeometry(2.6, 8, 6);
+const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
+
+function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.4 });
+  const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(mesh);
+  const slots = [];
+  for (let i=0;i<CROWD_MAX;i++){
+    const x = sign*(40 + Math.random()*120);
+    const z = (Math.random()-.5)*230;
+    slots.push({ base:new THREE.Vector3(x,4,z), active:i<CROWD_START, scale:i<CROWD_START?1:0, phase:Math.random()*Math.PI*2 });
   }
-  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, opacity:.55, blending:THREE.AdditiveBlending, depthWrite:false }));
-  aura.scale.set(13,13,1);
-  g.add(aura);
+  return { mesh, slots, count:CROWD_START };
+}
+const buyCrowd = makeCrowd(C_LONG, -1);
+const sellCrowd = makeCrowd(C_SHORT, 1);
+
+function killSoldier(crowd, n){
+  for (let k=0;k<n;k++){
+    let idx=-1;
+    for (let i=0;i<crowd.slots.length;i++){ if (crowd.slots[i].active){ idx=i; if (Math.random()<.4) break; } }
+    if (idx<0) break;
+    crowd.slots[idx].active = false;
+    crowd.count = Math.max(0, crowd.count-1);
+  }
+}
+function reviveSoldier(crowd){
+  if (crowd.count >= CROWD_MAX) return;
+  let idx=-1;
+  for (let i=0;i<crowd.slots.length;i++){ if (!crowd.slots[i].active){ idx=i; if (Math.random()<.4) break; } }
+  if (idx<0) return;
+  crowd.slots[idx].active = true;
+  crowd.count++;
+}
+function resetCrowd(crowd){
+  crowd.count = CROWD_START;
+  crowd.slots.forEach((s,i)=>{ s.active = i<CROWD_START; });
+}
+function updateCrowd(crowd, dt, t){
+  for (let i=0;i<crowd.slots.length;i++){
+    const s = crowd.slots[i];
+    const tgt = s.active ? 1 : 0;
+    s.scale += (tgt - s.scale) * Math.min(1, dt*(s.active?4:7));
+    const sc = s.scale;
+    if (sc <= .002 && !s.active) sscl.set(.0001,.0001,.0001);
+    else sscl.set(sc, sc, sc);
+    const bob = s.active ? Math.sin(t*2.2+s.phase)*.5*sc : 0;
+    spos.set(s.base.x, s.base.y*sc + bob, s.base.z);
+    smx.compose(spos, IDENT_Q, sscl);
+    crowd.mesh.setMatrixAt(i, smx);
+  }
+  crowd.mesh.instanceMatrix.needsUpdate = true;
+}
+
+/* ═══════════ TANK — serangan besar untuk order raksasa ═══════════ */
+const tankHullGeo = new THREE.BoxGeometry(9,4,6);
+const tankTurretGeo = new THREE.CylinderGeometry(2.4,2.6,2.2,10);
+const tankBarrelGeo = new THREE.CylinderGeometry(.35,.35,6,8);
+const tankMat = {
+  buy: new THREE.MeshLambertMaterial({ color:C_LONG, emissive:C_LONG, emissiveIntensity:.4 }),
+  sell: new THREE.MeshLambertMaterial({ color:C_SHORT, emissive:C_SHORT, emissiveIntensity:.4 }),
+};
+const tankAuraMat = {
+  buy: new THREE.SpriteMaterial({ map:GLOW, color:C_LONG, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false }),
+  sell: new THREE.SpriteMaterial({ map:GLOW, color:C_SHORT, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false }),
+};
+function makeTank(side){
+  const mat = tankMat[side];
+  const g = new THREE.Group();
+  const hull = new THREE.Mesh(tankHullGeo, mat); hull.position.y=2.4; g.add(hull);
+  const turret = new THREE.Mesh(tankTurretGeo, mat); turret.position.y=5.2; g.add(turret);
+  const barrel = new THREE.Mesh(tankBarrelGeo, mat); barrel.rotation.z=Math.PI/2; barrel.position.set(5.5,5.2,0); g.add(barrel);
+  const aura = new THREE.Sprite(tankAuraMat[side]);
+  aura.scale.set(16,16,1); aura.position.y=3; g.add(aura);
   return g;
 }
 
-/* ═══════════ ARMADA ORDER BOOK — barisan BID vs ASK yang saling berhadapan ═══════════ */
-const BOOK_LEVELS = 10;
-const TROOPS_PER_LEVEL = 6;
-const FRONT_BASE = 50, LEVEL_GAP = 34, ROW_GAP = 20, PUSH_RANGE = 90;
-
-const troopGeo = new THREE.CylinderGeometry(2.2, 5, 18, 6);
-const troopMx = new THREE.Matrix4(), troopQuat = new THREE.Quaternion(), troopPos = new THREE.Vector3(), troopScl = new THREE.Vector3();
-
-function makeArmy(color, side){ // side: -1 = beli (kiri), 1 = jual (kanan)
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.4 });
-  const mesh = new THREE.InstancedMesh(troopGeo, mat, BOOK_LEVELS*TROOPS_PER_LEVEL);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  scene.add(mesh);
-  const base = [], scaleCur = [], scaleTgt = [], phase = [];
-  for (let lvl=0; lvl<BOOK_LEVELS; lvl++){
-    const x = side*(FRONT_BASE + lvl*LEVEL_GAP);
-    for (let r=0; r<TROOPS_PER_LEVEL; r++){
-      const z = (r-(TROOPS_PER_LEVEL-1)/2)*ROW_GAP + (Math.random()-.5)*4;
-      base.push(new THREE.Vector3(x, 9, z));
-      scaleCur.push(0); scaleTgt.push(0);
-      phase.push(Math.random()*Math.PI*2);
-    }
-  }
-  return { mesh, base, scaleCur, scaleTgt, phase };
-}
-const buyArmy = makeArmy(C_LONG, -1);
-const sellArmy = makeArmy(C_SHORT, 1);
-let bookPush = 0, bookPushTarget = 0;
-
-function updateBook(bidsRaw, asksRaw){
-  const bids = bidsRaw.slice(0, BOOK_LEVELS).map(l=>parseFloat(l[1]));
-  const asks = asksRaw.slice(0, BOOK_LEVELS).map(l=>parseFloat(l[1]));
-  const maxQty = Math.max(1e-9, ...bids, ...asks);
-  for (let lvl=0; lvl<BOOK_LEVELS; lvl++){
-    const bq = bids[lvl]||0, sq = asks[lvl]||0;
-    const bCount = bq>0 ? Math.max(1, Math.round((bq/maxQty)*TROOPS_PER_LEVEL)) : 0;
-    const sCount = sq>0 ? Math.max(1, Math.round((sq/maxQty)*TROOPS_PER_LEVEL)) : 0;
-    for (let r=0;r<TROOPS_PER_LEVEL;r++){
-      const idx = lvl*TROOPS_PER_LEVEL + r;
-      buyArmy.scaleTgt[idx] = r<bCount ? 1 : 0;
-      sellArmy.scaleTgt[idx] = r<sCount ? 1 : 0;
-    }
-  }
-  const totalBid = bids.reduce((a,b)=>a+b,0), totalAsk = asks.reduce((a,b)=>a+b,0);
-  const tot = totalBid+totalAsk || 1;
-  bookPushTarget = ((totalBid/tot) - .5) * PUSH_RANGE * 2;
-}
-
-function updateArmy(army, dt, t){
-  for (let i=0;i<army.base.length;i++){
-    army.scaleCur[i] += (army.scaleTgt[i]-army.scaleCur[i]) * Math.min(1, dt*3.2);
-    const s = army.scaleCur[i];
-    const b = army.base[i];
-    if (s <= .002){ troopScl.set(.0001,.0001,.0001); }
-    else troopScl.set(s,s,s);
-    const bob = Math.sin(t*2.4 + army.phase[i]) * .6 * s;
-    troopPos.set(b.x + bookPush, b.y + bob, b.z);
-    troopMx.compose(troopPos, troopQuat, troopScl);
-    army.mesh.setMatrixAt(i, troopMx);
-  }
-  army.mesh.instanceMatrix.needsUpdate = true;
-}
-
-let skirmishTimer = 1;
-function skirmish(dt){
-  skirmishTimer -= dt;
-  if (skirmishTimer > 0) return;
-  skirmishTimer = .9 + Math.random()*.9;
-  const z = (Math.random()-.5)*ROW_GAP*TROOPS_PER_LEVEL;
-  const x = bookPush + (Math.random()-.5)*12;
-  const mag = .16 + Math.random()*.2;
-  explode(new THREE.Vector3(x, 4, z), Math.random()>.5?C_LONG:C_SHORT, mag, 'buy', 0, 0, false);
-}
-
-/* ═══════════ UNIT (peluru / komet / paus) ═══════════ */
+/* ═══════════ UNIT (tembakan / tank) ═══════════ */
 const units = [];
 const lastImpact = new THREE.Vector3(0,0,0);
 
-function spawnUnit(side, usd){
+function spawnShot(side, usd, heavy){
   if (units.length >= MAX_UNITS) return;
   const color = side==='buy' ? C_LONG : C_SHORT;
-  const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
   const mag = Math.min(1, Math.log10(usd/T_SHELL+1)/2.4);
-  const sx = (side==='buy'?-1:1)*(760 + Math.random()*260);
-  const start = new THREE.Vector3(sx, tier===2 ? 4 : 6, (Math.random()-.5)*720);
-  const end = new THREE.Vector3((Math.random()-.5)*560, 0, (Math.random()-.5)*560);
-  let obj, trail=null;
-
-  if (tier===2){
-    obj = makeSquad(color);
-    const sc = 9 + mag*8;                 // makin besar order, makin besar skuadnya
-    obj.scale.set(sc, sc, sc);
-    playChargeHorn();
-  } else {
-    obj = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
-    const s = tier===1 ? 22+mag*22 : 9+mag*14;
-    obj.scale.set(s, s, 1);
-    if (tier===1){
-      trail = [];
-      for (let i=0;i<6;i++){
-        const t = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, opacity:.3-.04*i, blending:THREE.AdditiveBlending, depthWrite:false }));
-        t.scale.set(s*.7, s*.7, 1);
-        scene.add(t); trail.push(t);
-      }
-    }
-  }
+  const sx = (side==='buy'?-1:1)*(180+Math.random()*40);
+  const start = new THREE.Vector3(sx, 14+Math.random()*10, (Math.random()-.5)*220);
+  const ex = (side==='buy'?1:-1)*(15+Math.random()*55);
+  const end = new THREE.Vector3(ex, 0, (Math.random()-.5)*220);
+  const obj = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+  const s = heavy ? 20+mag*18 : 8+mag*8;
+  obj.scale.set(s, s, 1);
   scene.add(obj);
-  units.push({ obj, trail, start, end,
-    apex: tier===2 ? 0 : 120 + mag*260 + Math.random()*60,
-    t:0, dur: tier===2 ? 2.6 : 1.3 + Math.random()*.7,
-    side, usd, mag, color, tier });
+  units.push({ obj, start, end, apex:40+mag*90, t:0, dur:.45+mag*.35, side, usd, mag, color, tier: heavy?1:0 });
+}
+function spawnTank(side, usd){
+  if (units.length >= MAX_UNITS) return;
+  const color = side==='buy' ? C_LONG : C_SHORT;
+  const mag = Math.min(1, Math.log10(usd/T_WHALE+1)/2);
+  const sx = (side==='buy'?-1:1)*170;
+  const start = new THREE.Vector3(sx, 0, (Math.random()-.5)*180);
+  const ex = (side==='buy'?1:-1)*35;
+  const end = new THREE.Vector3(ex, 0, (Math.random()-.5)*180);
+  const obj = makeTank(side);
+  const sc = 2.2 + mag*1.6;
+  obj.scale.set(sc, sc, sc);
+  obj.rotation.y = side==='buy' ? Math.PI/2 : -Math.PI/2;
+  scene.add(obj);
+  playChargeHorn();
+  units.push({ obj, start, end, apex:0, t:0, dur:1.5, side, usd, mag, color, tier:2 });
 }
 
 /* ═══════════ LEDAKAN ═══════════ */
 const booms = [], rings = [];
 function explode(pos, color, mag, side, usd, tier, isLiq){
-  const n = 26 + Math.floor(mag*(tier===2?110:44));
+  const n = 22 + Math.floor(mag*(tier===2?90:36));
   const geo = new THREE.BufferGeometry();
   const px = new Float32Array(n*3), vel = [];
   for (let i=0;i<n;i++){
     px[i*3]=pos.x; px[i*3+1]=pos.y+2; px[i*3+2]=pos.z;
     const a = Math.random()*Math.PI*2, e = Math.random()*Math.PI*.5;
-    const sp = 40 + Math.random()*(90 + mag*(tier===2?320:160));
+    const sp = 20 + Math.random()*(40 + mag*(tier===2?110:55));
     vel.push(new THREE.Vector3(Math.cos(a)*Math.cos(e)*sp, Math.sin(e)*sp*1.4, Math.sin(a)*Math.cos(e)*sp));
   }
   geo.setAttribute('position', new THREE.BufferAttribute(px,3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size:3+mag*(tier===2?9:5), map:GLOW, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color, size:2.5+mag*(tier===2?6:3), map:GLOW, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
   scene.add(pts);
-  booms.push({ pts, vel, t:0, dur:1 + mag*(tier===2?1.4:.8) });
+  booms.push({ pts, vel, t:0, dur:.6 + mag*(tier===2?.8:.5) });
 
   const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent:true, opacity:.8, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
   rm.rotation.x = -Math.PI/2;
   rm.position.copy(pos); rm.position.y = 1.2;
   scene.add(rm);
-  rings.push({ rm, t:0, dur: tier===2?1.4:.8, max:(tier===2?260:30) + mag*160 });
+  rings.push({ rm, t:0, dur: tier===2?.85:.5, max:(tier===2?32:10) + mag*20 });
 
   if (mag>.45 || tier===2){
-    const l = new THREE.PointLight(color, 3+mag*(tier===2?12:6), 500+mag*900, 2);
-    l.position.copy(pos); l.position.y = 40;
+    const l = new THREE.PointLight(color, 3+mag*(tier===2?10:5), 400+mag*700, 2);
+    l.position.copy(pos); l.position.y = 30;
     scene.add(l);
-    setTimeout(()=>scene.remove(l), tier===2?450:260);
+    setTimeout(()=>scene.remove(l), tier===2?400:220);
   }
   if (tier===2){
     const f = document.getElementById('flash');
-    f.style.transition='none'; f.style.opacity=.16;
+    f.style.transition='none'; f.style.opacity=.14;
     requestAnimationFrame(()=>{ f.style.transition='opacity .7s'; f.style.opacity=0; });
   }
   lastImpact.copy(pos);
@@ -419,7 +386,7 @@ function addKill(kind, usd, liqSide){
   } else {
     d.className = 'kill '+kind;
     const whale = usd >= T_WHALE;
-    d.innerHTML = (whale?'<span class="whale">PAUS </span>':'') +
+    d.innerHTML = (whale?'<span class="whale">TANK </span>':'') +
       (kind==='buy'?'BELI BESAR ':'JUAL BESAR ') + fmtUsd(usd);
   }
   killsEl.prepend(d);
@@ -560,8 +527,8 @@ const modeRealBtn = document.getElementById('mode-real');
 const modeDummyBtn = document.getElementById('mode-dummy');
 
 let price = NaN, lastPrice = NaN, tradeCount = 0, volWindow = [];
-let ws = null, wsLiq = null, wsBook = null, live = false, retries = 0, connectGuard = null;
-let dummyMode = false, dummyTimer = null, dummyBase = 65000, dummyBias = 0;
+let ws = null, wsLiq = null, live = false, retries = 0, connectGuard = null;
+let dummyMode = false, dummyTimer = null, dummyBase = 65000;
 
 function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
@@ -571,9 +538,23 @@ function onTrade(p, qty, isBuy){
   flow.push({ t:performance.now(), usd, buy:isBuy });
   priceEl.textContent = p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 });
   priceEl.className = p>=lastPrice ? 'up':'down';
-  if (usd >= T_SHELL){
-    spawnUnit(isBuy?'buy':'sell', usd);
-    addTape(isBuy?'buy':'sell', usd, p);
+
+  const side = isBuy ? 'buy' : 'sell';
+  const defender = isBuy ? sellCrowd : buyCrowd;
+  if (usd >= T_WHALE){
+    killSoldier(defender, 10);
+    spawnTank(side, usd);
+    addTape(side, usd, p);
+  } else if (usd >= T_HEAVY){
+    killSoldier(defender, 4);
+    spawnShot(side, usd, true);
+    addTape(side, usd, p);
+  } else if (usd >= T_SHELL){
+    killSoldier(defender, 1);
+    spawnShot(side, usd, false);
+    addTape(side, usd, p);
+  } else {
+    killSoldier(defender, 1); // trade kecil tetap melukai musuh, tanpa efek 3D
   }
 }
 
@@ -584,12 +565,11 @@ function setBadge(state){
 }
 
 function resetStats(){
-  priceHist.length = 0; flow.length = 0; volWindow.length = 0; tape.length = 0;
+  flow.length = 0; volWindow.length = 0; tape.length = 0;
   tapeEl.innerHTML = '';
   price = lastPrice = NaN;
   priceEl.textContent = '—'; priceEl.className = '';
-  buyArmy.scaleTgt.fill(0); sellArmy.scaleTgt.fill(0);
-  bookPushTarget = 0;
+  resetCrowd(buyCrowd); resetCrowd(sellCrowd);
 }
 
 function connect(){
@@ -620,19 +600,9 @@ function connect(){
         const usd = parseFloat(o.ap)*parseFloat(o.q);
         const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
         const side = isBuy ? 'buy' : 'sell';
-        const pos = new THREE.Vector3((Math.random()-.5)*500, 0, (Math.random()-.5)*500);
+        killSoldier(isBuy?sellCrowd:buyCrowd, usd>=T_WHALE?10:4);
+        const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
         explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), side, usd, usd>=T_WHALE?2:1, true);
-      } catch(e){}
-    };
-  } catch(e){}
-
-  /* depth10 — kedalaman order book, dipakai untuk formasi pasukan */
-  try {
-    wsBook = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@depth10@100ms`);
-    wsBook.onmessage = (ev)=>{
-      try {
-        const d = JSON.parse(ev.data);
-        if (d.bids && d.asks) updateBook(d.bids, d.asks);
       } catch(e){}
     };
   } catch(e){}
@@ -640,10 +610,10 @@ function connect(){
 function disconnect(){
   live = false;
   if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
-  for (const s of [ws, wsLiq, wsBook]){
+  for (const s of [ws, wsLiq]){
     if (s){ s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
   }
-  ws = wsLiq = wsBook = null;
+  ws = wsLiq = null;
 }
 function autoRetry(){
   if (retries >= 5) return;
@@ -662,32 +632,21 @@ function startDummy(){
     for (let i=0;i<n;i++){
       dummyBase *= 1 + (Math.random()-.5)*0.0006;
       const roll = Math.random();
-      let qty = .01 + Math.random()*.4;
-      if (roll > .992) qty = 1.8 + Math.random()*3.5;       // paus
-      else if (roll > .95) qty = .45 + Math.random()*1.3;   // berat
+      let qty;
+      if (roll > .997) qty = 1.5 + Math.random()*4;          // whale ~0.3%
+      else if (roll > .96) qty = .4 + Math.random()*1.2;     // berat ~3.7%
+      else if (roll > .7) qty = .05 + Math.random()*.35;     // sedang ~26%
+      else qty = .0005 + Math.random()*.03;                  // kecil ~70%
       onTrade(dummyBase, qty, Math.random() > .48);
     }
     if (Math.random() < .02){
       const usd = 5000 + Math.random()*150000;
       const isBuy = Math.random() > .5;
-      const pos = new THREE.Vector3((Math.random()-.5)*500, 0, (Math.random()-.5)*500);
-      explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), isBuy?'buy':'sell', usd, usd>=T_WHALE?2:1, true);
+      const side = isBuy ? 'buy' : 'sell';
+      killSoldier(isBuy?sellCrowd:buyCrowd, usd>=T_WHALE?10:4);
+      const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
+      explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), side, usd, usd>=T_WHALE?2:1, true);
     }
-    dummyBias += (Math.random()-.5)*.08;
-    dummyBias = Math.max(-.35, Math.min(.35, dummyBias));
-    const bids=[], asks=[];
-    let bp = dummyBase, ap = dummyBase;
-    for (let i=0;i<BOOK_LEVELS;i++){
-      bp -= dummyBase*(0.00007+Math.random()*0.00006);
-      ap += dummyBase*(0.00007+Math.random()*0.00006);
-      let bq = .08 + Math.random()*1.3*(1+dummyBias);
-      let aq = .08 + Math.random()*1.3*(1-dummyBias);
-      if (Math.random()<.1) bq *= 2.2+Math.random()*2.4;   // dinding beli
-      if (Math.random()<.1) aq *= 2.2+Math.random()*2.4;   // dinding jual
-      bids.push([bp.toFixed(2), Math.max(.01,bq).toFixed(4)]);
-      asks.push([ap.toFixed(2), Math.max(.01,aq).toFixed(4)]);
-    }
-    updateBook(bids, asks);
   }, 260);
 }
 function stopDummy(){
@@ -713,14 +672,13 @@ setInterval(()=>{
   const now = performance.now();
   volWindow = volWindow.filter(v=>now-v.t < 60000);
   volEl.textContent = fmtUsd(volWindow.reduce((a,b)=>a+b.usd,0));
-  if (isFinite(price)) pushRidge(price);
   meterUpdate();
 }, 1000);
 
-/* ═══════════ CAMERA ═══════════ */
+/* ═══════════ CAMERA — statis & sederhana, seluruh lapangan langsung terlihat ═══════════ */
 let camMode = 0;
-const orbit = { theta:.6, phi:.42, radius:900, target:new THREE.Vector3(0,40,0) };
-const followPos = new THREE.Vector3(0,40,0);
+const orbit = { theta:0, phi:.92, radius:480, target:new THREE.Vector3(0,10,0) };
+const followPos = new THREE.Vector3(0,10,0);
 const keys = {};
 function setCamMode(m){
   camMode = m;
@@ -742,18 +700,18 @@ addEventListener('pointerup', ()=>dragging=false);
 addEventListener('pointermove', e=>{
   if(!dragging) return;
   orbit.theta -= (e.clientX-lx)*.005;
-  orbit.phi = Math.min(1.35, Math.max(.08, orbit.phi + (e.clientY-ly)*.004));
+  orbit.phi = Math.min(1.35, Math.max(.2, orbit.phi + (e.clientY-ly)*.004));
   lx=e.clientX; ly=e.clientY;
 });
 cv.addEventListener('wheel', e=>{
   e.preventDefault();
-  orbit.radius = Math.min(2200, Math.max(180, orbit.radius*(1+Math.sign(e.deltaY)*.08)));
+  orbit.radius = Math.min(1400, Math.max(140, orbit.radius*(1+Math.sign(e.deltaY)*.08)));
   if(camMode!==2) setCamMode(2);
 }, { passive:false });
 cv.addEventListener('touchmove', e=>{
   if (e.touches.length===2){
     const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-    if (pinchD) orbit.radius = Math.min(2200, Math.max(180, orbit.radius*pinchD/d));
+    if (pinchD) orbit.radius = Math.min(1400, Math.max(140, orbit.radius*pinchD/d));
     pinchD = d;
     if(camMode!==2) setCamMode(2);
   }
@@ -762,42 +720,36 @@ cv.addEventListener('touchend', ()=>pinchD=0);
 
 /* ═══════════ MAIN LOOP ═══════════ */
 const clock = new THREE.Clock();
+let regenTimer = 1;
 function tick(){
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), .05);
   const t = clock.elapsedTime;
 
-  bookPush += (bookPushTarget - bookPush) * Math.min(1, dt*1.6);
-  updateArmy(buyArmy, dt, t);
-  updateArmy(sellArmy, dt, t);
-  skirmish(dt);
+  updateCrowd(buyCrowd, dt, t);
+  updateCrowd(sellCrowd, dt, t);
+  regenTimer -= dt;
+  if (regenTimer <= 0){
+    regenTimer = .11;
+    reviveSoldier(Math.random()<.5 ? buyCrowd : sellCrowd);
+  }
 
   for (let i=units.length-1;i>=0;i--){
     const u = units[i];
     u.t += dt/u.dur;
     if (u.t>=1){
       scene.remove(u.obj);
-      if (u.trail) u.trail.forEach(x=>{ scene.remove(x); x.material.dispose(); });
-      if (u.obj.material) u.obj.material.dispose();
+      if (u.tier!==2 && u.obj.material) u.obj.material.dispose();
       explode(u.end, u.color, u.mag, u.side, u.usd, u.tier, false);
       units.splice(i,1); continue;
     }
     const k = u.t;
     if (u.tier===2){
-      /* skuad besar: menyerbu lurus di darat menuju target */
       u.obj.position.lerpVectors(u.start, u.end, k);
-      u.obj.position.y = u.start.y + Math.abs(Math.sin(t*7 + u.start.z))*1.4;
-      u.obj.rotation.y = Math.sin(t*5 + u.start.z)*.05;
+      u.obj.position.y = Math.abs(Math.sin(t*6 + u.start.z))*1.1;
     } else {
       u.obj.position.lerpVectors(u.start, u.end, k);
       u.obj.position.y = u.start.y + Math.sin(k*Math.PI)*u.apex;
-      if (u.trail){
-        for (let j=0;j<u.trail.length;j++){
-          const kk = Math.max(0, k - (j+1)*.03);
-          u.trail[j].position.lerpVectors(u.start, u.end, kk);
-          u.trail[j].position.y = u.start.y + Math.sin(kk*Math.PI)*u.apex;
-        }
-      }
     }
   }
 
@@ -826,16 +778,16 @@ function tick(){
   }
 
   if (camMode===0){
-    orbit.theta += dt*.07;
-    orbit.phi = .38 + Math.sin(t*.11)*.08;
-    orbit.radius += (950 + Math.sin(t*.07)*180 - orbit.radius)*dt*.5;
-    orbit.target.lerp(new THREE.Vector3(0,40,0), dt);
+    orbit.theta = Math.sin(t*.05)*.14;
+    orbit.phi = .92 + Math.sin(t*.08)*.03;
+    orbit.radius += (480-orbit.radius)*dt*.6;
+    orbit.target.lerp(new THREE.Vector3(0,10,0), dt);
   } else if (camMode===1){
     followPos.lerp(lastImpact, dt*2.2);
-    orbit.target.lerp(new THREE.Vector3(followPos.x,20,followPos.z), dt*2.2);
-    orbit.radius += (430-orbit.radius)*dt*.8;
+    orbit.target.lerp(new THREE.Vector3(followPos.x,15,followPos.z), dt*2.2);
+    orbit.radius += (340-orbit.radius)*dt*.8;
   } else {
-    const sp = 420*dt;
+    const sp = 300*dt;
     const fwd = new THREE.Vector3(Math.sin(orbit.theta),0,Math.cos(orbit.theta));
     const rgt = new THREE.Vector3(fwd.z,0,-fwd.x);
     if (keys['w']) orbit.target.addScaledVector(fwd,-sp);
