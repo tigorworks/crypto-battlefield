@@ -3,78 +3,85 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>🎮 BTC Cartoon Battlefield — LIVE</title>
+<title>BTC Battlefield — Live</title>
 <style>
   :root{
-    --night:#f5f5f5;
-    --phosphor:#4caf50;
-    --threat:#ff6b6b;
-    --amber:#ffc107;
-    --steel:#757575;
-    --panel:rgba(255,255,255,.92);
+    --bg-1:#0a0c18;
+    --bg-2:#1b2050;
+    --ink:#eef1fb;
+    --muted:#8891b8;
+    --panel:rgba(19,22,42,.82);
+    --line:rgba(255,255,255,.08);
+    --long:#2dd6a5;
+    --short:#ff6584;
+    --gold:#ffc857;
     --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+    --rounded:'SF Pro Rounded','SFRounded',ui-rounded,system-ui,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:linear-gradient(135deg,#fffacd 0%,#ffe4e1 100%);font-family:var(--mono);color:var(--steel)}
+  html,body{height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,var(--bg-2) 0%,var(--bg-1) 60%);font-family:var(--mono);color:var(--muted)}
   canvas{display:block}
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
-  button{font-family:var(--mono)}
+  button{font-family:var(--rounded)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+
+  .btn{background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--muted);font-size:10px;padding:5px 11px;border-radius:9px;cursor:pointer;letter-spacing:.09em;transition:border-color .15s,color .15s,background .15s}
+  .btn:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+  .btn.active{color:var(--long);border-color:rgba(45,214,165,.5);background:rgba(45,214,165,.1)}
+  .btn.active.gold{color:var(--gold);border-color:rgba(255,200,87,.5);background:rgba(255,200,87,.1)}
+  .btn.warn{color:var(--short);border-color:rgba(255,101,132,.5)}
 
   /* ── top-left: price ── */
-  #price-panel{top:14px;left:14px;padding:10px 14px;background:var(--panel);border:3px solid var(--amber);border-radius:8px;box-shadow:0 4px 12px rgba(255,193,7,.3);backdrop-filter:blur(4px)}
-  #symbol-row{display:flex;gap:8px;align-items:center;margin-bottom:4px}
-  #symbol{font-size:11px;letter-spacing:.2em;color:var(--amber)}
-  #feed-badge{font-size:9px;letter-spacing:.15em;padding:2px 6px;border:1px solid var(--amber);color:var(--amber)}
-  #feed-badge.live{border-color:var(--phosphor);color:var(--phosphor)}
-  #feed-badge.dead{border-color:var(--threat);color:var(--threat)}
-  #price{font-size:30px;font-weight:700;color:#e8f4ee;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  #price.up{color:var(--phosphor)} #price.down{color:var(--threat)}
-  #sub-row{font-size:10px;margin-top:4px;letter-spacing:.08em}
-  .sym-btn{background:none;border:1px solid rgba(107,127,134,.35);color:var(--steel);font-size:10px;padding:3px 8px;cursor:pointer;letter-spacing:.1em}
-  .sym-btn.active{border-color:var(--amber);color:var(--amber)}
-  .sym-btn:hover{color:#e8f4ee}
-  #sym-switch{margin-top:8px;display:flex;gap:6px}
-  #retry{display:none;margin-top:8px;border-color:var(--threat);color:var(--threat)}
+  #price-panel{top:16px;left:16px;padding:12px 16px;min-width:210px}
+  #symbol-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:6px}
+  #symbol{font-size:11px;letter-spacing:.18em;color:var(--ink);font-family:var(--rounded);font-weight:600}
+  #feed-badge{display:inline-flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.1em;padding:3px 9px 3px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-family:var(--rounded)}
+  #feed-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+  #feed-badge.live{border-color:rgba(45,214,165,.5);color:var(--long)}
+  #feed-badge.live #feed-dot{background:var(--long);box-shadow:0 0 8px var(--long);animation:pulse 1.6s ease-in-out infinite}
+  #feed-badge.dead{border-color:rgba(255,101,132,.5);color:var(--short)}
+  #feed-badge.dead #feed-dot{background:var(--short)}
+  #feed-badge.dummy{border-color:rgba(255,200,87,.5);color:var(--gold)}
+  #feed-badge.dummy #feed-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  #price{font-size:32px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  #price.up{color:var(--long)} #price.down{color:var(--short)}
+  #sub-row{font-size:10px;margin-top:4px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #mode-switch{margin-top:10px;display:flex;gap:6px}
+  #retry{display:none;margin-top:8px}
 
   /* ── top-center: battle meter LONG vs SHORT ── */
-  #battle{top:14px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:8px 12px;background:var(--panel);border:3px solid var(--amber);border-radius:8px;box-shadow:0 4px 12px rgba(255,193,7,.3);backdrop-filter:blur(4px)}
-  #battle h4{font-size:9px;letter-spacing:.3em;text-align:center;font-weight:400;margin-bottom:6px}
-  #meter{height:14px;display:flex;overflow:hidden;border:1px solid rgba(107,127,134,.3)}
-  #m-long{background:linear-gradient(90deg,#0f5c36,var(--phosphor));transition:width .4s}
-  #m-short{background:linear-gradient(90deg,var(--threat),#7a1620);transition:width .4s;flex:1}
-  #meter-lbl{display:flex;justify-content:space-between;font-size:10px;margin-top:5px;font-variant-numeric:tabular-nums}
-  #meter-lbl .l{color:var(--phosphor)} #meter-lbl .s{color:var(--threat)}
-  #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.8;font-variant-numeric:tabular-nums}
+  #battle{top:16px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:10px 14px}
+  #battle h4{font-size:9px;letter-spacing:.24em;text-align:center;font-weight:600;margin-bottom:8px;font-family:var(--rounded);color:var(--muted)}
+  #battle h4 .long-lbl{color:var(--long)} #battle h4 .short-lbl{color:var(--short)}
+  #meter{height:12px;display:flex;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.06)}
+  #m-long{background:linear-gradient(90deg,#123a30,var(--long));transition:width .4s}
+  #m-short{background:linear-gradient(90deg,var(--short),#3a1220);transition:width .4s;flex:1}
+  #meter-lbl{display:flex;justify-content:space-between;font-size:10px;margin-top:6px;font-variant-numeric:tabular-nums}
+  #meter-lbl .l{color:var(--long)} #meter-lbl .s{color:var(--short)}
+  #meter-cnt{display:flex;justify-content:space-between;font-size:9px;margin-top:2px;opacity:.75;font-variant-numeric:tabular-nums}
 
   /* ── top-right: killfeed ── */
-  #killfeed{top:14px;right:14px;width:260px;max-width:calc(100vw - 28px);text-align:right;background:var(--panel);border:3px solid var(--threat);border-radius:8px;padding:8px 10px;box-shadow:0 4px 12px rgba(255,107,107,.2)}
-  #killfeed h4{font-size:9px;letter-spacing:.3em;color:var(--steel);margin-bottom:6px;font-weight:400}
-  .kill{font-size:11px;padding:5px 9px;margin-bottom:4px;background:var(--panel);border-right:3px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums}
-  .kill.buy{border-color:var(--phosphor);color:var(--phosphor)}
-  .kill.sell{border-color:var(--threat);color:var(--threat)}
-  .kill.liq{border-color:var(--amber);color:var(--amber)}
-  .kill .whale{color:var(--amber)}
-  @keyframes slidein{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+  #killfeed{top:16px;right:16px;width:250px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:right}
+  #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:8px;font-weight:600;font-family:var(--rounded)}
+  .kill{font-size:11px;padding:6px 10px;margin-bottom:5px;background:rgba(255,255,255,.04);border-radius:9px;border-right:2px solid;animation:slidein .28s ease-out;font-variant-numeric:tabular-nums}
+  .kill.buy{border-color:var(--long);color:var(--long)}
+  .kill.sell{border-color:var(--short);color:var(--short)}
+  .kill.liq{border-color:var(--gold);color:var(--gold)}
+  .kill .whale{color:var(--gold);font-weight:600}
+  @keyframes slidein{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
 
-  /* ── bottom-left: controls + audio ── */
-  #controls{bottom:14px;left:14px;font-size:10px;line-height:1.8;letter-spacing:.06em;padding:10px 14px;background:var(--panel);border:3px solid var(--phosphor);border-radius:8px;box-shadow:0 4px 12px rgba(76,175,80,.2);max-width:280px}
-  #controls b{color:#c7d6d0;font-weight:600}
+  /* ── bottom-left: controls ── */
+  #controls{bottom:16px;left:16px;font-size:10px;line-height:1.8;letter-spacing:.05em;padding:12px 16px;max-width:270px}
+  #controls b{color:var(--ink);font-weight:600}
   #cam-row{display:flex;gap:6px;margin-bottom:8px}
-  .cam-btn{background:none;border:1px solid rgba(107,127,134,.35);color:var(--steel);font-size:10px;padding:4px 10px;cursor:pointer;letter-spacing:.1em}
-  .cam-btn.active{border-color:var(--phosphor);color:var(--phosphor)}
-  .cam-btn:hover{color:#e8f4ee}
-  .aud-row{display:flex;align-items:center;gap:8px;margin-top:6px}
-  .aud-row label{width:52px;font-size:10px}
-  .aud-row input[type=range]{flex:1;accent-color:var(--amber);height:3px}
-  .aud-row span{width:34px;text-align:right;font-variant-numeric:tabular-nums}
   #audio-btn{margin-top:8px;width:100%}
-  #audio-btn.on{border-color:var(--phosphor);color:var(--phosphor)}
 
   /* ── bottom-right: tape ── */
-  #tape{bottom:14px;right:14px;font-size:10px;text-align:right;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+  #tape{bottom:16px;right:16px;font-size:10px;text-align:right;letter-spacing:.06em;font-variant-numeric:tabular-nums}
   #tape div{margin-top:2px;opacity:.85}
 
-  #scan{position:fixed;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
   #flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:#fff;opacity:0}
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
@@ -83,26 +90,29 @@
     #killfeed{width:172px}
     #controls .keys{display:none}
     #controls{max-width:220px}
-    #price{font-size:22px}
+    #price{font-size:24px}
   }
 </style>
 </head>
 <body>
-<div id="scan"></div>
 <div id="flash"></div>
 
-<div class="hud" id="price-panel">
+<div class="hud panel" id="price-panel">
   <div id="symbol-row">
-    <span id="symbol">🎯 BTC / USDT</span>
-    <span id="feed-badge">MENGHUBUNGKAN…</span>
+    <span id="symbol">BTC / USDT</span>
+    <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span></span>
   </div>
   <div id="price">—</div>
-  <div id="sub-row"><span id="tps">0</span> ⚔️ trade/s · vol 1m <span id="vol1m">$0</span></div>
-  <button class="sym-btn" id="retry">🔄 SAMBUNG ULANG</button>
+  <div id="sub-row"><span id="tps">0</span> trade/s · vol 1m <span id="vol1m">$0</span></div>
+  <div id="mode-switch">
+    <button class="btn active" id="mode-real" data-mode="real">DATA REAL</button>
+    <button class="btn gold" id="mode-dummy" data-mode="dummy">DATA DUMMY</button>
+  </div>
+  <button class="btn warn" id="retry">SAMBUNG ULANG</button>
 </div>
 
-<div class="hud" id="battle">
-  <h4>🎪 PERTEMPURAN · 60 DETIK · <span style="color:var(--phosphor)">📈 PANJANG/BELI</span> vs <span style="color:var(--threat)">📉 PENDEK/JUAL</span></h4>
+<div class="hud panel" id="battle">
+  <h4>TEKANAN PASAR · 60 DETIK · <span class="long-lbl">PANJANG</span> vs <span class="short-lbl">PENDEK</span></h4>
   <div id="meter"><div id="m-long" style="width:50%"></div><div id="m-short"></div></div>
   <div id="meter-lbl">
     <span class="l"><b id="long-usd">$0</b> · <span id="long-pct">50%</span></span>
@@ -114,24 +124,22 @@
   </div>
 </div>
 
-<div class="hud" id="killfeed">
-  <h4>🎬 DRAMA · PAUS 🐋 & LEDAKAN 💥</h4>
+<div class="hud panel" id="killfeed">
+  <h4>SOROTAN</h4>
   <div id="kills"></div>
 </div>
 
-<div class="hud" id="controls">
+<div class="hud panel" id="controls">
   <div id="cam-row">
-    <button class="cam-btn active" data-m="0">🎬 SINEMATIK</button>
-    <button class="cam-btn" data-m="1">👁️ IKUTI</button>
-    <button class="cam-btn" data-m="2">🕹️ BEBAS</button>
+    <button class="btn active" data-m="0">SINEMATIK</button>
+    <button class="btn" data-m="1">IKUTI</button>
+    <button class="btn" data-m="2">BEBAS</button>
   </div>
   <div class="keys">
     <b>drag</b> putar · <b>scroll</b> zoom<br>
     <b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi
   </div>
-  <button class="cam-btn" id="audio-btn">🔊 AKTIFKAN AUDIO</button>
-  <div class="aud-row"><label>🎵 Musik</label><input type="range" id="vol-music" min="0" max="100" value="35"><span id="vm-lbl">35%</span></div>
-  <div class="aud-row"><label>💥 Efek</label><input type="range" id="vol-sfx" min="0" max="100" value="55"><span id="vs-lbl">55%</span></div>
+  <button class="btn" id="audio-btn">AKTIFKAN AUDIO</button>
 </div>
 
 <div class="hud" id="tape"></div>
@@ -142,20 +150,18 @@
 'use strict';
 
 /* ═══════════ CONFIG ═══════════ */
-const SYMBOLS = {
-  BTC: { stream:'btcusdt', label:'🎯 BTC / USDT' },
-};
-let curSym = 'BTC';
+const STREAM = 'btcusdt';
 const T_SHELL = 2000;      // ≥ $2K   → peluru kecil
 const T_HEAVY = 25000;     // ≥ $25K  → komet berat + killfeed
-const T_WHALE = 100000;    // ≥ $100K → PAUS raksasa
+const T_WHALE = 100000;    // ≥ $100K → paus raksasa
 const MAX_UNITS = 30;
 const RIDGE_N = 140;
+const C_LONG = 0x2dd6a5, C_SHORT = 0xff6584, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f5a;
 
 /* ═══════════ THREE SETUP ═══════════ */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xfff9c4);
-scene.fog = new THREE.FogExp2(0xfff9c4, 0.0008);
+scene.background = new THREE.Color(0x0e1130);
+scene.fog = new THREE.FogExp2(0x0e1130, 0.0009);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 1, 6000);
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
@@ -163,15 +169,19 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffc107, 0xfff9c4, .8));
-const sun = new THREE.DirectionalLight(0xffeb3b, .6);
-sun.position.set(-300, 500, -200);
-scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x3a3f7a, 0x0e1130, .85));
+const key = new THREE.DirectionalLight(0xffc857, .5);
+key.position.set(-300, 500, -200);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x2dd6a5, .3);
+rim.position.set(400, 250, 300);
+scene.add(rim);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x90ee90 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(5000,5000), new THREE.MeshLambertMaterial({ color:0x171b3e }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
-const grid = new THREE.GridHelper(3000, 60, 0xb0e0e6, 0xcce5ff);
+const grid = new THREE.GridHelper(3000, 60, 0x2dd6a5, 0x232a5c);
+grid.material.transparent = true; grid.material.opacity = .35;
 grid.position.y = .5;
 scene.add(grid);
 
@@ -182,7 +192,7 @@ scene.add(ridgeGroup);
 const ridgeBars = [];
 const ridgeGeo = new THREE.BoxGeometry(9,1,6);
 for (let i=0;i<RIDGE_N;i++){
-  const m = new THREE.Mesh(ridgeGeo, new THREE.MeshBasicMaterial({ color:0x4caf50, transparent:true, opacity:.85 }));
+  const m = new THREE.Mesh(ridgeGeo, new THREE.MeshBasicMaterial({ color:C_LONG, transparent:true, opacity:.85 }));
   m.position.x = (i - RIDGE_N/2)*11;
   ridgeGroup.add(m); ridgeBars.push(m);
 }
@@ -200,8 +210,8 @@ function pushRidge(p){
     const h = 12 + ((v-mn)/span)*180;
     b.scale.y = h; b.position.y = h/2;
     const up = v >= (priceHist[i-1] ?? v);
-    b.material.color.setHex(up ? 0x4caf50 : 0xff6b6b);
-    if (i===priceHist.length-1) b.material.color.setHex(up ? 0x81c784 : 0xff8a80);
+    b.material.color.setHex(up ? C_LONG : C_SHORT);
+    if (i===priceHist.length-1) b.material.color.setHex(up ? 0x7de9c8 : 0xffa0b3);
   }
 }
 
@@ -219,7 +229,7 @@ function glowTexture(){
 const GLOW = glowTexture();
 const ringGeo = new THREE.RingGeometry(1, 1.35, 48);
 
-/* ═══════════ MODEL PAUS (whale) ═══════════ */
+/* ═══════════ MODEL PAUS (whale) — bulat & bersahabat ═══════════ */
 function makeWhale(color){
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.55 });
@@ -239,6 +249,12 @@ function makeWhale(color){
     fin.position.set(.8, -.35, s*1.1); fin.scale.set(1,1,.3);
     g.add(fin);
   }
+  const eyeMat = new THREE.MeshBasicMaterial({ color:0x10121f });
+  for (const s of [-1,1]){
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.14, 10, 8), eyeMat);
+    eye.position.set(3.35, .35, s*.55);
+    g.add(eye);
+  }
   const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:GLOW, color, transparent:true, opacity:.6, blending:THREE.AdditiveBlending, depthWrite:false }));
   aura.scale.set(14,14,1);
   g.add(aura);
@@ -251,7 +267,7 @@ const lastImpact = new THREE.Vector3(0,0,0);
 
 function spawnUnit(side, usd){
   if (units.length >= MAX_UNITS) return;
-  const color = side==='buy' ? 0x4caf50 : 0xff6b6b;
+  const color = side==='buy' ? C_LONG : C_SHORT;
   const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
   const mag = Math.min(1, Math.log10(usd/T_SHELL+1)/2.4);
   const sx = (side==='buy'?-1:1)*(760 + Math.random()*260);
@@ -317,7 +333,7 @@ function explode(pos, color, mag, side, usd, tier, isLiq){
   }
   if (tier===2){
     const f = document.getElementById('flash');
-    f.style.transition='none'; f.style.opacity=.18;
+    f.style.transition='none'; f.style.opacity=.16;
     requestAnimationFrame(()=>{ f.style.transition='opacity .7s'; f.style.opacity=0; });
   }
   lastImpact.copy(pos);
@@ -337,12 +353,12 @@ function addKill(kind, usd, liqSide){
   const d = document.createElement('div');
   if (kind==='liq'){
     d.className = 'kill liq';
-    d.innerHTML = '💥 LEDAKAN ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
+    d.innerHTML = 'LIKUIDASI ' + (liqSide==='buy'?'PENDEK':'PANJANG') + ' ' + fmtUsd(usd);
   } else {
     d.className = 'kill '+kind;
     const whale = usd >= T_WHALE;
-    d.innerHTML = (whale?'<span class="whale">🐋 PAUS </span>':'') +
-      (kind==='buy'?'📈 SERANGAN NAIK ':'📉 SERANGAN TURUN ') + fmtUsd(usd);
+    d.innerHTML = (whale?'<span class="whale">PAUS </span>':'') +
+      (kind==='buy'?'BELI BESAR ':'JUAL BESAR ') + fmtUsd(usd);
   }
   killsEl.prepend(d);
   while (killsEl.children.length > 7) killsEl.lastChild.remove();
@@ -351,7 +367,7 @@ function addKill(kind, usd, liqSide){
 const tapeEl = document.getElementById('tape');
 const tape = [];
 function addTape(side, usd, price){
-  tape.unshift(`<div style="color:${side==='buy'?'var(--phosphor)':'var(--threat)'}">${side==='buy'?'▲':'▼'} ${fmtUsd(usd)} @ ${price.toLocaleString('en-US',{maximumFractionDigits:2})}</div>`);
+  tape.unshift(`<div style="color:${side==='buy'?'var(--long)':'var(--short)'}">${side==='buy'?'▲':'▼'} ${fmtUsd(usd)} @ ${price.toLocaleString('en-US',{maximumFractionDigits:2})}</div>`);
   if (tape.length>5) tape.pop();
   tapeEl.innerHTML = tape.join('');
 }
@@ -374,31 +390,21 @@ function meterUpdate(){
   document.getElementById('short-n').textContent = sn.toLocaleString()+' order jual';
 }
 
-/* ═══════════ AUDIO ═══════════ */
+/* ═══════════ AUDIO — sederhana, satu tombol ═══════════ */
 let AC=null, masterG, musicG, sfxG, musicNodes=[];
 let audioOn = false;
 const audioBtn = document.getElementById('audio-btn');
+const MUSIC_LEVEL = .18, SFX_LEVEL = .5;
 
 function initAudio(){
   AC = new (window.AudioContext||window.webkitAudioContext)();
   masterG = AC.createGain(); masterG.connect(AC.destination);
-  musicG = AC.createGain(); musicG.connect(masterG);
-  sfxG = AC.createGain(); sfxG.connect(masterG);
-  setVol();
+  musicG = AC.createGain(); musicG.gain.value = MUSIC_LEVEL; musicG.connect(masterG);
+  sfxG = AC.createGain(); sfxG.gain.value = SFX_LEVEL; sfxG.connect(masterG);
   startMusic();
 }
-function setVol(){
-  const vm = document.getElementById('vol-music').value/100;
-  const vs = document.getElementById('vol-sfx').value/100;
-  document.getElementById('vm-lbl').textContent = Math.round(vm*100)+'%';
-  document.getElementById('vs-lbl').textContent = Math.round(vs*100)+'%';
-  if (musicG) musicG.gain.value = vm*.5;
-  if (sfxG) sfxG.gain.value = vs;
-}
-document.getElementById('vol-music').oninput = setVol;
-document.getElementById('vol-sfx').oninput = setVol;
 
-/* musik ambient generatif: drone gelap + pad berganti akor */
+/* musik ambient generatif: drone lembut + pad berganti akor */
 const CHORDS = [ [55,82.4,110,164.8], [49,73.4,98,146.8], [58.3,87.3,116.5,174.6], [43.7,65.4,87.3,130.8] ];
 let chordIdx = 0, chordTimer = null;
 function startMusic(){
@@ -439,8 +445,8 @@ audioBtn.onclick = ()=>{
     audioOn = !audioOn;
     if (audioOn) AC.resume(); else AC.suspend();
   }
-  audioBtn.textContent = audioOn ? '❚❚ AUDIO AKTIF' : '▶ AKTIFKAN AUDIO';
-  audioBtn.classList.toggle('on', audioOn);
+  audioBtn.textContent = audioOn ? 'AUDIO AKTIF' : 'AKTIFKAN AUDIO';
+  audioBtn.classList.toggle('active', audioOn);
 };
 
 function playBoom(mag, tier){
@@ -481,16 +487,19 @@ function playWhaleHorn(){
   o.start(t); o.stop(t+2.5);
 }
 
-/* ═══════════ DATA FEED — REALTIME SAJA ═══════════ */
+/* ═══════════ DATA FEED — REAL (Binance) atau DUMMY (simulasi lokal) ═══════════ */
 const priceEl = document.getElementById('price');
 const badgeEl = document.getElementById('feed-badge');
-const symEl = document.getElementById('symbol');
+const badgeTextEl = document.getElementById('feed-text');
 const tpsEl = document.getElementById('tps');
 const volEl = document.getElementById('vol1m');
 const retryBtn = document.getElementById('retry');
+const modeRealBtn = document.getElementById('mode-real');
+const modeDummyBtn = document.getElementById('mode-dummy');
 
 let price = NaN, lastPrice = NaN, tradeCount = 0, volWindow = [];
-let ws = null, wsLiq = null, live = false, retries = 0;
+let ws = null, wsLiq = null, live = false, retries = 0, connectGuard = null;
+let dummyMode = false, dummyTimer = null, dummyBase = 65000;
 
 function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
@@ -507,33 +516,40 @@ function onTrade(p, qty, isBuy){
 }
 
 function setBadge(state){
-  badgeEl.className = state==='live'?'live':state==='dead'?'dead':'';
-  badgeEl.textContent = state==='live'?'● LIVE':state==='dead'?'✕ TERPUTUS':'MENGHUBUNGKAN…';
-  retryBtn.style.display = state==='dead'?'inline-block':'none';
+  badgeEl.className = state==='connecting' ? '' : state;
+  badgeTextEl.textContent = state==='live'?'LANGSUNG':state==='dead'?'TERPUTUS':state==='dummy'?'MODE DUMMY':'MENYAMBUNG…';
+  retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
+}
+
+function resetStats(){
+  priceHist.length = 0; flow.length = 0; volWindow.length = 0; tape.length = 0;
+  tapeEl.innerHTML = '';
+  price = lastPrice = NaN;
+  priceEl.textContent = '—'; priceEl.className = '';
 }
 
 function connect(){
+  if (dummyMode) return;
   disconnect();
   setBadge('connecting');
-  const st = SYMBOLS[curSym].stream;
 
   /* spot aggTrade — semua transaksi buy/sell */
-  try { ws = new WebSocket(`wss://stream.binance.com:9443/ws/${st}@aggTrade`); }
+  try { ws = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@aggTrade`); }
   catch(e){ setBadge('dead'); return; }
-  const guard = setTimeout(()=>{ if(!live){ setBadge('dead'); autoRetry(); } }, 6000);
+  connectGuard = setTimeout(()=>{ if(!live && !dummyMode){ setBadge('dead'); autoRetry(); } }, 6000);
   ws.onmessage = (ev)=>{
-    if (!live){ live=true; retries=0; clearTimeout(guard); setBadge('live'); }
+    if (!live){ live=true; retries=0; clearTimeout(connectGuard); setBadge('live'); }
     try {
       const d = JSON.parse(ev.data);
       onTrade(parseFloat(d.p), parseFloat(d.q), d.m===false); /* m=false → taker beli (long) */
     } catch(e){}
   };
-  ws.onerror = ()=>{ clearTimeout(guard); if(!live){ setBadge('dead'); autoRetry(); } };
-  ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
+  ws.onerror = ()=>{ clearTimeout(connectGuard); if(!live && !dummyMode){ setBadge('dead'); autoRetry(); } };
+  ws.onclose = ()=>{ if(live && !dummyMode){ live=false; setBadge('dead'); autoRetry(); } };
 
   /* futures forceOrder — likuidasi long/short sungguhan */
   try {
-    wsLiq = new WebSocket(`wss://fstream.binance.com/ws/${st}@forceOrder`);
+    wsLiq = new WebSocket(`wss://fstream.binance.com/ws/${STREAM}@forceOrder`);
     wsLiq.onmessage = (ev)=>{
       try {
         const o = JSON.parse(ev.data).o;
@@ -541,13 +557,14 @@ function connect(){
         const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
         const side = isBuy ? 'buy' : 'sell';
         const pos = new THREE.Vector3((Math.random()-.5)*500, 0, (Math.random()-.5)*500);
-        explode(pos, isBuy?0xffb648:0xff7a2a, Math.min(1, Math.log10(usd/1000+1)/2.5), side, usd, usd>=T_WHALE?2:1, true);
+        explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), side, usd, usd>=T_WHALE?2:1, true);
       } catch(e){}
     };
   } catch(e){}
 }
 function disconnect(){
   live = false;
+  if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
   for (const s of [ws, wsLiq]){
     if (s){ s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
   }
@@ -556,9 +573,49 @@ function disconnect(){
 function autoRetry(){
   if (retries >= 5) return;
   retries++;
-  setTimeout(()=>{ if(!live) connect(); }, 4000);
+  setTimeout(()=>{ if(!live && !dummyMode) connect(); }, 4000);
 }
 retryBtn.onclick = ()=>{ retries=0; connect(); };
+
+/* simulasi lokal — dipakai saat sumber data asli tidak bisa dijangkau */
+function startDummy(){
+  disconnect();
+  setBadge('dummy');
+  dummyBase = isFinite(price) ? price : 65000;
+  dummyTimer = setInterval(()=>{
+    const n = 1 + Math.floor(Math.random()*3);
+    for (let i=0;i<n;i++){
+      dummyBase *= 1 + (Math.random()-.5)*0.0006;
+      const roll = Math.random();
+      let qty = .01 + Math.random()*.4;
+      if (roll > .992) qty = 1.8 + Math.random()*3.5;       // paus
+      else if (roll > .95) qty = .45 + Math.random()*1.3;   // berat
+      onTrade(dummyBase, qty, Math.random() > .48);
+    }
+    if (Math.random() < .02){
+      const usd = 5000 + Math.random()*150000;
+      const isBuy = Math.random() > .5;
+      const pos = new THREE.Vector3((Math.random()-.5)*500, 0, (Math.random()-.5)*500);
+      explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), isBuy?'buy':'sell', usd, usd>=T_WHALE?2:1, true);
+    }
+  }, 260);
+}
+function stopDummy(){
+  if (dummyTimer){ clearInterval(dummyTimer); dummyTimer = null; }
+}
+
+function setMode(m){
+  const wantDummy = m === 'dummy';
+  if (wantDummy === dummyMode) return;
+  dummyMode = wantDummy;
+  modeRealBtn.classList.toggle('active', !dummyMode);
+  modeDummyBtn.classList.toggle('active', dummyMode);
+  resetStats();
+  if (dummyMode){ stopDummy(); startDummy(); }
+  else { stopDummy(); retries = 0; connect(); }
+}
+modeRealBtn.onclick = ()=>setMode('real');
+modeDummyBtn.onclick = ()=>setMode('dummy');
 
 /* stats tiap detik */
 setInterval(()=>{
@@ -570,8 +627,6 @@ setInterval(()=>{
   meterUpdate();
 }, 1000);
 
-/* BTC only - no symbol switching */
-
 /* ═══════════ CAMERA ═══════════ */
 let camMode = 0;
 const orbit = { theta:.6, phi:.42, radius:900, target:new THREE.Vector3(0,40,0) };
@@ -579,9 +634,9 @@ const followPos = new THREE.Vector3(0,40,0);
 const keys = {};
 function setCamMode(m){
   camMode = m;
-  document.querySelectorAll('.cam-btn[data-m]').forEach(b=>b.classList.toggle('active', +b.dataset.m===m));
+  document.querySelectorAll('.btn[data-m]').forEach(b=>b.classList.toggle('active', +b.dataset.m===m));
 }
-document.querySelectorAll('.cam-btn[data-m]').forEach(b=> b.onclick=()=>setCamMode(+b.dataset.m));
+document.querySelectorAll('.btn[data-m]').forEach(b=> b.onclick=()=>setCamMode(+b.dataset.m));
 addEventListener('keydown', e=>{
   if (e.key==='1') setCamMode(0);
   if (e.key==='2') setCamMode(1);
