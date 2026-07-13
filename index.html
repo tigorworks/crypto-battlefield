@@ -104,7 +104,9 @@
     #killfeed h4{font-size:8px}
     .kill{font-size:9px;padding:3px 6px}
     #controls .keys{display:none}
-    #controls{max-width:165px;padding:9px 11px}
+    #controls{max-width:190px;padding:9px 10px}
+    #cam-row{flex-wrap:wrap;gap:4px}
+    #cam-row .btn{padding:4px 7px;font-size:8.5px}
     #center-price{top:13%}
     #pressure{bottom:calc(max(16px,env(safe-area-inset-bottom) + 12px) + 112px);width:min(320px,90vw);padding:9px 12px}
     #pp-head{font-size:8px}
@@ -430,67 +432,72 @@ const tankAuraMat = {
 const eyeMat = new THREE.MeshBasicMaterial({ color:0x10121f });
 const eyeGeo = new THREE.SphereGeometry(.13, 8, 6);
 
-const dinoBodyGeo = new THREE.SphereGeometry(1.1, 14, 10);
-const dinoNeckGeo = new THREE.CylinderGeometry(.45, .6, 2, 8);
-const dinoHeadGeo = new THREE.SphereGeometry(.55, 12, 8);
-const dinoTailGeo = new THREE.ConeGeometry(.55, 3.4, 6);
-const dinoLegGeo = new THREE.CylinderGeometry(.35, .4, 1.8, 8);
-function makeDinosaur(side){
+const darkMat = new THREE.MeshLambertMaterial({ color:0x262b36 });
+const rotorMat = new THREE.MeshBasicMaterial({ color:0x1a1e26, transparent:true, opacity:.5, side:THREE.DoubleSide, depthWrite:false });
+
+/* — TANK (menghadap +x) — */
+const tankHullGeo = new THREE.BoxGeometry(5, 1.4, 3);
+const tankTreadGeo = new THREE.BoxGeometry(5.4, 1, .95);
+const tankTurretGeo = new THREE.BoxGeometry(2.6, 1.1, 2.1);
+const tankBarrelGeo = new THREE.CylinderGeometry(.22, .22, 3.4, 8);
+function makeTank(side){
   const mat = tankMat[side];
   const g = new THREE.Group();
-  const body = new THREE.Mesh(dinoBodyGeo, mat); body.scale.set(1.6,1.3,1.1); body.position.set(-.5,2.4,0); g.add(body);
-  const neck = new THREE.Mesh(dinoNeckGeo, mat); neck.rotation.z=-.9; neck.position.set(1.4,3.4,0); g.add(neck);
-  const head = new THREE.Mesh(dinoHeadGeo, mat); head.position.set(2.5,4.1,0); head.scale.set(1.3,.9,.9); g.add(head);
-  for (const s of [-1,1]){ const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(2.85,4.3,s*.4); g.add(eye); }
-  const tail = new THREE.Mesh(dinoTailGeo, mat); tail.rotation.z=Math.PI/2+.35; tail.position.set(-2.6,2,0); g.add(tail);
-  for (const s of [-1,1]){ const leg = new THREE.Mesh(dinoLegGeo, mat); leg.position.set(-.2,.9,s*.7); g.add(leg); }
-  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(16,16,1); aura.position.y=2; g.add(aura);
+  const hull = new THREE.Mesh(tankHullGeo, mat); hull.position.set(0,1.3,0); g.add(hull);
+  for (const s of [-1,1]){ const tr = new THREE.Mesh(tankTreadGeo, darkMat); tr.position.set(0,.6,s*1.45); g.add(tr); }
+  const turret = new THREE.Mesh(tankTurretGeo, mat); turret.position.set(-.3,2.35,0); g.add(turret);
+  const barrel = new THREE.Mesh(tankBarrelGeo, darkMat); barrel.rotation.z=-Math.PI/2; barrel.position.set(2,2.4,0); g.add(barrel);
+  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(18,18,1); aura.position.y=2; g.add(aura);
   return g;
 }
 
-const bearBodyGeo = new THREE.SphereGeometry(1.3, 14, 10);
-const bearHeadGeo = new THREE.SphereGeometry(.85, 12, 8);
-const bearEarGeo = new THREE.SphereGeometry(.35, 8, 6);
-const bearLegGeo = new THREE.CylinderGeometry(.32, .36, 1.3, 8);
-function makeBear(side){
+/* — HELIKOPTER (menghadap +x, rotor berputar) — */
+const heliBodyGeo = new THREE.BoxGeometry(3.6, 1.5, 1.6);
+const heliNoseGeo = new THREE.SphereGeometry(.9, 10, 8);
+const heliBoomGeo = new THREE.BoxGeometry(3.2, .4, .4);
+const heliFinGeo = new THREE.BoxGeometry(.4, 1.2, .15);
+const heliSkidGeo = new THREE.BoxGeometry(2.8, .16, .16);
+const heliRotorGeo = new THREE.CylinderGeometry(3.4, 3.4, .08, 16);
+const heliTailRotorGeo = new THREE.CylinderGeometry(.7, .7, .08, 10);
+function makeHelicopter(side){
   const mat = tankMat[side];
   const g = new THREE.Group();
-  const body = new THREE.Mesh(bearBodyGeo, mat); body.position.set(0,2,0); g.add(body);
-  const head = new THREE.Mesh(bearHeadGeo, mat); head.position.set(1.7,2.5,0); g.add(head);
-  for (const s of [-1,1]){
-    const ear = new THREE.Mesh(bearEarGeo, mat); ear.position.set(1.9,3.1,s*.6); g.add(ear);
-    const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(2.45,2.6,s*.5); g.add(eye);
-  }
-  for (const [dx,dz] of [[-.7,-.8],[-.7,.8],[.7,-.8],[.7,.8]]){
-    const leg = new THREE.Mesh(bearLegGeo, mat); leg.position.set(dx,1.1,dz); g.add(leg);
-  }
-  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(16,16,1); aura.position.y=2; g.add(aura);
+  const body = new THREE.Mesh(heliBodyGeo, mat); g.add(body);
+  const nose = new THREE.Mesh(heliNoseGeo, mat); nose.scale.set(1.1,.9,.9); nose.position.set(1.9,-.1,0); g.add(nose);
+  const boom = new THREE.Mesh(heliBoomGeo, mat); boom.position.set(-3,.3,0); g.add(boom);
+  const fin = new THREE.Mesh(heliFinGeo, mat); fin.position.set(-4.4,.7,0); g.add(fin);
+  const tailRot = new THREE.Mesh(heliTailRotorGeo, darkMat); tailRot.rotation.x=Math.PI/2; tailRot.position.set(-4.5,.7,.35); g.add(tailRot);
+  for (const s of [-1,1]){ const skid = new THREE.Mesh(heliSkidGeo, darkMat); skid.position.set(0,-1.2,s*.8); g.add(skid); }
+  const rotor = new THREE.Mesh(heliRotorGeo, rotorMat); rotor.position.set(0,1.2,0); g.add(rotor);
+  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(20,20,1); g.add(aura);
+  g.userData = { rotor };
   return g;
 }
 
-const chickenBodyGeo = new THREE.SphereGeometry(1, 12, 10);
-const chickenHeadGeo = new THREE.SphereGeometry(.5, 10, 8);
-const chickenBeakGeo = new THREE.ConeGeometry(.18, .5, 6);
-const chickenCombGeo = new THREE.ConeGeometry(.15, .4, 6);
-const chickenWingGeo = new THREE.ConeGeometry(.35, 1, 4);
-const chickenLegGeo = new THREE.CylinderGeometry(.08, .1, 1, 6);
-const chickenBeakMat = new THREE.MeshBasicMaterial({ color:0xffb648 });
-const chickenCombMat = new THREE.MeshBasicMaterial({ color:0xff4d4d });
-function makeChicken(side){
+/* — PESAWAT TEMPUR (menghadap +x) — */
+const jetBodyGeo = new THREE.CylinderGeometry(.6, .5, 5, 10);
+const jetNoseGeo = new THREE.ConeGeometry(.55, 1.6, 10);
+const jetWingGeo = new THREE.BoxGeometry(1.8, .15, 4.6);
+const jetTailWingGeo = new THREE.BoxGeometry(1, .12, 2.2);
+const jetFinGeo = new THREE.BoxGeometry(1, 1.1, .12);
+function makeJet(side){
   const mat = tankMat[side];
   const g = new THREE.Group();
-  const body = new THREE.Mesh(chickenBodyGeo, mat); body.scale.set(1,1.15,.9); body.position.set(0,1.6,0); g.add(body);
-  const head = new THREE.Mesh(chickenHeadGeo, mat); head.position.set(.9,2.5,0); g.add(head);
-  const beak = new THREE.Mesh(chickenBeakGeo, chickenBeakMat); beak.rotation.z=-Math.PI/2; beak.position.set(1.5,2.45,0); g.add(beak);
-  const comb = new THREE.Mesh(chickenCombGeo, chickenCombMat); comb.position.set(.9,3,0); g.add(comb);
-  for (const s of [-1,1]){ const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.position.set(1.15,2.6,s*.35); g.add(eye); }
-  for (const s of [-1,1]){ const wing = new THREE.Mesh(chickenWingGeo, mat); wing.rotation.z=s*.3; wing.position.set(-.1,1.6,s*.9); g.add(wing); }
-  for (const s of [-1,1]){ const leg = new THREE.Mesh(chickenLegGeo, chickenBeakMat); leg.position.set(0,.55,s*.3); g.add(leg); }
-  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(16,16,1); aura.position.y=2; g.add(aura);
+  const body = new THREE.Mesh(jetBodyGeo, mat); body.rotation.z=-Math.PI/2; g.add(body);
+  const nose = new THREE.Mesh(jetNoseGeo, mat); nose.rotation.z=-Math.PI/2; nose.position.set(3,0,0); g.add(nose);
+  const wing = new THREE.Mesh(jetWingGeo, mat); wing.position.set(-.2,0,0); g.add(wing);
+  const tail = new THREE.Mesh(jetTailWingGeo, mat); tail.position.set(-2.2,0,0); g.add(tail);
+  const fin = new THREE.Mesh(jetFinGeo, mat); fin.position.set(-2.3,.6,0); g.add(fin);
+  const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(20,20,1); g.add(aura);
   return g;
 }
 
-const BIG_UNIT_MAKERS = [makeDinosaur, makeBear, makeChicken];
+/* urutan berdasarkan ukuran order raksasa: tank → helikopter → pesawat tempur */
+function pickBigUnit(usd){
+  if (usd < 300000)   return { maker:makeTank,       fly:0  };
+  if (usd < 1000000)  return { maker:makeHelicopter, fly:16 };
+  return { maker:makeJet, fly:26 };
+}
 
 /* ═══════════ UNIT (tembakan / unit besar) ═══════════ */
 const units = [];
@@ -500,20 +507,22 @@ function spawnBigUnit(side, usd){
   if (units.length >= MAX_UNITS) return;
   const color = side==='buy' ? C_LONG : C_SHORT;
   const mag = Math.min(1, Math.log10(usd/T_WHALE+1)/2);
-  const sx = (side==='buy'?-1:1)*170;
-  const start = new THREE.Vector3(sx, 0, (Math.random()-.5)*180);
-  const ex = (side==='buy'?1:-1)*35;
-  const end = new THREE.Vector3(ex, 0, (Math.random()-.5)*180);
-  const maker = BIG_UNIT_MAKERS[Math.floor(Math.random()*BIG_UNIT_MAKERS.length)];
-  const obj = maker(side);
+  const pick = pickBigUnit(usd);
+  const sx = (side==='buy'?-1:1)*185;
+  const start = new THREE.Vector3(sx, pick.fly, (Math.random()-.5)*180);
+  const ex = (side==='buy'?1:-1)*28;
+  const end = new THREE.Vector3(ex, pick.fly, (Math.random()-.5)*180);
+  const obj = pick.maker(side);
+  const rotor = obj.userData && obj.userData.rotor;
   const sc = 2.2 + mag*1.6;
   obj.scale.set(sc, sc, sc);
-  obj.rotation.y = side==='buy' ? Math.PI/2 : -Math.PI/2;
-  obj.userData = { pick:true, side, usd, price, ts:Date.now() };
+  obj.rotation.y = side==='buy' ? 0 : Math.PI;   // moncong menghadap musuh
+  obj.userData = { pick:true, side, usd, price, ts:Date.now(), rotor };
   scene.add(obj);
   bigUnitObjs.push(obj);
   playChargeHorn();
-  units.push({ obj, start, end, apex:0, t:0, dur:1.5, side, usd, mag, color, tier:2 });
+  units.push({ obj, start, end, apex:0, t:0, dur:2.0, side, usd, mag, color, tier:2,
+               fly:pick.fly, rotor, defender: side==='buy'?sellCrowd:buyCrowd, fireT:.2 });
 }
 
 /* ═══════════ TEMBAK-TEMBAKAN — peluru pelacak, kilatan moncong & percikan ═══════════ */
@@ -534,15 +543,18 @@ function makeSpark(pos, color, size, dur){
   scene.add(spr);
   sparks.push({ spr, t:0, dur, size });
 }
-function fireBullet(side, from, to, kills, defender){
+function fireBullet(side, from, to, kills, defender, big){
   if (bullets.length >= MAXBULLETS){ const old = bullets.shift(); scene.remove(old.m); } // buang tertua, jangan berhenti menembak
   const m = new THREE.Mesh(bulletGeo, bulletMat[side]);
   m.position.copy(from);
   scene.add(m);
   const vel = to.clone().sub(from); const dist = vel.length(); vel.normalize();
-  bullets.push({ m, pos:from.clone(), vel, speed:640+Math.random()*180, kills, defender, side,
-                 target:to.clone(), traveled:0, dist, color: side==='buy'?C_LONG:C_SHORT });
-  if (Math.random() < .5) makeSpark(from, side==='buy'?C_LONG:C_SHORT, 9, .1);  // kilatan moncong sebagian
+  const col = side==='buy'?C_LONG:C_SHORT;
+  bullets.push({ m, pos:from.clone(), vel, speed:(big?520:640)+Math.random()*180, kills, defender, side,
+                 target:to.clone(), traveled:0, dist, color: col,
+                 len: big?46:16, w: big?2.1:.55, big:!!big });
+  if (big) makeSpark(from, col, 22, .18);                         // ledakan moncong unit besar
+  else if (Math.random() < .5) makeSpark(from, col, 9, .1);
 }
 /* titik di posisi pasukan saat ini — ikut garis depan yang bergerak */
 function crowdPoint(crowd, jitter){
@@ -967,6 +979,7 @@ setInterval(meterUpdate, 1000);
 /* ═══════════ CAMERA — statis & sederhana, seluruh lapangan langsung terlihat ═══════════ */
 let camMode = 0;
 const orbit = { theta:.22, phi:.4, radius:540, target:new THREE.Vector3(0,10,0) };
+const _camTgt = new THREE.Vector3();
 const followPos = new THREE.Vector3(0,10,0);
 const keys = {};
 function setCamMode(m){
@@ -1155,7 +1168,14 @@ function tick(){
     const k = u.t;
     if (u.tier===2){
       u.obj.position.lerpVectors(u.start, u.end, k);
-      u.obj.position.y = Math.abs(Math.sin(t*6 + u.start.z))*1.1;
+      u.obj.position.y = u.fly + (u.fly>0 ? Math.sin(t*4 + u.start.z)*1.3 : 0);
+      if (u.rotor) u.rotor.rotation.y += sdt*40;                 // baling-baling berputar
+      u.fireT -= sdt;                                            // datang sambil menyerang
+      if (u.fireT <= 0){
+        u.fireT = .13;
+        const from = u.obj.position.clone(); from.y += 2;
+        fireBullet(u.side, from, crowdPoint(u.defender, 14), true, u.defender, true); // peluru besar, jangkauan jauh
+      }
     } else {
       u.obj.position.lerpVectors(u.start, u.end, k);
       u.obj.position.y = u.start.y + Math.sin(k*Math.PI)*u.apex;
@@ -1172,13 +1192,15 @@ function tick(){
     _bq.setFromUnitVectors(AXIS_X, _bdir);
     b.m.quaternion.copy(_bq);
     b.m.position.copy(b.pos);
-    b.m.scale.set(16, .55, .55);
+    b.m.scale.set(b.len, b.w, b.w);
     if (b.traveled >= b.dist){
-      if (b.kills || Math.random() < .22) makeSpark(b.target, b.color, 12, .18);
+      const killN = b.big ? 3 : 1;                               // peluru besar = ledakan area
+      if (b.kills || b.big || Math.random() < .22) makeSpark(b.target, b.color, b.big?28:12, b.big?.32:.18);
       if (b.kills){
-        killSoldier(b.defender, 1);
+        killSoldier(b.defender, killN);
         spawnSkull(b.target);
-        floatNum(b.target, '-1', b.side==='buy'?'up':'dn');
+        floatNum(b.target, '-'+killN, b.side==='buy'?'up':'dn');
+        if (b.big) addShake(.6);
       }
       scene.remove(b.m);
       bullets.splice(i,1);
@@ -1222,8 +1244,12 @@ function tick(){
   if (camMode===0){
     orbit.theta = .22 + Math.sin(t*.05)*.12;
     orbit.phi = .4 + Math.sin(t*.08)*.03;
-    orbit.radius += (540-orbit.radius)*dt*.6;
-    orbit.target.lerp(new THREE.Vector3(0,10,0), dt);
+    // ikuti pertempuran yang bergeser & mundur saat pasukan menyebar, agar tak ada sisi terpotong
+    const portrait = innerHeight > innerWidth;
+    const rTarget = 560 + Math.abs(frontX)*(portrait?1.7:1.1);
+    orbit.radius += (rTarget-orbit.radius)*dt*.6;
+    _camTgt.set(frontX*0.6, 10, 0);
+    orbit.target.lerp(_camTgt, dt);
   } else if (camMode===1){
     followPos.lerp(lastImpact, dt*2.2);
     orbit.target.lerp(new THREE.Vector3(followPos.x,15,followPos.z), dt*2.2);
