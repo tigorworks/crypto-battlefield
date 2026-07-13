@@ -168,11 +168,11 @@
 
 /* ═══════════ CONFIG ═══════════ */
 const STREAM = 'btcusdt';
-const T_SHELL = 80;        // ≥ $80   → tembakan kecil (lebih sering, lebih interaktif)
+const T_SHELL = 40;        // ≥ $40   → tembakan kecil (sangat sering, sangat intens)
 const T_HEAVY = 25000;     // ≥ $25K  → tembakan berat + sorotan
 const T_WHALE = 100000;    // ≥ $100K → serangan tank
 const MAX_UNITS = 30;
-const CROWD_MAX = 80;      // jumlah maksimum prajurit per sisi
+const CROWD_MAX = 96;      // jumlah maksimum prajurit per sisi (headroom untuk pertempuran padat)
 const CROWD_START = 48;    // jumlah awal prajurit per sisi
 const C_LONG = 0x2dd6a5, C_SHORT = 0xff6584, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f5a;
 
@@ -525,7 +525,7 @@ const bulletMat = {
 };
 const AXIS_X = new THREE.Vector3(1,0,0);
 const _bq = new THREE.Quaternion(), _bdir = new THREE.Vector3();
-const MAXBULLETS = 240, MAXSPARKS = 140;
+const MAXBULLETS = 360, MAXSPARKS = 200;
 
 function makeSpark(pos, color, size, dur){
   if (sparks.length >= MAXSPARKS) return;
@@ -560,7 +560,7 @@ function crowdPoint(crowd, jitter){
 function fireVolley(side, tier, killed){
   const attacker = side==='buy' ? buyCrowd : sellCrowd;
   const defender = side==='buy' ? sellCrowd : buyCrowd;
-  const n = Math.max(killed, tier===2?18:tier===1?9:3);
+  const n = Math.max(killed, tier===2?34:tier===1?16:6);   // tracer lebih padat = serangan lebih intens
   for (let i=0;i<n;i++){
     const from = crowdPoint(attacker, 8);   // dari prajurit penyerang
     const to   = crowdPoint(defender, 10);  // ke posisi prajurit lawan yang sebenarnya
@@ -881,11 +881,11 @@ function onTrade(p, qty, isBuy){
   const side = isBuy ? 'buy' : 'sell';
   const defender = isBuy ? sellCrowd : buyCrowd;
   const tier = usd>=T_WHALE ? 2 : usd>=T_HEAVY ? 1 : 0;
-  const killed = tier===2 ? 10 : tier===1 ? 4 : 1;
+  const killed = tier===2 ? 14 : tier===1 ? 6 : 2;
   bumpStreak(side);
   if (usd >= T_WHALE){
     spawnBigUnit(side, usd);
-    fireVolley(side, 2, Math.min(killed, 12));
+    fireVolley(side, 2, Math.min(killed, 16));
     addShake(2.2); addHitstop(.09);
   } else if (usd >= T_SHELL){
     fireVolley(side, tier, killed);        // peluru yang membunuh saat mendarat
@@ -1124,9 +1124,9 @@ function tick(){
   // isi cepat beberapa sekaligus supaya seimbang dengan laju kematian → banyak pergerakan masuk/mati.
   regenTimer -= dt;
   if (regenTimer <= 0){
-    regenTimer = .06;
+    regenTimer = .05;
     for (const c of [buyCrowd, sellCrowd]){
-      let n = Math.min(8, c.target - c.count);   // isi cepat agar seimbang dengan laju kematian
+      let n = Math.min(14, c.target - c.count);   // isi cepat agar seimbang dengan laju kematian
       while (n-- > 0) reviveSoldier(c);
     }
   }
