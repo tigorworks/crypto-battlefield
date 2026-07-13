@@ -944,33 +944,35 @@ function setBadge(state){
   retryBtn.style.display = state==='dead' ? 'inline-block' : 'none';
 }
 
-function connect(){
-  disconnect();
-  setBadge('connecting');
+/* ═══════════ SUMBER DATA — utama Binance Vision, otomatis pindah ke Gate.io ═══════════ */
+/* Sebagian ISP (mis. Indonesia) memblokir stream.binance.com. data-stream.binance.vision
+   adalah domain data-pasar resmi Binance (format identik) yang biasanya lolos; kalau pun
+   itu gagal, kita jatuh ke Gate.io. */
+const FEEDS = [
+  { name:'Binance Vision', go:connectBinanceVision },
+  { name:'Gate.io',        go:connectGate },
+];
+let feedIdx = 0;
 
-  /* spot aggTrade — semua transaksi buy/sell */
-  try { ws = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@aggTrade`); }
-  catch(e){ setBadge('dead'); return; }
-  connectGuard = setTimeout(()=>{ if(!live){ setBadge('dead'); autoRetry(); } }, 6000);
-  ws.onmessage = (ev)=>{
-    if (!live){ live=true; retries=0; clearTimeout(connectGuard); setBadge('live'); }
-    try {
-      const d = JSON.parse(ev.data);
-      onTrade(parseFloat(d.p), parseFloat(d.q), d.m===false); /* m=false → taker beli (long) */
-    } catch(e){}
+function markLive(){
+  if (live) return;
+  live = true; retries = 0;
+  if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
+  setBadge('live');
+}
+
+function connectBinanceVision(){
+  ws = new WebSocket(`wss://data-stream.binance.vision/ws/${STREAM}@aggTrade`);
+  ws.onmessage = (ev)=>{ markLive();
+    try { const d = JSON.parse(ev.data); onTrade(parseFloat(d.p), parseFloat(d.q), d.m===false); } catch(e){} /* m=false → taker beli */
   };
-  ws.onerror = ()=>{ clearTimeout(connectGuard); if(!live){ setBadge('dead'); autoRetry(); } };
+  ws.onerror = ()=>{ if(!live) failover(); };
   ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
 
-  /* ticker 24 jam — persentase naik/turun harga selama 24 jam terakhir */
-  try {
-    wsTicker = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@ticker`);
-    wsTicker.onmessage = (ev)=>{
-      try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); updatePct(); if (!isFinite(price)) priceEl.className = pct24>=0?'up':'down'; } catch(e){}
-    };
-  } catch(e){}
+  wsTicker = new WebSocket(`wss://data-stream.binance.vision/ws/${STREAM}@ticker`);
+  wsTicker.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); updatePct(); } catch(e){} };
 
-  /* futures forceOrder — likuidasi long/short sungguhan */
+  /* likuidasi futures — fstream sering diblokir; dicoba saja, diabaikan bila gagal */
   try {
     wsLiq = new WebSocket(`wss://fstream.binance.com/ws/${STREAM}@forceOrder`);
     wsLiq.onmessage = (ev)=>{
@@ -981,7 +983,7 @@ function connect(){
         const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
         const side = isBuy ? 'buy' : 'sell';
         const n = usd>=T_WHALE ? 10 : 4;
-        fireVolley(side, usd>=T_WHALE?2:1, n);   // likuidasi = hujan peluru (mati karena tertembak)
+        fireVolley(side, usd>=T_WHALE?2:1, n);
         const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
         explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), usd>=T_WHALE?2:1);
         logKill(side, qty, n, 'LIKUIDASI');
@@ -989,20 +991,60 @@ function connect(){
     };
   } catch(e){}
 }
+
+function connectGate(){
+  ws = new WebSocket('wss://api.gateio.ws/ws/v4/');
+  ws.onopen = ()=>{
+    const t = Math.floor(Date.now()/1000);
+    try {
+      ws.send(JSON.stringify({ time:t, channel:'spot.trades',  event:'subscribe', payload:['BTC_USDT'] }));
+      ws.send(JSON.stringify({ time:t, channel:'spot.tickers', event:'subscribe', payload:['BTC_USDT'] }));
+    } catch(e){}
+  };
+  ws.onmessage = (ev)=>{
+    try {
+      const d = JSON.parse(ev.data);
+      if (d.event !== 'update' || !d.result) return;          /* abaikan ack langganan */
+      if (d.channel === 'spot.trades'){
+        markLive();
+        const r = d.result;
+        onTrade(parseFloat(r.price), parseFloat(r.amount), r.side === 'buy'); /* side = sisi taker */
+      } else if (d.channel === 'spot.tickers'){
+        pct24 = parseFloat(d.result.change_percentage); updatePct();
+      }
+    } catch(e){}
+  };
+  ws.onerror = ()=>{ if(!live) failover(); };
+  ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
+}
+
+function connect(){
+  disconnect();
+  setBadge('connecting');
+  try { FEEDS[feedIdx].go(); }
+  catch(e){ failover(); return; }
+  connectGuard = setTimeout(()=>{ if(!live) failover(); }, 6000);   // tak ada data → coba sumber lain
+}
+function failover(){
+  if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
+  disconnect();
+  if (feedIdx < FEEDS.length - 1){ feedIdx++; connect(); }         // coba sumber berikutnya
+  else { feedIdx = 0; setBadge('dead'); autoRetry(); }             // semua gagal → jeda lalu ulang
+}
 function disconnect(){
   live = false;
   if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
   for (const s of [ws, wsLiq, wsTicker]){
-    if (s){ s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
+    if (s){ s.onopen=null; s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
   }
   ws = wsLiq = wsTicker = null;
 }
 function autoRetry(){
   if (retries >= 5) return;
   retries++;
-  setTimeout(()=>{ if(!live) connect(); }, 4000);
+  setTimeout(()=>{ if(!live){ feedIdx = 0; connect(); } }, 4000);  // ulang dari sumber utama
 }
-retryBtn.onclick = ()=>{ retries=0; connect(); };
+retryBtn.onclick = ()=>{ retries=0; feedIdx=0; connect(); };
 
 /* stats tiap detik */
 setInterval(meterUpdate, 1000);
