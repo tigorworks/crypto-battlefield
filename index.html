@@ -19,7 +19,7 @@
     --rounded:'SF Pro Rounded','SFRounded',ui-rounded,system-ui,'Segoe UI',Roboto,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,var(--bg-2) 0%,var(--bg-1) 60%);font-family:var(--mono);color:var(--muted)}
+  html,body{height:100%;overflow:hidden;background:linear-gradient(180deg,#bfe3f7 0%,#9dc077 55%,#7fa85f 100%);font-family:var(--mono);color:var(--muted)}
   canvas{display:block}
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--rounded)}
@@ -32,7 +32,7 @@
   .btn.active.gold{color:var(--gold);border-color:rgba(255,200,87,.5);background:rgba(255,200,87,.1)}
   .btn.warn{color:var(--short);border-color:rgba(255,101,132,.5)}
 
-  /* ── top-left: price ── */
+  /* ── top-left: koneksi & mode ── */
   #price-panel{top:16px;left:16px;padding:12px 16px;min-width:210px}
   #symbol-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:6px}
   #symbol{font-size:11px;letter-spacing:.18em;color:var(--ink);font-family:var(--rounded);font-weight:600}
@@ -45,11 +45,19 @@
   #feed-badge.dummy{border-color:rgba(255,200,87,.5);color:var(--gold)}
   #feed-badge.dummy #feed-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  #price{font-size:32px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-  #price.up{color:var(--long)} #price.down{color:var(--short)}
-  #sub-row{font-size:10px;margin-top:4px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  #sub-row{font-size:10px;margin-top:2px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
   #mode-switch{margin-top:10px;display:flex;gap:6px}
   #retry{display:none;margin-top:8px}
+
+  /* ── tengah atas: harga besar mengambang di atas lapangan ── */
+  #center-price{top:19%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:9}
+  #cp-value{font-size:clamp(38px,6.4vw,80px);font-weight:800;color:#1c2b1a;letter-spacing:-.01em;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 rgba(255,255,255,.35),0 10px 26px rgba(10,20,10,.4);transition:color .15s}
+  #cp-value.up{color:var(--long);text-shadow:0 3px 0 rgba(255,255,255,.25),0 0 34px rgba(45,214,165,.55),0 10px 26px rgba(10,20,10,.35)}
+  #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(255,255,255,.25),0 0 34px rgba(255,101,132,.5),0 10px 26px rgba(10,20,10,.35)}
+  #cp-sub{font-size:15px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#28361f;text-shadow:0 2px 10px rgba(255,255,255,.5);font-family:var(--rounded)}
+  #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
+  #cp-status{font-size:15px;font-weight:800;letter-spacing:.1em;margin-top:8px;text-shadow:0 2px 14px rgba(0,0,0,.3),0 0 2px rgba(255,255,255,.6);font-family:var(--rounded)}
+  #cp-status.up{color:var(--long)} #cp-status.down{color:var(--short)}
 
   /* ── top-center: battle meter LONG vs SHORT ── */
   #battle{top:16px;left:50%;transform:translateX(-50%);width:min(460px,92vw);padding:10px 14px}
@@ -90,7 +98,7 @@
     #killfeed{width:172px}
     #controls .keys{display:none}
     #controls{max-width:220px}
-    #price{font-size:24px}
+    #center-price{top:16%}
   }
 </style>
 </head>
@@ -102,13 +110,18 @@
     <span id="symbol">BTC / USDT</span>
     <span id="feed-badge"><span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span></span>
   </div>
-  <div id="price">—</div>
   <div id="sub-row"><span id="tps">0</span> trade/s · vol 1m <span id="vol1m">$0</span></div>
   <div id="mode-switch">
     <button class="btn active" id="mode-real" data-mode="real">DATA REAL</button>
     <button class="btn gold" id="mode-dummy" data-mode="dummy">DATA DUMMY</button>
   </div>
   <button class="btn warn" id="retry">SAMBUNG ULANG</button>
+</div>
+
+<div class="hud" id="center-price">
+  <div id="cp-value">—</div>
+  <div id="cp-sub">BTC / USDT <span id="cp-pct">0.00%</span></div>
+  <div id="cp-status"></div>
 </div>
 
 <div class="hud panel" id="battle">
@@ -159,10 +172,11 @@ const CROWD_MAX = 80;      // jumlah maksimum prajurit per sisi
 const CROWD_START = 48;    // jumlah awal prajurit per sisi
 const C_LONG = 0x2dd6a5, C_SHORT = 0xff6584, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f5a;
 
-/* ═══════════ THREE SETUP ═══════════ */
+/* ═══════════ THREE SETUP — lapangan hijau cerah di bawah langit ═══════════ */
+const SKY = 0x8fc6ec;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0e1130);
-scene.fog = new THREE.FogExp2(0x0e1130, 0.0011);
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 500, 2400);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 1, 6000);
 const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
@@ -170,16 +184,16 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x3a3f7a, 0x0e1130, .9));
-const key = new THREE.DirectionalLight(0xffc857, .5);
-key.position.set(-300, 500, -200);
-scene.add(key);
-const rim = new THREE.DirectionalLight(0x2dd6a5, .25);
-rim.position.set(400, 250, 300);
-scene.add(rim);
+scene.add(new THREE.HemisphereLight(0xcfe9ff, 0x6f8f4a, 1.05));
+const sun = new THREE.DirectionalLight(0xfff3d6, .85);
+sun.position.set(-260, 420, -180);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, .25);
+fill.position.set(300, 200, 260);
+scene.add(fill);
 
-/* ═══════════ LAPANGAN — datar & sederhana ═══════════ */
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshLambertMaterial({ color:0x141833 }));
+/* ═══════════ LAPANGAN — rumput datar & sederhana ═══════════ */
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), new THREE.MeshLambertMaterial({ color:0x7fa055 }));
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
@@ -187,9 +201,9 @@ function patchTexture(){
   const c = document.createElement('canvas'); c.width=c.height=256;
   const g = c.getContext('2d');
   const r = g.createRadialGradient(128,128,0,128,128,128);
-  r.addColorStop(0,'rgba(45,60,110,.55)');
-  r.addColorStop(.6,'rgba(30,40,80,.28)');
-  r.addColorStop(1,'rgba(20,24,51,0)');
+  r.addColorStop(0,'rgba(122,104,58,.32)');
+  r.addColorStop(.6,'rgba(110,96,56,.16)');
+  r.addColorStop(1,'rgba(110,96,56,0)');
   g.fillStyle=r; g.fillRect(0,0,256,256);
   return new THREE.CanvasTexture(c);
 }
@@ -216,12 +230,31 @@ const GLOW = glowTexture();
 const ringGeo = new THREE.RingGeometry(1, 1.35, 48);
 const IDENT_Q = new THREE.Quaternion();
 
+function skullTexture(){
+  const c = document.createElement('canvas'); c.width=c.height=64;
+  const g = c.getContext('2d');
+  g.font = '44px "Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('💀', 32, 34);
+  return new THREE.CanvasTexture(c);
+}
+const SKULL_TEX = skullTexture();
+const skullMat = new THREE.SpriteMaterial({ map:SKULL_TEX, transparent:true, depthWrite:false });
+const skulls = [];
+function spawnSkull(pos){
+  const spr = new THREE.Sprite(skullMat.clone());
+  spr.position.set(pos.x, 5, pos.z);
+  spr.scale.set(.1,.1,1);
+  scene.add(spr);
+  skulls.push({ spr, t:0, dur:.8 });
+}
+
 /* ═══════════ PASUKAN — kerumunan sederhana yang saling menyerang ═══════════ */
 const soldierGeo = new THREE.ConeGeometry(2.6, 8, 6);
 const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
 
 function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.4 });
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.35 });
   const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -229,7 +262,14 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
   for (let i=0;i<CROWD_MAX;i++){
     const x = sign*(40 + Math.random()*120);
     const z = (Math.random()-.5)*230;
-    slots.push({ base:new THREE.Vector3(x,4,z), active:i<CROWD_START, scale:i<CROWD_START?1:0, phase:Math.random()*Math.PI*2 });
+    slots.push({
+      base: new THREE.Vector3(x,4,z),
+      spawnFrom: new THREE.Vector3(x+sign*170, 0, z+(Math.random()-.5)*50),
+      active: i<CROWD_START,
+      dying:false, dieT:0,
+      walking:i<CROWD_START, walkT:0,
+      phase: Math.random()*Math.PI*2,
+    });
   }
   return { mesh, slots, count:CROWD_START };
 }
@@ -239,34 +279,56 @@ const sellCrowd = makeCrowd(C_SHORT, 1);
 function killSoldier(crowd, n){
   for (let k=0;k<n;k++){
     let idx=-1;
-    for (let i=0;i<crowd.slots.length;i++){ if (crowd.slots[i].active){ idx=i; if (Math.random()<.4) break; } }
+    for (let i=0;i<crowd.slots.length;i++){ if (crowd.slots[i].active && !crowd.slots[i].dying){ idx=i; if (Math.random()<.4) break; } }
     if (idx<0) break;
-    crowd.slots[idx].active = false;
+    const s = crowd.slots[idx];
+    s.dying = true; s.dieT = 0;
     crowd.count = Math.max(0, crowd.count-1);
+    spawnSkull(s.base);
   }
 }
 function reviveSoldier(crowd){
   if (crowd.count >= CROWD_MAX) return;
   let idx=-1;
-  for (let i=0;i<crowd.slots.length;i++){ if (!crowd.slots[i].active){ idx=i; if (Math.random()<.4) break; } }
+  for (let i=0;i<crowd.slots.length;i++){ if (!crowd.slots[i].active && !crowd.slots[i].dying){ idx=i; if (Math.random()<.4) break; } }
   if (idx<0) return;
-  crowd.slots[idx].active = true;
+  const s = crowd.slots[idx];
+  s.active = true; s.walking = true; s.walkT = 0;
   crowd.count++;
 }
 function resetCrowd(crowd){
   crowd.count = CROWD_START;
-  crowd.slots.forEach((s,i)=>{ s.active = i<CROWD_START; });
+  crowd.slots.forEach((s,i)=>{
+    s.active = i<CROWD_START;
+    s.dying = false; s.dieT = 0;
+    s.walking = i<CROWD_START; s.walkT = 0;
+  });
 }
 function updateCrowd(crowd, dt, t){
   for (let i=0;i<crowd.slots.length;i++){
     const s = crowd.slots[i];
-    const tgt = s.active ? 1 : 0;
-    s.scale += (tgt - s.scale) * Math.min(1, dt*(s.active?4:7));
-    const sc = s.scale;
-    if (sc <= .002 && !s.active) sscl.set(.0001,.0001,.0001);
+    let x = s.base.x, z = s.base.z, sc = 0, bob = 0;
+
+    if (s.dying){
+      s.dieT = Math.min(1, s.dieT + dt*3.4);
+      sc = Math.max(0, 1-s.dieT) * (1 + Math.sin(Math.min(1,s.dieT)*Math.PI)*.22);
+      if (s.dieT>=1){ s.dying=false; s.active=false; }
+    } else if (s.walking){
+      s.walkT = Math.min(1, s.walkT + dt*.75);
+      const e = 1-(1-s.walkT)*(1-s.walkT);
+      x = s.spawnFrom.x + (s.base.x-s.spawnFrom.x)*e;
+      z = s.spawnFrom.z + (s.base.z-s.spawnFrom.z)*e;
+      bob = Math.abs(Math.sin(t*9+s.phase))*.8;
+      sc = 1;
+      if (s.walkT>=1) s.walking=false;
+    } else if (s.active){
+      bob = Math.sin(t*2.2+s.phase)*.5;
+      sc = 1;
+    }
+
+    if (sc <= .002 && !s.active && !s.dying) sscl.set(.0001,.0001,.0001);
     else sscl.set(sc, sc, sc);
-    const bob = s.active ? Math.sin(t*2.2+s.phase)*.5*sc : 0;
-    spos.set(s.base.x, s.base.y*sc + bob, s.base.z);
+    spos.set(x, s.base.y*sc + bob, z);
     smx.compose(spos, IDENT_Q, sscl);
     crowd.mesh.setMatrixAt(i, smx);
   }
@@ -417,6 +479,11 @@ function meterUpdate(){
   document.getElementById('short-pct').textContent = (100-lp)+'%';
   document.getElementById('long-n').textContent = bn.toLocaleString()+' order beli';
   document.getElementById('short-n').textContent = sn.toLocaleString()+' order jual';
+
+  if (bu+su > 0){
+    cpStatusEl.textContent = lp>=50 ? 'PEMBELI SEDANG UNGGUL!' : 'PENJUAL SEDANG UNGGUL!';
+    cpStatusEl.className = lp>=50 ? 'up':'down';
+  }
 }
 
 /* ═══════════ AUDIO — sederhana, satu tombol ═══════════ */
@@ -517,7 +584,9 @@ function playChargeHorn(){
 }
 
 /* ═══════════ DATA FEED — REAL (Binance) atau DUMMY (simulasi lokal) ═══════════ */
-const priceEl = document.getElementById('price');
+const priceEl = document.getElementById('cp-value');
+const cpPctEl = document.getElementById('cp-pct');
+const cpStatusEl = document.getElementById('cp-status');
 const badgeEl = document.getElementById('feed-badge');
 const badgeTextEl = document.getElementById('feed-text');
 const tpsEl = document.getElementById('tps');
@@ -526,18 +595,23 @@ const retryBtn = document.getElementById('retry');
 const modeRealBtn = document.getElementById('mode-real');
 const modeDummyBtn = document.getElementById('mode-dummy');
 
-let price = NaN, lastPrice = NaN, tradeCount = 0, volWindow = [];
+let price = NaN, lastPrice = NaN, tradeCount = 0, volWindow = [], priceAnchor = NaN;
 let ws = null, wsLiq = null, live = false, retries = 0, connectGuard = null;
 let dummyMode = false, dummyTimer = null, dummyBase = 65000;
 
 function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
+  if (!isFinite(priceAnchor)) priceAnchor = p;
   const usd = p*qty;
   tradeCount++;
   volWindow.push({ t:performance.now(), usd });
   flow.push({ t:performance.now(), usd, buy:isBuy });
   priceEl.textContent = p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 });
-  priceEl.className = p>=lastPrice ? 'up':'down';
+  const dir = p>=lastPrice ? 'up':'down';
+  priceEl.className = dir;
+  const pct = priceAnchor>0 ? (p-priceAnchor)/priceAnchor*100 : 0;
+  cpPctEl.textContent = (pct>=0?'▲ ':'▼ ')+Math.abs(pct).toFixed(2)+'%';
+  cpPctEl.className = pct>=0 ? 'up':'down';
 
   const side = isBuy ? 'buy' : 'sell';
   const defender = isBuy ? sellCrowd : buyCrowd;
@@ -567,8 +641,10 @@ function setBadge(state){
 function resetStats(){
   flow.length = 0; volWindow.length = 0; tape.length = 0;
   tapeEl.innerHTML = '';
-  price = lastPrice = NaN;
+  price = lastPrice = NaN; priceAnchor = NaN;
   priceEl.textContent = '—'; priceEl.className = '';
+  cpPctEl.textContent = '0.00%'; cpPctEl.className = '';
+  cpStatusEl.textContent = ''; cpStatusEl.className = '';
   resetCrowd(buyCrowd); resetCrowd(sellCrowd);
 }
 
@@ -677,7 +753,7 @@ setInterval(()=>{
 
 /* ═══════════ CAMERA — statis & sederhana, seluruh lapangan langsung terlihat ═══════════ */
 let camMode = 0;
-const orbit = { theta:0, phi:.92, radius:480, target:new THREE.Vector3(0,10,0) };
+const orbit = { theta:.22, phi:.4, radius:540, target:new THREE.Vector3(0,10,0) };
 const followPos = new THREE.Vector3(0,10,0);
 const keys = {};
 function setCamMode(m){
@@ -734,6 +810,16 @@ function tick(){
     reviveSoldier(Math.random()<.5 ? buyCrowd : sellCrowd);
   }
 
+  for (let i=skulls.length-1;i>=0;i--){
+    const s = skulls[i];
+    s.t += dt/s.dur;
+    if (s.t>=1){ scene.remove(s.spr); s.spr.material.dispose(); skulls.splice(i,1); continue; }
+    const e = s.t<.25 ? s.t/.25 : 1;
+    s.spr.scale.set(e*4.6, e*4.6, 1);
+    s.spr.position.y = 5 + s.t*7;
+    s.spr.material.opacity = s.t<.6 ? 1 : 1-(s.t-.6)/.4;
+  }
+
   for (let i=units.length-1;i>=0;i--){
     const u = units[i];
     u.t += dt/u.dur;
@@ -778,9 +864,9 @@ function tick(){
   }
 
   if (camMode===0){
-    orbit.theta = Math.sin(t*.05)*.14;
-    orbit.phi = .92 + Math.sin(t*.08)*.03;
-    orbit.radius += (480-orbit.radius)*dt*.6;
+    orbit.theta = .22 + Math.sin(t*.05)*.12;
+    orbit.phi = .4 + Math.sin(t*.08)*.03;
+    orbit.radius += (540-orbit.radius)*dt*.6;
     orbit.target.lerp(new THREE.Vector3(0,10,0), dt);
   } else if (camMode===1){
     followPos.lerp(lastImpact, dt*2.2);
