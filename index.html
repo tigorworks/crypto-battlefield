@@ -87,6 +87,13 @@
   #fx-layer{position:fixed;inset:0;pointer-events:none;z-index:11;overflow:hidden}
   .fnum{position:absolute;transform:translate(-50%,-50%);font-family:var(--rounded);font-weight:800;font-size:15px;opacity:1;transition:transform .9s ease-out,opacity .9s ease-out;text-shadow:0 2px 8px rgba(0,0,0,.65);will-change:transform,opacity}
   .fnum.up{color:var(--long)} .fnum.dn{color:var(--short)}
+  .fnum.cheer{font-size:26px;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #unit-tip{position:fixed;z-index:12;pointer-events:none;background:rgba(10,16,12,.82);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-family:var(--rounded);font-size:11px;line-height:1.5;display:none;flex-direction:column;gap:1px;backdrop-filter:blur(6px);box-shadow:0 8px 22px rgba(0,0,0,.42)}
+  #unit-tip.show{display:flex}
+  #unit-tip b{font-size:11px;letter-spacing:.05em}
+  #unit-tip b.buy{color:var(--long)} #unit-tip b.sell{color:var(--short)}
+  #unit-tip span{color:var(--ink);opacity:.92;font-variant-numeric:tabular-nums}
+  #unit-tip .tt{opacity:.5;font-size:10px}
   #streak{position:fixed;top:calc(14% + 118px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
   #streak.show{opacity:1;transform:translateX(-50%) scale(1);animation:streakPulse .5s ease-out}
   #streak.buy{color:var(--long)} #streak.sell{color:var(--short)}
@@ -110,6 +117,7 @@
 <div id="flash"></div>
 <div id="fx-layer"></div>
 <div id="streak"></div>
+<div id="unit-tip"></div>
 
 <div class="hud" id="feed-badge">
   <span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span>
@@ -402,6 +410,10 @@ function updateCrowd(crowd, dt, t){
       sc = 1;
     }
 
+    // jangan biarkan prajurit melewati garis depan ke wilayah lawan
+    if (crowd.sign < 0) x = Math.min(x, frontX - 16);
+    else                x = Math.max(x, frontX + 16);
+
     if (sc <= .002 && !s.active && !s.dying) sscl.set(.0001,.0001,.0001);
     else sscl.set(sc, sc, sc);
     sq.copy(crowd.q);
@@ -680,7 +692,16 @@ function initAudio(){
 
 /* musik ambient generatif: drone lembut + pad berganti akor */
 const CHORDS = [ [55,82.4,110,164.8], [49,73.4,98,146.8], [58.3,87.3,116.5,174.6], [43.7,65.4,87.3,130.8] ];
-let chordIdx = 0, chordTimer = null;
+const MELODY = [0,2,1,3,2,1,3,2];   // pola arpeggio melintasi nada akor
+let chordIdx = 0, chordTimer = null, seqTimer = null, seqStep = 0;
+function playPluck(freq, when, level, dur){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'triangle'; o.frequency.value = freq;
+  g.gain.setValueAtTime(.0001, when);
+  g.gain.exponentialRampToValueAtTime(level, when+.02);
+  g.gain.exponentialRampToValueAtTime(.0001, when+dur);
+  o.connect(g).connect(musicG); o.start(when); o.stop(when+dur+.05);
+}
 function startMusic(){
   const lp = AC.createBiquadFilter();
   lp.type='lowpass'; lp.frequency.value=420; lp.Q.value=.7;
@@ -712,6 +733,18 @@ function startMusic(){
     const t = AC.currentTime;
     musicNodes.forEach((n,i)=> n.o.frequency.exponentialRampToValueAtTime(CHORDS[chordIdx][i], t+4));
   }, 9000);
+
+  // arpeggio melodi lembut + nada bas — bikin terasa seperti musik latar
+  seqTimer = setInterval(()=>{
+    if (!audioOn || !AC) return;
+    const now = AC.currentTime + .06;
+    const chord = CHORDS[chordIdx];
+    const idx = MELODY[seqStep % MELODY.length] % chord.length;
+    playPluck(chord[idx]*4, now, .05, .55);              // melodi (dua oktaf di atas)
+    if (seqStep % 2 === 0) playPluck(chord[idx]*8, now+.14, .022, .3); // gema tipis
+    if (seqStep % 4 === 0) playPluck(chord[0], now, .06, .7);          // bas akar
+    seqStep++;
+  }, 300);
 }
 audioBtn.onclick = ()=>{
   if (!AC){ initAudio(); audioOn = true; }
@@ -793,6 +826,18 @@ function playVolley(tier){
     src.connect(f).connect(g).connect(sfxG); src.start(t);
   }
 }
+function playCheer(){
+  if (!audioOn || !AC) return;
+  const t = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type='triangle';
+  o.frequency.setValueAtTime(520, t);
+  o.frequency.exponentialRampToValueAtTime(880, t+.14);
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(.12, t+.03);
+  g.gain.exponentialRampToValueAtTime(.0001, t+.3);
+  o.connect(g).connect(sfxG); o.start(t); o.stop(t+.32);
+}
 
 /* ═══════════ DATA FEED — REAL (Binance) atau DUMMY (simulasi lokal) ═══════════ */
 const priceEl = document.getElementById('cp-value');
@@ -801,19 +846,21 @@ const badgeEl = document.getElementById('feed-badge');
 const badgeTextEl = document.getElementById('feed-text');
 const retryBtn = document.getElementById('retry');
 
-let price = NaN, lastPrice = NaN, priceAnchor = NaN;
-let ws = null, wsLiq = null, live = false, retries = 0, connectGuard = null;
+let price = NaN, lastPrice = NaN, pct24 = 0;
+let ws = null, wsLiq = null, wsTicker = null, live = false, retries = 0, connectGuard = null;
+
+/* persentase perubahan 24 jam dari ticker Binance (bukan sejak halaman dibuka) */
+function updatePct(){
+  cpPctEl.textContent = (pct24>=0?'▲ ':'▼ ')+Math.abs(pct24).toFixed(2)+'%';
+  cpPctEl.className = pct24>=0 ? 'up':'down';
+}
 
 function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
-  if (!isFinite(priceAnchor)) priceAnchor = p;
   const usd = p*qty;
   flow.push({ t:performance.now(), usd, buy:isBuy });
   priceEl.textContent = '$'+p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 });
-  priceEl.className = p>=lastPrice ? 'up':'down';
-  const pct = priceAnchor>0 ? (p-priceAnchor)/priceAnchor*100 : 0;
-  cpPctEl.textContent = (pct>=0?'▲ ':'▼ ')+Math.abs(pct).toFixed(2)+'%';
-  cpPctEl.className = pct>=0 ? 'up':'down';
+  priceEl.className = pct24>=0 ? 'up':'down';
 
   const side = isBuy ? 'buy' : 'sell';
   const defender = isBuy ? sellCrowd : buyCrowd;
@@ -857,6 +904,14 @@ function connect(){
   ws.onerror = ()=>{ clearTimeout(connectGuard); if(!live){ setBadge('dead'); autoRetry(); } };
   ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
 
+  /* ticker 24 jam — persentase naik/turun harga selama 24 jam terakhir */
+  try {
+    wsTicker = new WebSocket(`wss://stream.binance.com:9443/ws/${STREAM}@ticker`);
+    wsTicker.onmessage = (ev)=>{
+      try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); updatePct(); if (!isFinite(price)) priceEl.className = pct24>=0?'up':'down'; } catch(e){}
+    };
+  } catch(e){}
+
   /* futures forceOrder — likuidasi long/short sungguhan */
   try {
     wsLiq = new WebSocket(`wss://fstream.binance.com/ws/${STREAM}@forceOrder`);
@@ -879,10 +934,10 @@ function connect(){
 function disconnect(){
   live = false;
   if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
-  for (const s of [ws, wsLiq]){
+  for (const s of [ws, wsLiq, wsTicker]){
     if (s){ s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
   }
-  ws = wsLiq = null;
+  ws = wsLiq = wsTicker = null;
 }
 function autoRetry(){
   if (retries >= 5) return;
@@ -912,14 +967,24 @@ addEventListener('keydown', e=>{
 });
 addEventListener('keyup', e=> keys[e.key.toLowerCase()]=false);
 
-let dragging=false, lx=0, ly=0, pinchD=0;
+let dragging=false, lx=0, ly=0, pinchD=0, downX=0, downY=0, downT=0, moved=false;
 const cv = renderer.domElement;
-cv.addEventListener('pointerdown', e=>{ dragging=true; lx=e.clientX; ly=e.clientY; if(camMode!==2) setCamMode(2); });
-addEventListener('pointerup', ()=>dragging=false);
+cv.addEventListener('pointerdown', e=>{
+  dragging=true; lx=e.clientX; ly=e.clientY;
+  downX=e.clientX; downY=e.clientY; downT=performance.now(); moved=false;
+});
+addEventListener('pointerup', e=>{
+  dragging=false;
+  if (!moved && performance.now()-downT < 400) onTap(e);   // ketukan (bukan geser)
+});
 addEventListener('pointermove', e=>{
-  if(!dragging) return;
-  orbit.theta -= (e.clientX-lx)*.005;
-  orbit.phi = Math.min(1.35, Math.max(.2, orbit.phi + (e.clientY-ly)*.004));
+  if (!dragging){ hoverUnit(e); return; }
+  const dx=e.clientX-lx, dy=e.clientY-ly;
+  if (!moved && Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY) > 6){ moved=true; if(camMode!==2) setCamMode(2); }
+  if (moved){
+    orbit.theta -= dx*.005;
+    orbit.phi = Math.min(1.35, Math.max(.2, orbit.phi + dy*.004));
+  }
   lx=e.clientX; ly=e.clientY;
 });
 cv.addEventListener('wheel', e=>{
@@ -936,6 +1001,57 @@ cv.addEventListener('touchmove', e=>{
   }
 }, { passive:true });
 cv.addEventListener('touchend', ()=>pinchD=0);
+
+/* ═══════════ INTERAKSI — periksa unit paus & sorak di lapangan ═══════════ */
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+const _hitPt = new THREE.Vector3();
+const tip = document.getElementById('unit-tip');
+let pinnedT = 0;
+
+function setRay(e){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; raycaster.setFromCamera(ndc, camera); }
+function pickUnit(e){
+  if (!bigUnitObjs.length) return null;
+  setRay(e);
+  const hits = raycaster.intersectObjects(bigUnitObjs, true);
+  if (!hits.length) return null;
+  let o = hits[0].object;
+  while (o && !(o.userData && o.userData.pick)) o = o.parent;
+  return o;
+}
+function showTip(u, x, y){
+  const d = u.userData;
+  tip.innerHTML =
+    `<b class="${d.side}">${d.side==='buy'?'BELI':'JUAL'} PAUS 🐋</b>` +
+    `<span>${fmtUsd(d.usd)}</span>` +
+    `<span>@ $${d.price.toLocaleString('en-US',{ maximumFractionDigits:2 })}</span>` +
+    `<span class="tt">${new Date(d.ts).toLocaleTimeString('id-ID')}</span>`;
+  tip.style.left = Math.min(innerWidth-150, x+14) + 'px';
+  tip.style.top  = Math.max(8, y-8) + 'px';
+  tip.classList.add('show');
+}
+function hideTip(){ tip.classList.remove('show'); }
+function hoverUnit(e){
+  const u = pickUnit(e);
+  if (u){ showTip(u, e.clientX, e.clientY); cv.style.cursor='pointer'; }
+  else { cv.style.cursor=''; if (performance.now() > pinnedT) hideTip(); }
+}
+const CHEERS = ['🎉','🔥','📣','💚','⚔️','🚀','🙌'];
+function spawnCheer(pos){
+  const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color:C_GOLD, transparent:true, opacity:.85, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
+  rm.rotation.x = -Math.PI/2; rm.position.copy(pos); rm.position.y = 1.5;
+  scene.add(rm);
+  rings.push({ rm, t:0, dur:.7, max:16 });
+  floatNum(pos, CHEERS[Math.floor(Math.random()*CHEERS.length)], 'cheer');
+  playCheer();
+}
+function onTap(e){
+  const u = pickUnit(e);
+  if (u){ showTip(u, e.clientX, e.clientY); pinnedT = performance.now()+1800; return; }
+  setRay(e);
+  if (raycaster.ray.intersectPlane(groundPlane, _hitPt)) spawnCheer(_hitPt);
+}
 
 /* ═══════════ MAIN LOOP ═══════════ */
 const clock = new THREE.Clock();
