@@ -130,7 +130,11 @@
 
   #online-pill{display:inline-flex;align-items:center;margin-left:8px;padding:3px 9px 3px 8px;border-radius:999px;background:rgba(45,214,165,.16);border:1px solid rgba(45,214,165,.4);color:var(--long);font-weight:800;font-size:10px;letter-spacing:.04em}
 
-  #chat-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:calc(max(16px,env(safe-area-inset-right) + 12px) + 92px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
+  #widgets-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:calc(max(16px,env(safe-area-inset-right) + 12px) + 92px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
+  #widgets-btn:hover,#widgets-btn.active{color:var(--long);border-color:rgba(45,214,165,.5)}
+  #widgets-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  #chat-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:calc(max(16px,env(safe-area-inset-right) + 12px) + 138px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
   #chat-btn:hover,#chat-btn.active{color:var(--long);border-color:rgba(45,214,165,.5)}
   #chat-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #chat-btn .badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--short);color:#fff;font-size:9px;font-weight:800;line-height:16px;font-family:var(--rounded);display:none}
@@ -274,15 +278,19 @@
   <span id="online-pill" title="Sedang menonton"><span id="online-count">—</span></span>
 </div>
 
+<button class="hud" id="chat-btn" title="Obrolan" aria-label="Obrolan">
+  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 5h16v11H9l-4 4V5z"/><path d="M8 9.5h8M8 12.5h5"/></svg>
+  <span class="badge" id="chat-badge">0</span>
+</button>
+
+<button class="hud active" id="widgets-btn" title="Sembunyikan widget" aria-label="Sembunyikan widget">
+  <svg viewBox="0 0 24 24" width="17" height="17"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+</button>
+
 <button class="hud" id="lang-btn" title="Switch language" aria-label="Switch language">EN</button>
 
 <button class="hud" id="fs-btn" title="Layar penuh" aria-label="Layar penuh">
   <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
-</button>
-
-<button class="hud" id="chat-btn" title="Obrolan" aria-label="Obrolan">
-  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 5h16v11H9l-4 4V5z"/><path d="M8 9.5h8M8 12.5h5"/></svg>
-  <span class="badge" id="chat-badge">0</span>
 </button>
 
 <div class="hud panel" id="chat-panel">
@@ -1497,6 +1505,19 @@ function syncFsIcon(){
 addEventListener('fullscreenchange', syncFsIcon);
 addEventListener('webkitfullscreenchange', syncFsIcon);
 
+/* ═══════════ TOGGLE WIDGET — kontrol, tekanan pasar & killfeed jadi satu tombol; aktif (tampil) tiap kali halaman dimuat ═══════════ */
+const widgetsBtn = document.getElementById('widgets-btn');
+const WIDGET_PANELS = ['controls','pressure','killfeed'].map(id => document.getElementById(id));
+let widgetsOn = true;
+function syncWidgetsBtn(){
+  widgetsBtn.classList.toggle('active', widgetsOn);
+  const L = I18N[lang];
+  widgetsBtn.title = widgetsOn ? L.widgetsHide : L.widgetsShow;
+  widgetsBtn.setAttribute('aria-label', widgetsBtn.title);
+  WIDGET_PANELS.forEach(el => { if (el) el.style.display = widgetsOn ? '' : 'none'; });
+}
+widgetsBtn.onclick = () => { widgetsOn = !widgetsOn; syncWidgetsBtn(); };
+
 /* ═══════════ WAKE LOCK — layar tak tidur/terkunci selama tab ini aktif ═══════════ */
 let wakeLock = null;
 async function requestWakeLock(){
@@ -1980,6 +2001,7 @@ const I18N = {
   en: {
     connecting:'CONNECTING…', live:'LIVE', dead:'DISCONNECTED', retry:'RECONNECT',
     fsEnter:'Fullscreen', fsExit:'Exit fullscreen',
+    widgetsShow:'Show widgets', widgetsHide:'Hide widgets',
     pressureLabel:'MARKET PRESSURE · 60s ·', long:'BUY', short:'SELL',
     ordersLong:'buy orders', ordersShort:'sell orders',
     camCinematic:'CINEMATIC', camFollow:'FOLLOW', camFree:'FREE', camAction:'ACTION',
@@ -2001,6 +2023,7 @@ const I18N = {
   id: {
     connecting:'MENYAMBUNG…', live:'LANGSUNG', dead:'TERPUTUS', retry:'SAMBUNG ULANG',
     fsEnter:'Layar penuh', fsExit:'Keluar layar penuh',
+    widgetsShow:'Tampilkan widget', widgetsHide:'Sembunyikan widget',
     pressureLabel:'TEKANAN PASAR · 60 DETIK ·', long:'BELI', short:'JUAL',
     ordersLong:'order beli', ordersShort:'order jual',
     camCinematic:'SINEMATIK', camFollow:'IKUTI', camFree:'BEBAS', camAction:'AKSI',
@@ -2031,6 +2054,7 @@ function applyLanguage(){
   retryBtn.textContent = L.retry;
   setBadge(feedState);
   fsBtn.title = fsElement() ? L.fsExit : L.fsEnter;
+  syncWidgetsBtn();
   document.getElementById('pp-head-label').textContent = L.pressureLabel;
   document.getElementById('pp-long-word').textContent = L.long;
   document.getElementById('pp-short-word').textContent = L.short;
