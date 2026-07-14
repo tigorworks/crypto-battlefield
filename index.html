@@ -133,7 +133,7 @@
   #chat-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:calc(max(16px,env(safe-area-inset-right) + 12px) + 92px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
   #chat-btn:hover,#chat-btn.active{color:var(--long);border-color:rgba(45,214,165,.5)}
   #chat-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  #chat-btn .badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--short);color:#fff;font-size:9px;font-weight:800;line-height:16px;font-family:var(--rounded);display:none;box-shadow:0 0 0 2px var(--bg-1)}
+  #chat-btn .badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--short);color:#fff;font-size:9px;font-weight:800;line-height:16px;font-family:var(--rounded);display:none}
   #chat-btn .badge.show{display:block}
 
   #chat-panel{top:calc(max(16px,env(safe-area-inset-top) + 12px) + 50px);right:max(16px,env(safe-area-inset-right) + 12px);width:340px;max-height:min(640px,calc(100vh - 110px));display:none;flex-direction:column;overflow:hidden;z-index:15}
@@ -148,11 +148,14 @@
   #chat-msgs .cm{align-self:flex-start;max-width:86%;padding:7px 11px;border-radius:14px 14px 14px 3px;background:rgba(255,255,255,.055);line-height:1.45;word-wrap:break-word}
   #chat-msgs .cm.me{align-self:flex-end;background:rgba(45,214,165,.14);border-radius:14px 14px 3px 14px}
   #chat-msgs .cm .cn{font-weight:700;color:var(--long)}
+  #chat-msgs .cm .cx{color:var(--ink)}
   #chat-msgs .cm.me .cn{color:var(--gold)}
   #chat-msgs .cm .ct{margin-left:6px;font-size:9px;color:var(--muted);font-weight:500;letter-spacing:.02em}
   #chat-empty{color:var(--muted);font-size:11px;text-align:center;margin:auto;line-height:1.6}
-  #chat-form{display:flex;align-items:center;gap:7px;padding:11px;border-top:1px solid var(--line);flex:none}
-  #chat-name{width:70px;flex:none;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:18px;color:var(--ink);font-size:11px;padding:9px 11px;font-family:var(--rounded)}
+  #chat-namerow{display:flex;align-items:center;gap:7px;padding:10px 13px 0;flex:none;color:var(--muted);border-top:1px solid var(--line)}
+  #chat-namerow svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  #chat-form{display:flex;align-items:center;gap:7px;padding:8px 11px 11px;flex:none}
+  #chat-name{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:11.5px;padding:7px 10px;font-family:var(--rounded)}
   #chat-text{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:18px;color:var(--ink);font-size:12px;padding:9px 13px;font-family:var(--rounded)}
   #chat-name:focus,#chat-text:focus{outline:none;border-color:rgba(45,214,165,.5)}
   #chat-send{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--long);border:none;color:#08281f;border-radius:50%;cursor:pointer;transition:transform .12s,background .12s}
@@ -289,8 +292,11 @@
   </div>
   <div id="chat-msgs"><div id="chat-empty">Belum ada obrolan. Mulai duluan!</div></div>
   <div id="emoji-picker"></div>
-  <form id="chat-form">
+  <div id="chat-namerow">
+    <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
     <input id="chat-name" maxlength="16" placeholder="Nama" autocomplete="off">
+  </div>
+  <form id="chat-form">
     <button type="button" id="chat-emoji-btn" aria-label="Emoji">
       <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.2 2 3.5 2 3.5-2 3.5-2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
     </button>
@@ -2279,7 +2285,7 @@ try {
     const row = document.createElement('div');
     row.className = 'cm' + (m.name === chatName.value ? ' me' : '');
     const nameSpan = document.createElement('span'); nameSpan.className = 'cn'; nameSpan.textContent = m.name + ': ';
-    const textSpan = document.createElement('span'); textSpan.textContent = m.text;   // textContent — jangan innerHTML (cegah XSS)
+    const textSpan = document.createElement('span'); textSpan.className = 'cx'; textSpan.textContent = m.text;   // textContent — jangan innerHTML (cegah XSS)
     row.append(nameSpan, textSpan);
     if (m.ts){
       const timeSpan = document.createElement('span'); timeSpan.className = 'ct';
@@ -2294,12 +2300,22 @@ try {
 
   chatForm.onsubmit = (e) => {
     e.preventDefault();
-    const name = chatName.value.trim().slice(0,16) || CHAT_I18N[chatLang].guestPrefix;
+    let name = chatName.value.trim().slice(0,16);
+    if (!name){   // nama kosong → buatkan nama tamu dulu & tampilkan di kolomnya sebelum terkirim
+      name = CHAT_I18N[chatLang].guestPrefix + Math.floor(Math.random()*9000+1000);
+      chatName.value = name;
+    }
     const text = chatText.value.trim().slice(0,200);
     if (!text) return;
     localStorage.setItem('bf-chat-name', name);
-    push(ref(db, 'chat'), { name, text, ts: serverTimestamp() });
-    chatText.value = '';
+    const sentText = chatText.value;
+    push(ref(db, 'chat'), { name, text, ts: serverTimestamp() })
+      .then(() => { chatText.value = ''; })   // baru dikosongkan kalau memang berhasil terkirim
+      .catch((err) => {
+        console.error('gagal kirim pesan chat (cek Firebase Realtime Database Rules):', err);
+        chatText.value = sentText;
+        chatText.placeholder = chatLang==='id' ? 'Gagal terkirim — cek Rules Firebase' : 'Failed to send — check Firebase Rules';
+      });
   };
 } catch (e) {
   console.warn('online/chat (Firebase) gagal dimuat:', e);
