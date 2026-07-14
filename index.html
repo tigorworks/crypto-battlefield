@@ -67,9 +67,6 @@
   #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.5),0 0 34px rgba(255,101,132,.5),0 12px 30px rgba(0,0,0,.5)}
   #cp-sub{font-size:14px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
   #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
-  #cp-range{margin-top:6px;font-size:12px;font-weight:800;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 1px 3px rgba(0,0,0,.92),0 2px 10px rgba(0,0,0,.6);display:inline-flex;align-items:center;gap:9px}
-  #cp-range .cr-tag{font-size:9px;font-weight:800;letter-spacing:.14em;color:rgba(255,255,255,.92);padding:2px 5px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.2);border-radius:5px;font-family:var(--rounded);text-shadow:none}
-  #cp-high{color:var(--long)} #cp-low{color:var(--short)}
   /* ── bawah tengah: tekanan pasar (panjang vs pendek), widget sendiri ── */
   #pressure{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:320px;max-width:calc(100vw - 32px);padding:11px 15px;text-align:center}
   #pp-head{font-size:9px;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-bottom:8px;font-family:var(--rounded);white-space:nowrap}
@@ -146,7 +143,7 @@
   #lock-badge.buy{color:var(--long);border-color:rgba(45,214,165,.5)}
   #lock-badge.sell{color:var(--short);border-color:rgba(255,101,132,.5)}
   #lock-badge .lx{opacity:.55;font-weight:700;font-size:12px;line-height:1}
-  #streak{position:fixed;top:calc(14% + 150px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
+  #streak{position:fixed;top:calc(14% + 118px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
   #streak.show{opacity:1;transform:translateX(-50%) scale(1);animation:streakPulse .5s ease-out}
   #streak.buy{color:var(--long)} #streak.sell{color:var(--short)}
   @keyframes streakPulse{0%{transform:translateX(-50%) scale(1.45)}100%{transform:translateX(-50%) scale(1)}}
@@ -240,7 +237,6 @@
 <div class="hud" id="center-price">
   <div id="cp-value">—</div>
   <div id="cp-sub">BTC / USDT <span id="cp-pct">0.00%</span></div>
-  <div id="cp-range"><span class="cr-tag">24H</span> <span id="cp-high">↑ —</span> <span id="cp-low">↓ —</span></div>
 </div>
 
 <div class="hud panel" id="pressure">
@@ -1184,21 +1180,13 @@ const badgeEl = document.getElementById('feed-badge');
 const badgeTextEl = document.getElementById('feed-text');
 const retryBtn = document.getElementById('retry');
 
-let price = NaN, lastPrice = NaN, pct24 = 0, high24 = NaN, low24 = NaN;
+let price = NaN, lastPrice = NaN, pct24 = 0;
 let ws = null, wsLiq = null, wsTicker = null, live = false, retries = 0, connectGuard = null;
 
 /* persentase perubahan 24 jam dari ticker Binance (bukan sejak halaman dibuka) */
 function updatePct(){
   cpPctEl.textContent = (pct24>=0?'▲ ':'▼ ')+Math.abs(pct24).toFixed(2)+'%';
   cpPctEl.className = pct24>=0 ? 'up':'down';
-}
-
-/* tertinggi & terendah 24 jam dari ticker bursa */
-const cpHighEl = document.getElementById('cp-high');
-const cpLowEl  = document.getElementById('cp-low');
-function updateRange(){
-  if (!isNaN(high24)) cpHighEl.textContent = '↑ '+fmtPrice(high24);
-  if (!isNaN(low24))  cpLowEl.textContent  = '↓ '+fmtPrice(low24);
 }
 
 function onTrade(p, qty, isBuy){
@@ -1264,7 +1252,7 @@ function connectBinanceVision(){
   ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
 
   wsTicker = new WebSocket(`wss://data-stream.binance.vision/ws/${STREAM}@ticker`);
-  wsTicker.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); high24 = parseFloat(d.h); low24 = parseFloat(d.l); updatePct(); updateRange(); } catch(e){} };
+  wsTicker.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); updatePct(); } catch(e){} };
 
   /* likuidasi futures — fstream sering diblokir; dicoba saja, diabaikan bila gagal */
   try {
@@ -1306,9 +1294,7 @@ function connectGate(){
         const r = d.result;
         onTrade(parseFloat(r.price), parseFloat(r.amount), r.side === 'buy'); /* side = sisi taker */
       } else if (d.channel === 'spot.tickers'){
-        pct24 = parseFloat(d.result.change_percentage);
-        high24 = parseFloat(d.result.high_24h); low24 = parseFloat(d.result.low_24h);
-        updatePct(); updateRange();
+        pct24 = parseFloat(d.result.change_percentage); updatePct();
       }
     } catch(e){}
   };
