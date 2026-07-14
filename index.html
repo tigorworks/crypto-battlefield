@@ -2151,8 +2151,8 @@ tick();
    fitur ini diam-diam nonaktif tanpa mengganggu battlefield-nya sendiri. */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
 import {
-  getDatabase, ref, set, remove, onValue, onChildAdded, onDisconnect,
-  push, serverTimestamp, query, limitToLast,
+  getDatabase, ref, set, remove, onValue, onChildAdded, onChildRemoved, onDisconnect,
+  push, serverTimestamp, query, limitToLast, get, orderByChild, endAt, update,
 } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js';
 
 const firebaseConfig = {
@@ -2278,12 +2278,14 @@ try {
   };
 
   let firstLoad = true;
-  onChildAdded(query(ref(db, 'chat'), limitToLast(50)), (snap) => {
+  const chatQuery = query(ref(db, 'chat'), limitToLast(50));   // batas tampil 50 pesan terakhir — tetap berlaku terlepas dari cleanup di bawah
+  onChildAdded(chatQuery, (snap) => {
     const m = snap.val();
     if (!m || typeof m.name !== 'string' || typeof m.text !== 'string') return;
     if (chatEmpty){ chatEmpty.remove(); chatEmpty = null; }
     const row = document.createElement('div');
     row.className = 'cm' + (m.name === chatName.value ? ' me' : '');
+    row.dataset.key = snap.key;
     const nameSpan = document.createElement('span'); nameSpan.className = 'cn'; nameSpan.textContent = m.name + ': ';
     const textSpan = document.createElement('span'); textSpan.className = 'cx'; textSpan.textContent = m.text;   // textContent — jangan innerHTML (cegah XSS)
     row.append(nameSpan, textSpan);
@@ -2296,7 +2298,33 @@ try {
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
     if (!firstLoad && !chatOpen){ unread++; setBadge(); }
   });
+  onChildRemoved(chatQuery, (snap) => {   // ikut hilang dari tampilan semua orang saat cleanup 24 jam menghapusnya
+    const row = chatMsgs.querySelector(`[data-key="${snap.key}"]`);
+    if (row) row.remove();
+    if (!chatMsgs.querySelector('.cm') && !chatEmpty){
+      chatEmpty = document.createElement('div'); chatEmpty.id = 'chat-empty';
+      chatEmpty.textContent = CHAT_I18N[chatLang].emptyText;
+      chatMsgs.appendChild(chatEmpty);
+    }
+  });
   setTimeout(() => { firstLoad = false; }, 1500);   // beri waktu batch pesan lama masuk dulu sebelum dihitung "unread"
+
+  /* ── bersihkan pesan lebih tua dari 24 jam — RTDB tidak punya TTL bawaan, jadi disapu dari
+     client tiap kali app dibuka (+ diulang tiap 30 menit selama tab tetap terbuka). Ini murni
+     soal retensi data (privasi/kebersihan); tampilan tetap dibatasi limitToLast(50) di atas. */
+  const DAY_MS = 24*60*60*1000;
+  async function cleanupOldChat(){
+    try {
+      const cutoff = Date.now() - DAY_MS;
+      const oldSnap = await get(query(ref(db, 'chat'), orderByChild('ts'), endAt(cutoff)));
+      if (!oldSnap.exists()) return;
+      const updates = {};
+      oldSnap.forEach((child) => { updates[child.key] = null; });
+      await update(ref(db, 'chat'), updates);
+    } catch (e) { console.warn('gagal bersihkan pesan lama (cek Firebase Rules mengizinkan hapus):', e); }
+  }
+  cleanupOldChat();
+  setInterval(cleanupOldChat, 30*60*1000);
 
   chatForm.onsubmit = (e) => {
     e.preventDefault();
