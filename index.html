@@ -67,8 +67,8 @@
   #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.5),0 0 34px rgba(255,101,132,.5),0 12px 30px rgba(0,0,0,.5)}
   #cp-sub{font-size:14px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
   #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
-  #cp-range{margin-top:6px;font-size:12px;font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 2px 8px rgba(0,0,0,.6);display:inline-flex;align-items:center;gap:9px}
-  #cp-range .cr-tag{font-size:9px;font-weight:800;letter-spacing:.14em;color:#fff;opacity:.55;padding:2px 5px;border:1px solid var(--line);border-radius:5px;font-family:var(--rounded)}
+  #cp-range{margin-top:6px;font-size:12px;font-weight:800;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 1px 3px rgba(0,0,0,.92),0 2px 10px rgba(0,0,0,.6);display:inline-flex;align-items:center;gap:9px}
+  #cp-range .cr-tag{font-size:9px;font-weight:800;letter-spacing:.14em;color:rgba(255,255,255,.92);padding:2px 5px;background:rgba(0,0,0,.42);border:1px solid rgba(255,255,255,.2);border-radius:5px;font-family:var(--rounded);text-shadow:none}
   #cp-high{color:var(--long)} #cp-low{color:var(--short)}
   /* ── bawah tengah: tekanan pasar (panjang vs pendek), widget sendiri ── */
   #pressure{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:320px;max-width:calc(100vw - 32px);padding:11px 15px;text-align:center}
@@ -146,7 +146,7 @@
   #lock-badge.buy{color:var(--long);border-color:rgba(45,214,165,.5)}
   #lock-badge.sell{color:var(--short);border-color:rgba(255,101,132,.5)}
   #lock-badge .lx{opacity:.55;font-weight:700;font-size:12px;line-height:1}
-  #streak{position:fixed;top:calc(14% + 118px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
+  #streak{position:fixed;top:calc(14% + 150px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
   #streak.show{opacity:1;transform:translateX(-50%) scale(1);animation:streakPulse .5s ease-out}
   #streak.buy{color:var(--long)} #streak.sell{color:var(--short)}
   @keyframes streakPulse{0%{transform:translateX(-50%) scale(1.45)}100%{transform:translateX(-50%) scale(1)}}
