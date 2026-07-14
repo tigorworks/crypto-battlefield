@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>BTC Battlefield — Live</title>
+<link rel="preload" href="three.min.js" as="script">
+<link rel="preload" href="land.jpg" as="image">
 <style>
   :root{
     --bg-1:#0a0c18;
@@ -23,6 +25,15 @@
   canvas{display:block}
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--rounded)}
+
+  /* ── layar muat awal: tampil segera, memberi umpan balik saat aset & mesin 3D dimuat ── */
+  #boot{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;background:linear-gradient(180deg,#0a0c18,#141a33);transition:opacity .55s ease;font-family:var(--rounded)}
+  #boot.gone{opacity:0;pointer-events:none}
+  #boot .bt{font-size:15px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+  #boot .bs{font-size:10px;letter-spacing:.2em;color:var(--muted);font-weight:700}
+  #boot .ring{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:var(--long);animation:bootspin .8s linear infinite}
+  @keyframes bootspin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){ #boot .ring{animation:none} }
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
 
@@ -123,26 +134,6 @@
   @keyframes streakPulse{0%{transform:translateX(-50%) scale(1.45)}100%{transform:translateX(-50%) scale(1)}}
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
-  /* ── TEBAK ARAH 60s: mini-game prediksi ── */
-  #predict{top:calc(max(16px,env(safe-area-inset-top) + 12px) + 48px);right:max(16px,env(safe-area-inset-right) + 12px);width:186px;max-width:calc(100vw - 32px);padding:10px 12px;text-align:center}
-  #predict h5{font-size:9px;letter-spacing:.16em;color:var(--muted);font-weight:700;margin-bottom:8px;font-family:var(--rounded)}
-  #pred-score{display:flex;justify-content:space-between;font-size:10px;font-variant-numeric:tabular-nums;margin-bottom:9px;color:var(--muted);letter-spacing:.03em}
-  #pred-score b{color:var(--ink);font-weight:800}
-  #pred-btns{display:flex;gap:6px}
-  .pbtn{flex:1;padding:9px 0;font-size:12px;font-weight:800;border-radius:9px;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.03);font-family:var(--rounded);letter-spacing:.05em;transition:border-color .15s,color .15s,background .15s}
-  .pbtn.up{color:var(--long)} .pbtn.up:hover{background:rgba(45,214,165,.14);border-color:rgba(45,214,165,.5)}
-  .pbtn.dn{color:var(--short)} .pbtn.dn:hover{background:rgba(255,101,132,.14);border-color:rgba(255,101,132,.5)}
-  .pbtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-  #pred-live{display:none;flex-direction:column;gap:3px}
-  #predict.armed #pred-btns,#predict.result #pred-btns{display:none}
-  #predict.armed #pred-live,#predict.result #pred-live{display:flex}
-  #pred-call{font-size:12px;font-weight:800;letter-spacing:.06em}
-  #pred-call.up{color:var(--long)} #pred-call.dn{color:var(--short)}
-  #pred-count{font-size:24px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.1}
-  #pred-delta{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-  #pred-result{font-size:15px;font-weight:800}
-  #pred-result.win{color:var(--long)} #pred-result.lose{color:var(--short)} #pred-result.push{color:var(--muted)}
-
   /* ── tombol bagikan momen di panel kontrol ── */
   #share-btn{margin-top:8px;width:100%;padding:7px 0;font-size:9.5px;letter-spacing:.09em}
 
@@ -162,9 +153,6 @@
   #moment-toast .btn{padding:5px 10px;font-size:9.5px}
 
   @media (max-width:760px){
-    #predict{width:150px;padding:8px 10px}
-    #predict h5{font-size:8px;margin-bottom:6px}
-    #pred-count{font-size:20px}
     #moment-toast{max-width:calc(100vw - 32px)}
     #killfeed{width:168px;padding:8px 9px}
     #killfeed h4{font-size:8px}
@@ -182,6 +170,11 @@
 </style>
 </head>
 <body>
+<div id="boot">
+  <div class="bt">BTC Battlefield</div>
+  <div class="ring"></div>
+  <div class="bs">LOADING…</div>
+</div>
 <div id="flash"></div>
 <div id="fx-layer"></div>
 <div id="streak"></div>
@@ -224,21 +217,6 @@
   <div id="kills"></div>
 </div>
 
-<div class="hud panel idle" id="predict">
-  <h5 id="pred-title">PREDICT · 60s</h5>
-  <div id="pred-score"><span id="pred-score-l"></span><span id="pred-streak-l"></span></div>
-  <div id="pred-btns">
-    <button class="pbtn up" id="pred-up">▲ UP</button>
-    <button class="pbtn dn" id="pred-down">▼ DOWN</button>
-  </div>
-  <div id="pred-live">
-    <div id="pred-call"></div>
-    <div id="pred-count"></div>
-    <div id="pred-delta"></div>
-    <div id="pred-result"></div>
-  </div>
-</div>
-
 <div class="hud panel" id="controls">
   <div id="cam-row">
     <button class="btn active" data-m="0">SINEMATIK</button>
@@ -277,7 +255,7 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="three.min.js"></script>
 <script>
 (() => {
 'use strict';
@@ -332,13 +310,17 @@ const groundMat = new THREE.MeshStandardMaterial({ color:0x4a5c30, roughness:1, 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000,4000), groundMat);
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
-new THREE.TextureLoader().load('land.png', (tex)=>{
+/* sembunyikan layar muat begitu lapangan siap; jaring pengaman agar tak pernah nyangkut */
+function bootHide(){ const b=document.getElementById('boot'); if(b && !b.classList.contains('gone')){ b.classList.add('gone'); setTimeout(()=>{ if(b.parentNode) b.remove(); }, 650); } }
+setTimeout(bootHide, 6000);
+new THREE.TextureLoader().load('land.jpg', (tex)=>{
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(GROUND_REPEAT, GROUND_REPEAT);
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   groundMat.color.set(0xffffff);   // biarkan warna asli foto, jangan ditimpa tint hijau
   groundMat.map = tex;
   groundMat.needsUpdate = true;
+  bootHide();
   try {
     // dibuka lewat file:// (bukan server lokal) membuat kanvas "tainted" — baca piksel gagal,
     // tapi foto tanahnya sendiri (di atas) sudah tampil, jadi peta normal ini cukup dilewati saja
@@ -350,7 +332,7 @@ new THREE.TextureLoader().load('land.png', (tex)=>{
     groundMat.normalMap = normalMap;
     groundMat.needsUpdate = true;
   } catch(e){}
-});
+}, undefined, bootHide);   // tekstur gagal → tetap lanjut (lapangan warna solid)
 
 function patchTexture(){
   const c = document.createElement('canvas'); c.width=c.height=256;
@@ -1138,8 +1120,7 @@ const badgeTextEl = document.getElementById('feed-text');
 const retryBtn = document.getElementById('retry');
 
 let price = NaN, lastPrice = NaN, pct24 = 0;
-let ws = null, wsLiq = null, wsTicker = null, wsDepth = null, live = false, retries = 0, connectGuard = null;
-let book = { bids:[], asks:[] };   // top-N order book (harga,qty) untuk tembok bid/ask
+let ws = null, wsLiq = null, wsTicker = null, live = false, retries = 0, connectGuard = null;
 
 /* persentase perubahan 24 jam dari ticker Binance (bukan sejak halaman dibuka) */
 function updatePct(){
@@ -1211,12 +1192,6 @@ function connectBinanceVision(){
   wsTicker = new WebSocket(`wss://data-stream.binance.vision/ws/${STREAM}@ticker`);
   wsTicker.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); updatePct(); } catch(e){} };
 
-  /* kedalaman order book (top 20) → tembok bid/ask */
-  wsDepth = new WebSocket(`wss://data-stream.binance.vision/ws/${STREAM}@depth20@100ms`);
-  wsDepth.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data);
-    if (d.bids && d.asks) book = { bids:d.bids.map(parseLevel), asks:d.asks.map(parseLevel) };
-  } catch(e){} };
-
   /* likuidasi futures — fstream sering diblokir; dicoba saja, diabaikan bila gagal */
   try {
     wsLiq = new WebSocket(`wss://fstream.binance.com/ws/${STREAM}@forceOrder`);
@@ -1246,7 +1221,6 @@ function connectGate(){
     try {
       ws.send(JSON.stringify({ time:t, channel:'spot.trades',  event:'subscribe', payload:['BTC_USDT'] }));
       ws.send(JSON.stringify({ time:t, channel:'spot.tickers', event:'subscribe', payload:['BTC_USDT'] }));
-      ws.send(JSON.stringify({ time:t, channel:'spot.order_book', event:'subscribe', payload:['BTC_USDT','20','100ms'] }));
     } catch(e){}
   };
   ws.onmessage = (ev)=>{
@@ -1259,9 +1233,6 @@ function connectGate(){
         onTrade(parseFloat(r.price), parseFloat(r.amount), r.side === 'buy'); /* side = sisi taker */
       } else if (d.channel === 'spot.tickers'){
         pct24 = parseFloat(d.result.change_percentage); updatePct();
-      } else if (d.channel === 'spot.order_book'){
-        const r = d.result;
-        if (r.bids && r.asks) book = { bids:r.bids.map(parseLevel), asks:r.asks.map(parseLevel) };
       }
     } catch(e){}
   };
@@ -1285,11 +1256,10 @@ function failover(){
 function disconnect(){
   live = false;
   if (connectGuard){ clearTimeout(connectGuard); connectGuard = null; }
-  for (const s of [ws, wsLiq, wsTicker, wsDepth]){
+  for (const s of [ws, wsLiq, wsTicker]){
     if (s){ s.onopen=null; s.onclose=null; s.onerror=null; s.onmessage=null; try{s.close();}catch(e){} }
   }
-  ws = wsLiq = wsTicker = wsDepth = null;
-  book = { bids:[], asks:[] };
+  ws = wsLiq = wsTicker = null;
 }
 function autoRetry(){
   if (retries >= 5) return;
@@ -1809,8 +1779,6 @@ function tick(){
     lockBadge.className = '';
   }
 
-  updateBook(dt);   // tembok bid/ask order book
-
   renderer.render(scene, camera);
 }
 
@@ -1838,8 +1806,6 @@ const I18N = {
     buyer:'BUYERS', seller:'SELLERS', streakSuffix:'× STREAK',
     whaleTag:'WHALE', liqTag:'LIQUIDATION',
     langBtnTitle:'Switch language',
-    predictTitle:'PREDICT · 60s', predScore:'SCORE', predStreak:'STREAK',
-    predUp:'▲ UP', predDown:'▼ DOWN', predYourCall:'Your call', predWin:'CORRECT', predLose:'MISS', predPush:'PUSH',
     shareBtn:'SHARE MOMENT', momentSave:'Save card', cardDownload:'Download', cardShare:'Share', cardClose:'Close',
     momentWhaleBuy:'WHALE BUY', momentWhaleSell:'WHALE SELL', momentLiq:'LIQUIDATION', momentSnap:'BATTLE SNAPSHOT',
     momentToastWhale:'Big whale spotted', momentToastLiq:'Big liquidation',
@@ -1860,8 +1826,6 @@ const I18N = {
     buyer:'PEMBELI', seller:'PENJUAL', streakSuffix:'× BERUNTUN',
     whaleTag:'PAUS', liqTag:'LIKUIDASI',
     langBtnTitle:'Ganti bahasa',
-    predictTitle:'TEBAK · 60d', predScore:'SKOR', predStreak:'BERUNTUN',
-    predUp:'▲ NAIK', predDown:'▼ TURUN', predYourCall:'Tebakanmu', predWin:'BENAR', predLose:'MELESET', predPush:'SERI',
     shareBtn:'BAGIKAN MOMEN', momentSave:'Simpan kartu', cardDownload:'Unduh', cardShare:'Bagikan', cardClose:'Tutup',
     momentWhaleBuy:'PAUS BELI', momentWhaleSell:'PAUS JUAL', momentLiq:'LIKUIDASI', momentSnap:'CUPLIKAN MEDAN',
     momentToastWhale:'Paus besar terdeteksi', momentToastLiq:'Likuidasi besar',
@@ -1893,104 +1857,12 @@ function applyLanguage(){
   musicLabelEl.textContent = L.musicLabel; musicLabelEl.title = L.muteTitle;
   sfxLabelEl.textContent = L.sfxLabel; sfxLabelEl.title = L.muteTitle;
   document.getElementById('share-btn').textContent = L.shareBtn;
-  updatePredUI();
 }
 langBtn.onclick = ()=>{
   lang = lang==='en' ? 'id' : 'en';
   try { localStorage.setItem('bf-lang', lang); } catch(e){}
   applyLanguage();
 };
-
-/* ═══════════════════════════════════════════════════════════
-   FITUR: TEMBOK ORDER BOOK — dua deret benteng bid/ask
-   dari kedalaman order book, di belakang pasukan
-   ═══════════════════════════════════════════════════════════ */
-function parseLevel(a){ return [parseFloat(a[0]), parseFloat(a[1])]; }
-const BOOK_N = 16;
-function makeWall(color, wx){
-  const geo = new THREE.BoxGeometry(12, 1, 20);
-  geo.translate(0, 0.5, 0);                       // pivot di dasar → skala y tumbuh ke atas
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.4, transparent:true, opacity:.8, fog:true });
-  const mesh = new THREE.InstancedMesh(geo, mat, BOOK_N);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.frustumCulled = false;
-  scene.add(mesh);
-  return { mesh, x:wx, h:new Float32Array(BOOK_N) };
-}
-const buyWall = makeWall(C_LONG, -330), sellWall = makeWall(C_SHORT, 330);
-const _wm = new THREE.Matrix4(), _wp = new THREE.Vector3(), _wsc = new THREE.Vector3(), _wq = new THREE.Quaternion();
-function fillWall(wall, levels, maxQ, dt){
-  const zSpan = 260, z0 = -zSpan/2, step = zSpan/(BOOK_N-1);
-  for (let i=0;i<BOOK_N;i++){
-    const q = levels[i] ? levels[i][1] : 0;
-    const target = q>0 ? 4 + (q/maxQ)*82 : 0.001;
-    wall.h[i] += (target - wall.h[i]) * Math.min(1, dt*4);
-    const hy = Math.max(0.001, wall.h[i]);
-    _wp.set(wall.x, 0, z0 + i*step); _wsc.set(1, hy, 1);
-    _wm.compose(_wp, _wq, _wsc);
-    wall.mesh.setMatrixAt(i, _wm);
-  }
-  wall.mesh.instanceMatrix.needsUpdate = true;
-}
-function updateBook(dt){
-  let maxQ = 0.0001;
-  for (let i=0;i<BOOK_N;i++){ if (book.bids[i]) maxQ = Math.max(maxQ, book.bids[i][1]); if (book.asks[i]) maxQ = Math.max(maxQ, book.asks[i][1]); }
-  fillWall(buyWall, book.bids, maxQ, dt);
-  fillWall(sellWall, book.asks, maxQ, dt);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   FITUR: TEBAK ARAH 60 DETIK — mini-game prediksi harga
-   ═══════════════════════════════════════════════════════════ */
-const predEl = document.getElementById('predict');
-const predUpBtn = document.getElementById('pred-up'), predDownBtn = document.getElementById('pred-down');
-const predScoreL = document.getElementById('pred-score-l'), predStreakL = document.getElementById('pred-streak-l');
-const predTitleEl = document.getElementById('pred-title');
-const predCallEl = document.getElementById('pred-call'), predCountEl = document.getElementById('pred-count'),
-      predDeltaEl = document.getElementById('pred-delta'), predResultEl = document.getElementById('pred-result');
-let predState='idle', predCall=null, predStartP=0, predDeadline=0, predScore=0, predStreak=0;
-try { predScore = parseInt(localStorage.getItem('bf-pred-score'),10) || 0; } catch(e){}
-function predSetState(s){ predState=s; predEl.className='hud panel '+s; }
-function predBegin(dir){
-  if (predState!=='idle' || !(price>0)) return;
-  predCall=dir; predStartP=price; predDeadline=performance.now()+60000;
-  predSetState('armed'); predCountEl.textContent='60s'; updatePredUI();
-}
-function predResolve(){
-  const L=I18N[lang];
-  let outcome = price>predStartP ? (predCall==='up'?'win':'lose')
-              : price<predStartP ? (predCall==='down'?'win':'lose') : 'push';
-  let gained=0;
-  if (outcome==='win'){ predStreak++; gained = 10 + (predStreak-1)*2; predScore += gained; }
-  else if (outcome==='lose'){ predStreak=0; }
-  try { localStorage.setItem('bf-pred-score', predScore); } catch(e){}
-  predCallEl.textContent=''; predCountEl.textContent=''; predDeltaEl.textContent='';   // sisakan hanya baris hasil
-  predResultEl.className = outcome;
-  predResultEl.textContent = (outcome==='win'?L.predWin:outcome==='lose'?L.predLose:L.predPush) + (gained?'  +'+gained:'');
-  predSetState('result'); updatePredUI();
-  setTimeout(()=>{ if(predState==='result'){ predSetState('idle'); updatePredUI(); } }, 3600);
-}
-function updatePredUI(){
-  const L=I18N[lang];
-  predTitleEl.textContent=L.predictTitle;
-  predUpBtn.textContent=L.predUp; predDownBtn.textContent=L.predDown;
-  predScoreL.innerHTML = L.predScore+' <b>'+predScore+'</b>';
-  predStreakL.innerHTML = L.predStreak+' <b>'+predStreak+'</b>';
-  if (predState==='armed'){
-    predCallEl.className = predCall==='up'?'up':'dn';
-    predCallEl.textContent = L.predYourCall+': '+(predCall==='up'?L.predUp:L.predDown);
-  }
-}
-predUpBtn.onclick=()=>predBegin('up'); predDownBtn.onclick=()=>predBegin('down');
-setInterval(()=>{
-  if (predState!=='armed') return;
-  const left = Math.ceil((predDeadline - performance.now())/1000);
-  if (left<=0){ predResolve(); return; }
-  predCountEl.textContent = left+'s';
-  const d = price - predStartP;
-  predDeltaEl.textContent = (isFinite(d) ? (d>=0?'+':'')+d.toFixed(1) : '—');
-  predDeltaEl.style.color = d>0?'var(--long)':d<0?'var(--short)':'var(--muted)';
-}, 250);
 
 /* ═══════════════════════════════════════════════════════════
    FITUR: KARTU MOMEN — tangkap & bagikan momen besar
