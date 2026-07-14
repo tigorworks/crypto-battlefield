@@ -886,15 +886,19 @@ function meterUpdate(){
   document.getElementById('pp-short-cnt').textContent = sc;
 }
 
-/* ═══════════ AUDIO — musik latar & efek suara, masing-masing slider volume sendiri ═══════════ */
-let AC=null, masterG, musicG, sfxG, musicNodes=[];
+/* ═══════════ AUDIO — musik latar (file loop) & efek suara (generatif), masing-masing slider volume sendiri ═══════════ */
+let AC=null, masterG, musicG, sfxG, musicSource=null;
 let musicOn = false, sfxOn = false;   // turunan dari volume > 0 — dipakai agar tak kerja sia-sia saat senyap
 const musicVolEl = document.getElementById('music-vol');
 const sfxVolEl = document.getElementById('sfx-vol');
 const musicLabelEl = document.getElementById('music-label');
 const sfxLabelEl = document.getElementById('sfx-label');
 let musicLastVol = 100, sfxLastVol = 100;   // volume terakhir sebelum dibisukan, untuk tombol mute
-const MUSIC_LEVEL = .3, SFX_LEVEL = .34;
+const MUSIC_LEVEL = .55, SFX_LEVEL = .85;
+let musicTargetGain = MUSIC_LEVEL;   // gain yang dituju musik (sebelum diredam sesaat oleh tembakan)
+const MUSIC_SRC = 'bgm.m4a';   // "Determined Pursuit" oleh Emma_MA (CC0, opengameart.org) — di-loop gapless
+const SFX_GUNSHOT_SRC = 'sfx_gunshot.mp3', SFX_CANNON_SRC = 'sfx_cannon.mp3';   // CC0, "Basic Sound Effects" oleh n4 (opengameart.org)
+let sfxBufGunshot=null, sfxBufCannon=null;
 
 function initAudio(){
   AC = new (window.AudioContext||window.webkitAudioContext)();
@@ -902,91 +906,31 @@ function initAudio(){
   musicG = AC.createGain(); musicG.gain.value = MUSIC_LEVEL; musicG.connect(masterG);
   sfxG = AC.createGain(); sfxG.gain.value = SFX_LEVEL; sfxG.connect(masterG);
   startMusic();
+  loadSfxBuffers();
 }
 
-/* ── musik latar generatif bertema "battlefield": genderang perang + bas menghentak +
-   motif kuningan (brass) epik dalam progresi minor Am – F – C – G ── */
-const BARS = [
-  { root:55.00, padA:110.00, padB:164.81, mel:[220.00, 261.63, 329.63] }, // Am
-  { root:43.65, padA: 87.31, padB:130.81, mel:[174.61, 220.00, 261.63] }, // F
-  { root:65.41, padA:130.81, padB:196.00, mel:[261.63, 329.63, 392.00] }, // C
-  { root:49.00, padA: 98.00, padB:146.83, mel:[196.00, 246.94, 293.66] }, // G
-];
-const STEP = 0.2;   // detik per langkah (16 langkah = 1 bar)
-let seqTimer = null, step16 = 0, bar = 0, nextStepTime = 0;
+/* efek tembakan: sampel rekaman asli (bukan noise sintetis) di-decode sekali lalu diputar berulang */
+async function loadSfxBuffers(){
+  try {
+    const [gRes, cRes] = await Promise.all([fetch(SFX_GUNSHOT_SRC), fetch(SFX_CANNON_SRC)]);
+    [sfxBufGunshot, sfxBufCannon] = await Promise.all([
+      AC.decodeAudioData(await gRes.arrayBuffer()),
+      AC.decodeAudioData(await cRes.arrayBuffer()),
+    ]);
+  } catch (e) { console.warn('sfx tembakan gagal dimuat:', e); }
+}
 
-function playKick(t, lvl){
-  const o = AC.createOscillator(), g = AC.createGain();
-  o.type='sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t+.12);
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.5*lvl, t+.008); g.gain.exponentialRampToValueAtTime(.0001, t+.3);
-  o.connect(g).connect(musicG); o.start(t); o.stop(t+.32);
-}
-function playSnare(t, lvl){
-  const dur=.2, buf=AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate), ch=buf.getChannelData(0);
-  for (let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/ch.length, 1.4);
-  const src=AC.createBufferSource(); src.buffer=buf;
-  const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1500;
-  const g=AC.createGain(); g.gain.value=.17*lvl;
-  src.connect(hp).connect(g).connect(musicG); src.start(t);
-  const o=AC.createOscillator(), og=AC.createGain();      // "crack" nada
-  o.type='triangle'; o.frequency.setValueAtTime(340, t); o.frequency.exponentialRampToValueAtTime(170, t+.1);
-  og.gain.setValueAtTime(.11*lvl, t); og.gain.exponentialRampToValueAtTime(.0001, t+.12);
-  o.connect(og).connect(musicG); o.start(t); o.stop(t+.14);
-}
-function playBass(freq, t, dur, lvl){
-  const o=AC.createOscillator(), g=AC.createGain(), f=AC.createBiquadFilter();
-  o.type='sawtooth'; o.frequency.value=freq;
-  f.type='lowpass'; f.frequency.value=300; f.Q.value=3;
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(lvl, t+.01); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
-  o.connect(f).connect(g).connect(musicG); o.start(t); o.stop(t+dur+.05);
-}
-function playBrass(freq, t, dur, lvl){
-  const o=AC.createOscillator(), o2=AC.createOscillator(), g=AC.createGain(), f=AC.createBiquadFilter();
-  o.type='sawtooth'; o2.type='sawtooth'; o.frequency.value=freq; o2.frequency.value=freq; o2.detune.value=9;
-  f.type='lowpass'; f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(2200, t+.09); f.Q.value=1;
-  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(lvl, t+.06);
-  g.gain.setValueAtTime(lvl, t+dur*.55); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
-  o.connect(f); o2.connect(f); f.connect(g).connect(musicG);
-  o.start(t); o2.start(t); o.stop(t+dur+.05); o2.stop(t+dur+.05);
-}
-function retunePad(b, t){
-  if (!musicNodes.length) return;
-  musicNodes[0].o.frequency.linearRampToValueAtTime(b.padA, t+.9);
-  musicNodes[1].o.frequency.linearRampToValueAtTime(b.padB, t+.9);
-}
-function scheduleStep(t){
-  const b = BARS[bar];
-  if (step16===0 || step16===4 || step16===8 || step16===12 || step16===14) playKick(t, step16%4===0?1:.6); // genderang
-  if (step16===4 || step16===12) playSnare(t, .9);                    // backbeat
-  if (bar===3 && step16>=13) playSnare(t, .55);                       // roll penutup bar
-  if (step16===0||step16===3||step16===6||step16===8||step16===11||step16===14) playBass(b.root, t, .17, .5); // bas menghentak
-  if (step16===0)  playBrass(b.mel[0], t, .5, .26);                   // motif kuningan
-  if (step16===6)  playBrass(b.mel[1], t, .45, .22);
-  if (step16===10) playBrass(b.mel[2], t, .5, .24);
-  if (step16===0)  retunePad(b, t);
-  if (++step16 >= 16){ step16 = 0; bar = (bar+1)%BARS.length; }
-}
-function startMusic(){
-  // pad drone minor (atmosfer), 2 osilator lewat lowpass ber-LFO lambat
-  const lp = AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=520; lp.Q.value=.6; lp.connect(musicG);
-  const lfo = AC.createOscillator(), lfoG = AC.createGain(); lfo.frequency.value=.05; lfoG.gain.value=180;
-  lfo.connect(lfoG).connect(lp.frequency); lfo.start();
-  musicNodes = [BARS[0].padA, BARS[0].padB].map((f,i)=>{
-    const o = AC.createOscillator(), g = AC.createGain();
-    o.type='sawtooth'; o.frequency.value=f; o.detune.value=(Math.random()-.5)*6;
-    g.gain.value = i===0 ? .05 : .038;
-    o.connect(g).connect(lp); o.start();
-    return { o, g };
-  });
-  step16 = 0; bar = 0; nextStepTime = AC.currentTime + .1;
-  seqTimer = setInterval(() => {              // penjadwal look-ahead agar ketukan rapat
-    if (!musicOn || !AC) return;
-    if (nextStepTime < AC.currentTime) nextStepTime = AC.currentTime + .05;
-    while (nextStepTime < AC.currentTime + .12){
-      scheduleStep(nextStepTime);
-      nextStepTime += STEP;
-    }
-  }, 40);
+/* musik latar: file audio di-decode lalu diputar lewat AudioBufferSourceNode (loop=true) agar
+   sambungan loop mulus, bukan <audio loop> yang bisa berjeda sekejap di titik ulang */
+async function startMusic(){
+  try {
+    const res = await fetch(MUSIC_SRC, { cache: 'force-cache' });
+    const buf = await AC.decodeAudioData(await res.arrayBuffer());
+    musicSource = AC.createBufferSource();
+    musicSource.buffer = buf; musicSource.loop = true;
+    musicSource.connect(musicG);
+    musicSource.start();
+  } catch (e) { console.warn('musik latar gagal dimuat:', e); }
 }
 /* mengecat isian slider (hijau sampai posisi thumb) & tandai bisu lewat CSS class */
 function paintVol(el, muted){
@@ -997,9 +941,20 @@ function paintVol(el, muted){
 function applyMusicVol(){
   const pct = +musicVolEl.value, muted = pct===0;
   musicOn = !muted;
-  if (musicG) musicG.gain.value = (pct/100)*MUSIC_LEVEL;
+  musicTargetGain = (pct/100)*MUSIC_LEVEL;
+  if (musicG){ musicG.gain.cancelScheduledValues(AC.currentTime); musicG.gain.value = musicTargetGain; }
   musicLabelEl.classList.toggle('muted', muted);
   paintVol(musicVolEl, muted);
+}
+/* "duck" musik sesaat tiap ada tembakan, supaya efek suara tetap terdengar tembus di atas musik latar */
+function duckMusic(depth, atk, hold, rel){
+  if (!musicG || !musicOn) return;
+  const t = AC.currentTime, g = musicG.gain;
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(g.value, t);
+  g.linearRampToValueAtTime(musicTargetGain*(1-depth), t+atk);
+  g.setValueAtTime(musicTargetGain*(1-depth), t+atk+hold);
+  g.linearRampToValueAtTime(musicTargetGain, t+atk+hold+rel);
 }
 function applySfxVol(){
   const pct = +sfxVolEl.value, muted = pct===0;
@@ -1070,35 +1025,26 @@ function playChargeHorn(){
   o.start(t); o.stop(t+2.5);
 }
 function playCannon(){                      // tembakan unit paus (tank/heli/jet) — berat & dalam, beda dari rentetan prajurit biasa
-  if (!sfxOn || !AC) return;
+  if (!sfxOn || !AC || !sfxBufCannon) return;
   const t = AC.currentTime;
-  const o = AC.createOscillator(), g = AC.createGain();
-  o.type='sine';
-  o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(50, t+.09);
-  g.gain.setValueAtTime(.001,t); g.gain.exponentialRampToValueAtTime(.22, t+.006); g.gain.exponentialRampToValueAtTime(.001, t+.15);
-  o.connect(g).connect(sfxG); o.start(t); o.stop(t+.17);
-  const dur=.08, buf=AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate), ch=buf.getChannelData(0);
-  for (let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/ch.length,2);
-  const src=AC.createBufferSource(); src.buffer=buf;
-  const f=AC.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1300; f.Q.value=1.1;
-  const ng=AC.createGain(); ng.gain.value=.18;
-  src.connect(f).connect(ng).connect(sfxG); src.start(t);
+  const src = AC.createBufferSource(); src.buffer = sfxBufCannon;
+  src.playbackRate.value = .95 + Math.random()*.1;
+  const g = AC.createGain(); g.gain.value = .9;
+  src.connect(g).connect(sfxG); src.start(t);
+  duckMusic(.7, .03, .1, .5);
 }
 function playVolley(tier){
-  if (!sfxOn || !AC) return;
+  if (!sfxOn || !AC || !sfxBufGunshot) return;
   const t0 = AC.currentTime;
   const shots = tier===2 ? 5 : tier===1 ? 3 : 1;
   for (let i=0;i<shots;i++){
     const t = t0 + i*(.02+Math.random()*.03);
-    const dur = .06;
-    const buf = AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate);
-    const ch = buf.getChannelData(0);
-    for (let j=0;j<ch.length;j++) ch[j] = (Math.random()*2-1)*Math.pow(1-j/ch.length,3);
-    const src = AC.createBufferSource(); src.buffer = buf;
-    const f = AC.createBiquadFilter(); f.type='highpass'; f.frequency.value=900;
-    const g = AC.createGain(); g.gain.value = .045+Math.random()*.03;
-    src.connect(f).connect(g).connect(sfxG); src.start(t);
+    const src = AC.createBufferSource(); src.buffer = sfxBufGunshot;
+    src.playbackRate.value = .92 + Math.random()*.22;
+    const g = AC.createGain(); g.gain.value = .85+Math.random()*.25;
+    src.connect(g).connect(sfxG); src.start(t);
   }
+  duckMusic(.45, .02, .06, .35);
 }
 function playCheer(){
   if (!sfxOn || !AC) return;
