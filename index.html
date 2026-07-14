@@ -53,11 +53,14 @@
   #feed-badge.dead #feed-dot{background:var(--short)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   #retry{display:none;margin-left:6px;padding:3px 9px;font-size:9px}
-  /* saat fullscreen, tombol X exit browser (mis. iPad/Safari) menutup badge di kiri-atas → pindahkan badge ke kanan-atas, di bawah tombol EN/fullscreen */
+  /* saat fullscreen, tombol X exit browser (mis. iPad/Safari) menutup badge di kiri-atas → pindahkan ke
+     tengah-atas. (Dulu dipindah ke kanan-atas, tapi itu sekarang tabrakan dengan tombol chat/EN/fullscreen
+     dan panel obrolan yang juga di kanan-atas.) */
   body.is-fs #feed-badge{
-    left:auto;
-    right:max(16px,env(safe-area-inset-right) + 12px);
-    top:calc(max(16px,env(safe-area-inset-top) + 12px) + 48px);
+    left:50%;
+    right:auto;
+    top:max(16px,env(safe-area-inset-top) + 12px);
+    transform:translateX(-50%);
   }
 
   /* ── tengah atas: harga besar mengambang di atas lapangan, kontras tinggi ── */
@@ -124,6 +127,45 @@
   #fs-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
   #fs-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #fs-btn:hover{color:var(--long);border-color:rgba(45,214,165,.5)}
+
+  #online-pill{display:inline-flex;align-items:center;margin-left:8px;padding:3px 9px 3px 8px;border-radius:999px;background:rgba(45,214,165,.16);border:1px solid rgba(45,214,165,.4);color:var(--long);font-weight:800;font-size:10px;letter-spacing:.04em}
+
+  #chat-btn{top:max(16px,env(safe-area-inset-top) + 12px);right:calc(max(16px,env(safe-area-inset-right) + 12px) + 92px);display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
+  #chat-btn:hover,#chat-btn.active{color:var(--long);border-color:rgba(45,214,165,.5)}
+  #chat-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #chat-btn .badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--short);color:#fff;font-size:9px;font-weight:800;line-height:16px;font-family:var(--rounded);display:none;box-shadow:0 0 0 2px var(--bg-1)}
+  #chat-btn .badge.show{display:block}
+
+  #chat-panel{top:calc(max(16px,env(safe-area-inset-top) + 12px) + 50px);right:max(16px,env(safe-area-inset-right) + 12px);width:340px;max-height:min(640px,calc(100vh - 110px));display:none;flex-direction:column;overflow:hidden;z-index:15}
+  #chat-panel.open{display:flex}
+  #chat-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
+  #chat-head-l{display:flex;align-items:baseline;gap:8px}
+  #chat-head h4{font-size:10px;letter-spacing:.22em;color:var(--ink);font-weight:700;font-family:var(--rounded)}
+  #chat-online-label{font-size:10px;color:var(--long);font-weight:700}
+  #chat-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:4px}
+  #chat-close:hover{color:var(--ink)}
+  #chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;min-height:260px}
+  #chat-msgs .cm{align-self:flex-start;max-width:86%;padding:7px 11px;border-radius:14px 14px 14px 3px;background:rgba(255,255,255,.055);line-height:1.45;word-wrap:break-word}
+  #chat-msgs .cm.me{align-self:flex-end;background:rgba(45,214,165,.14);border-radius:14px 14px 3px 14px}
+  #chat-msgs .cm .cn{font-weight:700;color:var(--long)}
+  #chat-msgs .cm.me .cn{color:var(--gold)}
+  #chat-msgs .cm .ct{margin-left:6px;font-size:9px;color:var(--muted);font-weight:500;letter-spacing:.02em}
+  #chat-empty{color:var(--muted);font-size:11px;text-align:center;margin:auto;line-height:1.6}
+  #chat-form{display:flex;align-items:center;gap:7px;padding:11px;border-top:1px solid var(--line);flex:none}
+  #chat-name{width:70px;flex:none;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:18px;color:var(--ink);font-size:11px;padding:9px 11px;font-family:var(--rounded)}
+  #chat-text{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:18px;color:var(--ink);font-size:12px;padding:9px 13px;font-family:var(--rounded)}
+  #chat-name:focus,#chat-text:focus{outline:none;border-color:rgba(45,214,165,.5)}
+  #chat-send{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--long);border:none;color:#08281f;border-radius:50%;cursor:pointer;transition:transform .12s,background .12s}
+  #chat-send svg{stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  #chat-send:hover{background:#3ef0bd;transform:scale(1.06)}
+  #chat-emoji-btn{width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--muted);border-radius:50%;cursor:pointer;transition:color .12s,border-color .12s}
+  #chat-emoji-btn svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #chat-emoji-btn:hover,#chat-emoji-btn.active{color:var(--long);border-color:rgba(45,214,165,.5)}
+  #emoji-picker{display:none;flex-wrap:wrap;gap:2px;padding:10px;border-top:1px solid var(--line);max-height:150px;overflow-y:auto;flex:none}
+  #emoji-picker.open{display:flex}
+  #emoji-picker button{width:32px;height:32px;flex:none;background:none;border:none;font-size:18px;line-height:1;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  #emoji-picker button:hover{background:rgba(255,255,255,.08)}
+  @media (max-width:640px){ #chat-panel{width:calc(100vw - 24px)} }
 
   #flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:#fff;opacity:0}
 
@@ -226,6 +268,7 @@
 <div class="hud" id="feed-badge">
   <span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span>
   <button class="btn warn" id="retry">SAMBUNG ULANG</button>
+  <span id="online-pill" title="Sedang menonton"><span id="online-count">—</span></span>
 </div>
 
 <button class="hud" id="lang-btn" title="Switch language" aria-label="Switch language">EN</button>
@@ -233,6 +276,30 @@
 <button class="hud" id="fs-btn" title="Layar penuh" aria-label="Layar penuh">
   <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
 </button>
+
+<button class="hud" id="chat-btn" title="Obrolan" aria-label="Obrolan">
+  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 5h16v11H9l-4 4V5z"/><path d="M8 9.5h8M8 12.5h5"/></svg>
+  <span class="badge" id="chat-badge">0</span>
+</button>
+
+<div class="hud panel" id="chat-panel">
+  <div id="chat-head">
+    <div id="chat-head-l"><h4>OBROLAN</h4><span id="chat-online-label"></span></div>
+    <button id="chat-close" aria-label="Tutup">✕</button>
+  </div>
+  <div id="chat-msgs"><div id="chat-empty">Belum ada obrolan. Mulai duluan!</div></div>
+  <div id="emoji-picker"></div>
+  <form id="chat-form">
+    <input id="chat-name" maxlength="16" placeholder="Nama" autocomplete="off">
+    <button type="button" id="chat-emoji-btn" aria-label="Emoji">
+      <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5s1.2 2 3.5 2 3.5-2 3.5-2"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
+    </button>
+    <input id="chat-text" maxlength="200" placeholder="Ketik pesan…" autocomplete="off">
+    <button type="submit" id="chat-send" aria-label="Kirim">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 11l18-7-7 18-3-7-8-4z"/></svg>
+    </button>
+  </form>
+</div>
 
 <div class="hud" id="center-price">
   <div id="cp-value">—</div>
@@ -310,7 +377,7 @@
 const STREAM = 'btcusdt';
 const T_SHELL = 40;        // ≥ $40   → tembakan kecil (sangat sering, sangat intens)
 const T_HEAVY = 25000;     // ≥ $25K  → tembakan berat + sorotan
-const T_WHALE = 100000;    // ≥ $100K → serangan tank
+const T_WHALE = 50000;     // ≥ $50K → paus kecil, unit besar mulai muncul
 const MAX_UNITS = 30;
 const CROWD_MAX = 96;      // jumlah maksimum prajurit per sisi (headroom untuk pertempuran padat)
 const CROWD_START = 48;    // jumlah awal prajurit per sisi
@@ -733,15 +800,20 @@ function makeBomber(side){
    dipilih acak tiap kemunculan supaya tidak monoton (mis. tank vs APC di tingkat yang sama) */
 const T_TITAN = 3000000;   // ≥ $3jt → puncak tingkatan: bomber
 const BIG_UNIT_TIERS = [
-  { max:300000,    fly:0,  makers:[makeTank, makeAPC] },
-  { max:1000000,   fly:26, makers:[makeHelicopter] },   // lebih melayang tinggi di udara
-  { max:T_TITAN,   fly:38, makers:[makeJet] },
-  { max:Infinity,  fly:46, makers:[makeBomber] },
+  { max:300000,    fly:0,  makers:[{key:'tank',maker:makeTank}, {key:'apc',maker:makeAPC}] },
+  { max:1000000,   fly:26, makers:[{key:'helicopter',maker:makeHelicopter}] },   // lebih melayang tinggi di udara
+  { max:T_TITAN,   fly:38, makers:[{key:'jet',maker:makeJet}] },
+  { max:Infinity,  fly:46, makers:[{key:'bomber',maker:makeBomber}] },
 ];
+/* skala dasar per jenis unit — dihitung per model (bukan angka seragam) supaya tiap unit
+   terlihat proporsional jauh melebihi tinggi prajurit (≈8.5 unit), bukan sekadar sedikit lebih besar.
+   Kendaraan darat (tank/APC) diukur dari tinggi bodinya; pesawat (heli/jet/bomber) dari panjang
+   badannya, karena bentuknya pipih — kalau dipatok dari tinggi, hasilnya jadi raksasa tak masuk akal. */
+const UNIT_BASE_SCALE = { tank:7.6, apc:9.5, helicopter:6.0, jet:7.1, bomber:6.2 };
 function pickBigUnit(usd){
   const tier = BIG_UNIT_TIERS.find(t => usd < t.max);
-  const maker = tier.makers[Math.floor(Math.random()*tier.makers.length)];
-  return { maker, fly: tier.fly };
+  const pick = tier.makers[Math.floor(Math.random()*tier.makers.length)];
+  return { maker:pick.maker, key:pick.key, fly: tier.fly };
 }
 
 /* ═══════════ UNIT (tembakan / unit besar) ═══════════ */
@@ -755,11 +827,14 @@ function spawnBigUnit(side, usd){
   const pick = pickBigUnit(usd);
   const sx = (side==='buy'?-1:1)*185;
   const start = new THREE.Vector3(sx, pick.fly, (Math.random()-.5)*180);
-  const ex = (side==='buy'?1:-1)*28;
+  const ownSign = side==='buy' ? -1 : 1;   // sisi wilayah sendiri, sama seperti formasi prajurit (base.x)
+  const ex = pick.fly>0
+    ? -ownSign*28                          // unit udara: tetap melintas ke garis depan/wilayah lawan seperti semula
+    : ownSign*(130+Math.random()*25);      // unit darat (tank/APC): berhenti di barisan belakang pasukan sendiri, menyerang dari sana
   const end = new THREE.Vector3(ex, pick.fly, (Math.random()-.5)*180);
   const obj = pick.maker(side);
   const rotor = obj.userData && obj.userData.rotor;
-  const sc = 2.2 + mag*1.6;
+  const sc = UNIT_BASE_SCALE[pick.key] * (0.9 + mag*0.3);   // identitas ukuran per jenis, mag cuma variasi ±
   obj.scale.set(sc, sc, sc);
   obj.rotation.y = side==='buy' ? 0 : Math.PI;   // moncong menghadap musuh
   obj.userData = { pick:true, side, usd, price, ts:Date.now(), rotor };
@@ -2062,6 +2137,173 @@ applyLanguage();
 connect();
 tick();
 })();
+</script>
+
+<script type="module">
+/* ═══════════ ONLINE COUNT & OBROLAN — Firebase Realtime Database ═══════════
+   Modul terpisah dari script utama; kalau Firebase gagal dimuat (mis. offline),
+   fitur ini diam-diam nonaktif tanpa mengganggu battlefield-nya sendiri. */
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+import {
+  getDatabase, ref, set, remove, onValue, onChildAdded, onDisconnect,
+  push, serverTimestamp, query, limitToLast,
+} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyBhe3TTSR_TS8i7cMflawq-ukZdkv4NLds',
+  authDomain: 'btc-battle-44645.firebaseapp.com',
+  projectId: 'btc-battle-44645',
+  storageBucket: 'btc-battle-44645.firebasestorage.app',
+  messagingSenderId: '159434799273',
+  appId: '1:159434799273:web:29150b6142eed8280ed1b8',
+};
+const DATABASE_URL = 'https://btc-battle-44645-default-rtdb.asia-southeast1.firebasedatabase.app/';
+
+/* ── terjemahan: modul ini terpisah dari script utama, jadi bahasa dibaca lewat
+   <html lang="..">  (yang sudah diatur applyLanguage() di script utama) dan disinkron ulang
+   lewat MutationObserver setiap kali tombol EN/ID di script utama diklik ── */
+const CHAT_I18N = {
+  en: {
+    online:'online', chatTitle:'CHAT', chatBtnTitle:'Chat', onlineTitle:'Watching now',
+    closeAria:'Close', emptyText:'No messages yet. Say something!', namePlaceholder:'Name',
+    textPlaceholder:'Type a message…', sendAria:'Send', emojiAria:'Emoji', guestPrefix:'Soldier',
+  },
+  id: {
+    online:'online', chatTitle:'OBROLAN', chatBtnTitle:'Obrolan', onlineTitle:'Sedang menonton',
+    closeAria:'Tutup', emptyText:'Belum ada obrolan. Mulai duluan!', namePlaceholder:'Nama',
+    textPlaceholder:'Ketik pesan…', sendAria:'Kirim', emojiAria:'Emoji', guestPrefix:'Prajurit',
+  },
+};
+
+/* emoji standar untuk dipilih lewat picker, tanpa perlu library luar */
+const EMOJI_LIST = ['😀','😂','😍','😎','🔥','👍','👎','❤️','🎉','😢','😡','🚀','💰','📈','📉','🐂','🐻','💎','🙌','😱','🤔','👀','✅','❌','😴','🥳','💯','⚡','🤝','😭'];
+
+try {
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app, DATABASE_URL);
+  const clientId = crypto.randomUUID ? crypto.randomUUID() : 'c'+Math.random().toString(36).slice(2)+Date.now();
+  let chatLang = document.documentElement.lang === 'id' ? 'id' : 'en';
+  let lastOnlineN = 1;
+
+  /* ── jumlah online: hadir/hilang lewat onDisconnect, disiapkan ulang tiap koneksi tersambung
+     (pola resmi Firebase — supaya tetap akurat walau sempat putus-nyambung) ── */
+  const onlineCountEl = document.getElementById('online-count');
+  const chatOnlineLabelEl = document.getElementById('chat-online-label');
+  onValue(ref(db, '.info/connected'), (snap) => {
+    if (snap.val() !== true) return;
+    const myPresenceRef = ref(db, 'presence/' + clientId);
+    onDisconnect(myPresenceRef).remove().then(() => { set(myPresenceRef, true); });
+  });
+  function renderOnlineCount(){
+    const word = CHAT_I18N[chatLang].online;
+    if (onlineCountEl) onlineCountEl.textContent = lastOnlineN + ' ' + word;
+    if (chatOnlineLabelEl) chatOnlineLabelEl.textContent = '· ' + lastOnlineN + ' ' + word;
+  }
+  onValue(ref(db, 'presence'), (snap) => {
+    lastOnlineN = Math.max(1, snap.exists() ? Object.keys(snap.val()).length : 0);
+    renderOnlineCount();
+  });
+
+  /* ── obrolan: 50 pesan terakhir, nama tersimpan di localStorage ── */
+  const chatBtn = document.getElementById('chat-btn'), chatPanel = document.getElementById('chat-panel'),
+        chatClose = document.getElementById('chat-close'), chatMsgs = document.getElementById('chat-msgs'),
+        chatForm = document.getElementById('chat-form'),
+        chatName = document.getElementById('chat-name'), chatText = document.getElementById('chat-text'),
+        chatBadge = document.getElementById('chat-badge'), chatTitleEl = document.querySelector('#chat-head h4'),
+        onlinePillEl = document.getElementById('online-pill'),
+        emojiBtn = document.getElementById('chat-emoji-btn'), emojiPicker = document.getElementById('emoji-picker');
+  let chatEmpty = document.getElementById('chat-empty');
+
+  chatName.value = localStorage.getItem('bf-chat-name') || (CHAT_I18N[chatLang].guestPrefix + Math.floor(Math.random()*9000+1000));
+
+  function applyChatLang(newLang){
+    chatLang = newLang;
+    const L = CHAT_I18N[chatLang];
+    onlinePillEl.title = L.onlineTitle;
+    chatBtn.title = L.chatBtnTitle; chatBtn.setAttribute('aria-label', L.chatBtnTitle);
+    chatTitleEl.textContent = L.chatTitle;
+    chatClose.setAttribute('aria-label', L.closeAria);
+    chatName.placeholder = L.namePlaceholder;
+    chatText.placeholder = L.textPlaceholder;
+    document.getElementById('chat-send').setAttribute('aria-label', L.sendAria);
+    emojiBtn.setAttribute('aria-label', L.emojiAria);
+    if (chatEmpty) chatEmpty.textContent = L.emptyText;
+    renderOnlineCount();
+  }
+  applyChatLang(chatLang);
+  new MutationObserver(() => {
+    const newLang = document.documentElement.lang === 'id' ? 'id' : 'en';
+    if (newLang !== chatLang) applyChatLang(newLang);
+  }).observe(document.documentElement, { attributes:true, attributeFilter:['lang'] });
+
+  let unread = 0, chatOpen = false;
+
+  function setBadge(){
+    chatBadge.textContent = unread > 9 ? '9+' : String(unread);
+    chatBadge.classList.toggle('show', unread > 0 && !chatOpen);
+  }
+  chatBtn.onclick = () => {
+    chatOpen = !chatOpen;
+    chatPanel.classList.toggle('open', chatOpen);
+    chatBtn.classList.toggle('active', chatOpen);
+    if (chatOpen){ unread = 0; setBadge(); chatMsgs.scrollTop = chatMsgs.scrollHeight; chatText.focus(); }
+  };
+  chatClose.onclick = () => { chatOpen = false; chatPanel.classList.remove('open'); chatBtn.classList.remove('active'); };
+
+  /* ── emoji picker: grid statis, klik = sisip di posisi kursor lalu kembali fokus ── */
+  for (const em of EMOJI_LIST){
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = em;
+    b.onclick = () => {
+      const start = chatText.selectionStart ?? chatText.value.length;
+      const end = chatText.selectionEnd ?? chatText.value.length;
+      chatText.value = chatText.value.slice(0, start) + em + chatText.value.slice(end);
+      const pos = start + em.length;
+      chatText.focus();
+      chatText.setSelectionRange(pos, pos);
+    };
+    emojiPicker.appendChild(b);
+  }
+  let emojiOpen = false;
+  emojiBtn.onclick = () => {
+    emojiOpen = !emojiOpen;
+    emojiPicker.classList.toggle('open', emojiOpen);
+    emojiBtn.classList.toggle('active', emojiOpen);
+  };
+
+  let firstLoad = true;
+  onChildAdded(query(ref(db, 'chat'), limitToLast(50)), (snap) => {
+    const m = snap.val();
+    if (!m || typeof m.name !== 'string' || typeof m.text !== 'string') return;
+    if (chatEmpty){ chatEmpty.remove(); chatEmpty = null; }
+    const row = document.createElement('div');
+    row.className = 'cm' + (m.name === chatName.value ? ' me' : '');
+    const nameSpan = document.createElement('span'); nameSpan.className = 'cn'; nameSpan.textContent = m.name + ': ';
+    const textSpan = document.createElement('span'); textSpan.textContent = m.text;   // textContent — jangan innerHTML (cegah XSS)
+    row.append(nameSpan, textSpan);
+    if (m.ts){
+      const timeSpan = document.createElement('span'); timeSpan.className = 'ct';
+      timeSpan.textContent = new Date(m.ts).toLocaleTimeString(chatLang==='id'?'id-ID':'en-US', { hour:'2-digit', minute:'2-digit' });
+      row.appendChild(timeSpan);
+    }
+    chatMsgs.appendChild(row);
+    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    if (!firstLoad && !chatOpen){ unread++; setBadge(); }
+  });
+  setTimeout(() => { firstLoad = false; }, 1500);   // beri waktu batch pesan lama masuk dulu sebelum dihitung "unread"
+
+  chatForm.onsubmit = (e) => {
+    e.preventDefault();
+    const name = chatName.value.trim().slice(0,16) || CHAT_I18N[chatLang].guestPrefix;
+    const text = chatText.value.trim().slice(0,200);
+    if (!text) return;
+    localStorage.setItem('bf-chat-name', name);
+    push(ref(db, 'chat'), { name, text, ts: serverTimestamp() });
+    chatText.value = '';
+  };
+} catch (e) {
+  console.warn('online/chat (Firebase) gagal dimuat:', e);
+}
 </script>
 </body>
 </html>
