@@ -22,7 +22,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden;background:linear-gradient(180deg,#bfe3f7 0%,#9dc077 55%,#7fa85f 100%);font-family:var(--mono);color:var(--muted)}
-  canvas{display:block}
+  canvas{display:block;touch-action:none}   /* biar drag 1-jari & cubit ditangani app, bukan di-scroll browser */
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--rounded)}
 
@@ -1363,6 +1363,7 @@ addEventListener('pointerup', e=>{
   dragging=false;
   if (!moved && performance.now()-downT < 400) onTap(e);   // ketukan (bukan geser)
 });
+addEventListener('pointercancel', ()=>{ dragging=false; });   // gesture dibatalkan browser → reset
 addEventListener('pointermove', e=>{
   if (!dragging){ hoverUnit(e); return; }
   const dx=e.clientX-lx, dy=e.clientY-ly;
