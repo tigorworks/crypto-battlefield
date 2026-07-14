@@ -22,7 +22,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden;background:linear-gradient(180deg,#bfe3f7 0%,#9dc077 55%,#7fa85f 100%);font-family:var(--mono);color:var(--muted)}
-  canvas{display:block}
+  canvas{display:block;touch-action:none}   /* biar drag 1-jari & cubit ditangani app, bukan di-scroll browser */
   .hud{position:fixed;z-index:10;user-select:none;-webkit-user-select:none}
   button{font-family:var(--rounded)}
 
@@ -154,8 +154,15 @@
 
   @media (max-width:760px){
     #moment-toast{max-width:calc(100vw - 32px)}
-    /* di layar ponsel sisakan hanya widget Tekanan Pasar */
-    #killfeed, #controls{display:none}
+    /* di ponsel: sembunyikan Killfeed, dan ringkas Controls jadi hanya tombol kamera
+       (petunjuk tombol, slider audio & tombol bagikan disembunyikan) — agar mode kamera
+       tetap bisa diganti, tidak terkunci di cinematic */
+    #killfeed{display:none}
+    #keys-hint, #audio-row, #share-btn{display:none}
+    #controls{left:50%;transform:translateX(-50%);max-width:calc(100vw - 24px);width:auto;padding:6px 8px;
+      bottom:calc(max(16px,env(safe-area-inset-bottom) + 12px) + 84px)}   /* di atas widget Tekanan Pasar */
+    #cam-row{margin:0;flex-wrap:wrap;justify-content:center;gap:5px}
+    #cam-row .btn{padding:5px 9px;font-size:9px}
     #center-price{top:13%}
     #pressure{bottom:max(16px,env(safe-area-inset-bottom) + 12px);width:min(320px,90vw);padding:9px 12px}
     #pp-head{font-size:8px}
@@ -1363,6 +1370,7 @@ addEventListener('pointerup', e=>{
   dragging=false;
   if (!moved && performance.now()-downT < 400) onTap(e);   // ketukan (bukan geser)
 });
+addEventListener('pointercancel', ()=>{ dragging=false; });   // gesture dibatalkan browser → reset
 addEventListener('pointermove', e=>{
   if (!dragging){ hoverUnit(e); return; }
   const dx=e.clientX-lx, dy=e.clientY-ly;
