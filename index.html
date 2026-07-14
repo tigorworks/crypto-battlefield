@@ -53,11 +53,12 @@
   #feed-badge.dead #feed-dot{background:var(--short)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   #retry{display:none;margin-left:6px;padding:3px 9px;font-size:9px}
-  /* saat fullscreen, tombol X exit browser (mis. iPad/Safari) menutup badge di kiri-atas → pindahkan badge ke kanan-atas, di bawah tombol EN/fullscreen */
+  /* saat fullscreen, tombol X exit browser (kiri- maupun kanan-atas tergantung perangkat) menutup badge di pojok → taruh di tengah-atas, satu-satunya tepi yang tak pernah dipakai kontrol browser, di atas harga besar */
   body.is-fs #feed-badge{
-    left:auto;
-    right:max(16px,env(safe-area-inset-right) + 12px);
-    top:calc(max(16px,env(safe-area-inset-top) + 12px) + 48px);
+    left:50%;
+    right:auto;
+    transform:translateX(-50%);
+    top:max(16px,env(safe-area-inset-top) + 12px);
   }
 
   /* ── tengah atas: harga besar mengambang di atas lapangan, kontras tinggi ── */
