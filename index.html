@@ -67,6 +67,9 @@
   #cp-value.down{color:var(--short);text-shadow:0 3px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.5),0 0 34px rgba(255,101,132,.5),0 12px 30px rgba(0,0,0,.5)}
   #cp-sub{font-size:14px;font-weight:700;letter-spacing:.14em;margin-top:2px;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55)}
   #cp-pct.up{color:var(--long)} #cp-pct.down{color:var(--short)}
+  #cp-range{margin-top:6px;font-size:12px;font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 2px 8px rgba(0,0,0,.6);display:inline-flex;align-items:center;gap:9px}
+  #cp-range .cr-tag{font-size:9px;font-weight:800;letter-spacing:.14em;color:#fff;opacity:.55;padding:2px 5px;border:1px solid var(--line);border-radius:5px;font-family:var(--rounded)}
+  #cp-high{color:var(--long)} #cp-low{color:var(--short)}
   /* ── bawah tengah: tekanan pasar (panjang vs pendek), widget sendiri ── */
   #pressure{bottom:max(16px,env(safe-area-inset-bottom) + 12px);left:50%;transform:translateX(-50%);width:320px;max-width:calc(100vw - 32px);padding:11px 15px;text-align:center}
   #pp-head{font-size:9px;letter-spacing:.14em;color:var(--muted);font-weight:700;margin-bottom:8px;font-family:var(--rounded);white-space:nowrap}
@@ -84,6 +87,13 @@
   /* ── bawah kanan: killfeed ringkas ── */
   #killfeed{bottom:max(16px,env(safe-area-inset-bottom) + 12px);right:max(16px,env(safe-area-inset-right) + 12px);width:300px;max-width:calc(100vw - 32px);padding:9px 11px;text-align:left}
   #killfeed h4{font-size:9px;letter-spacing:.24em;color:var(--muted);margin-bottom:7px;font-weight:600;font-family:var(--rounded)}
+  /* rekor order terbesar sepanjang sesi — dipatri di atas killfeed */
+  #kill-records{display:flex;flex-direction:column;gap:3px;margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+  .krec{font-size:10px;padding:4px 8px;border-radius:7px;border-left:2px solid;background:rgba(255,255,255,.07);font-variant-numeric:tabular-nums;display:flex;justify-content:space-between;align-items:center;gap:8px;white-space:nowrap;overflow:hidden}
+  .krec.buy{border-color:var(--long);color:var(--long)}
+  .krec.sell{border-color:var(--short);color:var(--short)}
+  .krec .krec-label{opacity:.7;font-weight:700;font-size:9px;letter-spacing:.08em;font-family:var(--rounded);flex-shrink:0}
+  .krec .krec-val{font-weight:600;overflow:hidden;text-overflow:ellipsis}
   #kills{overflow:hidden;max-height:112px}
   .kill{font-size:10px;padding:4px 8px;margin-bottom:3px;background:rgba(255,255,255,.04);border-radius:7px;border-left:2px solid;animation:slidein .25s ease-out;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .kill .kt{opacity:.55;margin-right:4px}
@@ -230,6 +240,7 @@
 <div class="hud" id="center-price">
   <div id="cp-value">—</div>
   <div id="cp-sub">BTC / USDT <span id="cp-pct">0.00%</span></div>
+  <div id="cp-range"><span class="cr-tag">24H</span> <span id="cp-high">↑ —</span> <span id="cp-low">↓ —</span></div>
 </div>
 
 <div class="hud panel" id="pressure">
@@ -249,6 +260,10 @@
 
 <div class="hud panel" id="killfeed">
   <h4>KILLFEED</h4>
+  <div id="kill-records">
+    <div class="krec buy" id="krec-buy"><span class="krec-label"></span><span class="krec-val">—</span></div>
+    <div class="krec sell" id="krec-sell"><span class="krec-label"></span><span class="krec-val">—</span></div>
+  </div>
   <div id="kills"></div>
 </div>
 
@@ -925,6 +940,25 @@ function fmtQty(q){
   const s = q.toFixed(dec);
   return s.indexOf('.') < 0 ? s : s.replace(/0+$/,'').replace(/\.$/,'');
 }
+function fmtPrice(p){ return '$'+p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 }); }
+
+/* rekor order terbesar (berdasar nilai USD) sepanjang sesi — dipatri di atas killfeed */
+const krecEls = {
+  buy:  { label: document.querySelector('#krec-buy .krec-label'),  val: document.querySelector('#krec-buy .krec-val')  },
+  sell: { label: document.querySelector('#krec-sell .krec-label'), val: document.querySelector('#krec-sell .krec-val') },
+};
+const sessionMax = { buy:null, sell:null };
+function renderRecord(side){
+  const rec = sessionMax[side];
+  const L = I18N[lang];
+  krecEls[side].label.textContent = side==='buy' ? L.topBuy : L.topSell;
+  krecEls[side].val.textContent = rec ? `${fmtUsd(rec.usd)} · ${fmtQty(rec.qty)} @ ${fmtPrice(rec.price)}` : '—';
+}
+function considerRecord(side, usd, qty, price){
+  const cur = sessionMax[side];
+  if (!cur || usd > cur.usd){ sessionMax[side] = { usd, qty, price }; renderRecord(side); }
+}
+
 function logKill(side, qty, price, tag){
   const d = document.createElement('div');
   const time = new Date().toLocaleTimeString('en-GB');
@@ -1150,13 +1184,21 @@ const badgeEl = document.getElementById('feed-badge');
 const badgeTextEl = document.getElementById('feed-text');
 const retryBtn = document.getElementById('retry');
 
-let price = NaN, lastPrice = NaN, pct24 = 0;
+let price = NaN, lastPrice = NaN, pct24 = 0, high24 = NaN, low24 = NaN;
 let ws = null, wsLiq = null, wsTicker = null, live = false, retries = 0, connectGuard = null;
 
 /* persentase perubahan 24 jam dari ticker Binance (bukan sejak halaman dibuka) */
 function updatePct(){
   cpPctEl.textContent = (pct24>=0?'▲ ':'▼ ')+Math.abs(pct24).toFixed(2)+'%';
   cpPctEl.className = pct24>=0 ? 'up':'down';
+}
+
+/* tertinggi & terendah 24 jam dari ticker bursa */
+const cpHighEl = document.getElementById('cp-high');
+const cpLowEl  = document.getElementById('cp-low');
+function updateRange(){
+  if (!isNaN(high24)) cpHighEl.textContent = '↑ '+fmtPrice(high24);
+  if (!isNaN(low24))  cpLowEl.textContent  = '↓ '+fmtPrice(low24);
 }
 
 function onTrade(p, qty, isBuy){
@@ -1184,6 +1226,7 @@ function onTrade(p, qty, isBuy){
   }
   // order debu (<T_SHELL): hanya menambah tekanan/jumlah, tidak membunuh tanpa peluru
   logKill(side, qty, p, tier===2?'whale':null);
+  considerRecord(side, usd, qty, p);
 }
 
 let feedState = 'connecting';
@@ -1221,7 +1264,7 @@ function connectBinanceVision(){
   ws.onclose = ()=>{ if(live){ live=false; setBadge('dead'); autoRetry(); } };
 
   wsTicker = new WebSocket(`wss://data-stream.binance.vision/ws/${STREAM}@ticker`);
-  wsTicker.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); updatePct(); } catch(e){} };
+  wsTicker.onmessage = (ev)=>{ try { const d = JSON.parse(ev.data); pct24 = parseFloat(d.P); high24 = parseFloat(d.h); low24 = parseFloat(d.l); updatePct(); updateRange(); } catch(e){} };
 
   /* likuidasi futures — fstream sering diblokir; dicoba saja, diabaikan bila gagal */
   try {
@@ -1263,7 +1306,9 @@ function connectGate(){
         const r = d.result;
         onTrade(parseFloat(r.price), parseFloat(r.amount), r.side === 'buy'); /* side = sisi taker */
       } else if (d.channel === 'spot.tickers'){
-        pct24 = parseFloat(d.result.change_percentage); updatePct();
+        pct24 = parseFloat(d.result.change_percentage);
+        high24 = parseFloat(d.result.high_24h); low24 = parseFloat(d.result.low_24h);
+        updatePct(); updateRange();
       }
     } catch(e){}
   };
@@ -1838,6 +1883,7 @@ const I18N = {
     bigBuy:'BIG BUY ORDER', bigSell:'BIG SELL ORDER',
     buyer:'BUYERS', seller:'SELLERS', streakSuffix:'× STREAK',
     whaleTag:'WHALE', liqTag:'LIQUIDATION',
+    topBuy:'TOP BUY', topSell:'TOP SELL',
     langBtnTitle:'Switch language',
     shareBtn:'SHARE MOMENT', momentSave:'Save card', cardDownload:'Download', cardShare:'Share', cardClose:'Close',
     momentWhaleBuy:'WHALE BUY', momentWhaleSell:'WHALE SELL', momentLiq:'LIQUIDATION', momentSnap:'BATTLE SNAPSHOT',
@@ -1858,6 +1904,7 @@ const I18N = {
     bigBuy:'ORDER BELI BESAR', bigSell:'ORDER JUAL BESAR',
     buyer:'PEMBELI', seller:'PENJUAL', streakSuffix:'× BERUNTUN',
     whaleTag:'PAUS', liqTag:'LIKUIDASI',
+    topBuy:'BELI TERBESAR', topSell:'JUAL TERBESAR',
     langBtnTitle:'Ganti bahasa',
     shareBtn:'BAGIKAN MOMEN', momentSave:'Simpan kartu', cardDownload:'Unduh', cardShare:'Bagikan', cardClose:'Tutup',
     momentWhaleBuy:'PAUS BELI', momentWhaleSell:'PAUS JUAL', momentLiq:'LIKUIDASI', momentSnap:'CUPLIKAN MEDAN',
@@ -1890,6 +1937,7 @@ function applyLanguage(){
   musicLabelEl.textContent = L.musicLabel; musicLabelEl.title = L.muteTitle;
   sfxLabelEl.textContent = L.sfxLabel; sfxLabelEl.title = L.muteTitle;
   document.getElementById('share-btn').textContent = L.shareBtn;
+  renderRecord('buy'); renderRecord('sell');
 }
 langBtn.onclick = ()=>{
   lang = lang==='en' ? 'id' : 'en';
