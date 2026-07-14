@@ -393,7 +393,7 @@ const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Ve
 const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0,0,1);
 
 function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.42 });
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.42, fog:false });
   const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -489,12 +489,12 @@ function updateCrowd(crowd, dt, t){
 
 /* ═══════════ DINOSAURUS, BERUANG & AYAM — unit besar untuk order raksasa ═══════════ */
 const tankMat = {
-  buy: new THREE.MeshLambertMaterial({ color:C_LONG, emissive:C_LONG, emissiveIntensity:.6 }),
-  sell: new THREE.MeshLambertMaterial({ color:C_SHORT, emissive:C_SHORT, emissiveIntensity:.6 }),
+  buy: new THREE.MeshLambertMaterial({ color:C_LONG, emissive:C_LONG, emissiveIntensity:.6, fog:false }),
+  sell: new THREE.MeshLambertMaterial({ color:C_SHORT, emissive:C_SHORT, emissiveIntensity:.75, fog:false }),
 };
 const tankAuraMat = {
-  buy: new THREE.SpriteMaterial({ map:GLOW, color:C_LONG, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false }),
-  sell: new THREE.SpriteMaterial({ map:GLOW, color:C_SHORT, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false }),
+  buy: new THREE.SpriteMaterial({ map:GLOW, color:C_LONG, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false, fog:false }),
+  sell: new THREE.SpriteMaterial({ map:GLOW, color:C_SHORT, transparent:true, opacity:.5, blending:THREE.AdditiveBlending, depthWrite:false, fog:false }),
 };
 const eyeMat = new THREE.MeshBasicMaterial({ color:0x10121f });
 const eyeGeo = new THREE.SphereGeometry(.13, 8, 6);
