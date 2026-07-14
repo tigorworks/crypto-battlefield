@@ -397,6 +397,16 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
   const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
+
+  // titik cahaya aditif di atas tiap prajurit — tanpa ini, saat kamera zoom out
+  // prajurit jadi kecil & ke-antialias sampai warnanya (terutama merah) tenggelam di rumput hijau
+  const glowPos = new Float32Array(CROWD_MAX*3);
+  const glowGeo = new THREE.BufferGeometry();
+  glowGeo.setAttribute('position', new THREE.BufferAttribute(glowPos,3).setUsage(THREE.DynamicDrawUsage));
+  const glowMat = new THREE.PointsMaterial({ color, map:GLOW, size:9, sizeAttenuation:true, transparent:true, opacity:.9, blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+  const glow = new THREE.Points(glowGeo, glowMat);
+  scene.add(glow);
+
   const q = new THREE.Quaternion();
   if (sign>0) q.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI); // sisi kanan menghadap kiri
   const slots = [];
@@ -412,7 +422,7 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
       phase: Math.random()*Math.PI*2,
     });
   }
-  return { mesh, slots, count:CROWD_START, target:CROWD_START, q, sign };
+  return { mesh, glow, glowPos, slots, count:CROWD_START, target:CROWD_START, q, sign };
 }
 const buyCrowd = makeCrowd(C_LONG, -1);
 const sellCrowd = makeCrowd(C_SHORT, 1);
@@ -483,8 +493,16 @@ function updateCrowd(crowd, dt, t){
     spos.set(x, bob, z);
     smx.compose(spos, sq, sscl);
     crowd.mesh.setMatrixAt(i, smx);
+
+    const gi = i*3;
+    if (sc <= .002 && !s.active && !s.dying){
+      crowd.glowPos[gi+1] = -500; // sembunyikan di bawah tanah saat tidak aktif
+    } else {
+      crowd.glowPos[gi] = x; crowd.glowPos[gi+1] = bob + 5.5; crowd.glowPos[gi+2] = z;
+    }
   }
   crowd.mesh.instanceMatrix.needsUpdate = true;
+  crowd.glow.geometry.attributes.position.needsUpdate = true;
 }
 
 /* ═══════════ DINOSAURUS, BERUANG & AYAM — unit besar untuk order raksasa ═══════════ */
