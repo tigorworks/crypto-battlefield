@@ -815,7 +815,7 @@ const BIG_UNIT_TIERS = [
    terlihat proporsional jauh melebihi tinggi prajurit (≈8.5 unit), bukan sekadar sedikit lebih besar.
    Kendaraan darat (tank/APC) diukur dari tinggi bodinya; pesawat (heli/jet/bomber) dari panjang
    badannya, karena bentuknya pipih — kalau dipatok dari tinggi, hasilnya jadi raksasa tak masuk akal. */
-const UNIT_BASE_SCALE = { tank:7.6, apc:9.5, helicopter:6.0, jet:7.1, bomber:6.2 };
+const UNIT_BASE_SCALE = { tank:11.5, apc:13.5, helicopter:9.0, jet:10.5, bomber:9.5 };
 function pickBigUnit(usd){
   const tier = BIG_UNIT_TIERS.find(t => usd < t.max);
   const pick = tier.makers[Math.floor(Math.random()*tier.makers.length)];
