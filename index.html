@@ -208,7 +208,7 @@ const T_WHALE = 100000;    // ≥ $100K → serangan tank
 const MAX_UNITS = 30;
 const CROWD_MAX = 96;      // jumlah maksimum prajurit per sisi (headroom untuk pertempuran padat)
 const CROWD_START = 48;    // jumlah awal prajurit per sisi
-const C_LONG = 0x2dd6a5, C_SHORT = 0xff6584, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f5a;
+const C_LONG = 0x2dd6a5, C_SHORT = 0xff2d4d, C_GOLD = 0xffc857, C_GOLD2 = 0xff9f5a;
 
 /* ═══════════ THREE SETUP — lapangan hijau cerah di bawah langit ═══════════ */
 const SKY = 0x8fc6ec;
@@ -393,7 +393,10 @@ const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Ve
 const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0,0,1);
 
 function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.42, fog:false });
+  // sisi jual (merah) diberi emissive lebih kuat — warna merah/pink cenderung tenggelam
+  // di lapangan hijau & langit yang hangat saat kamera di-zoom out, beda dengan hijau-teal beli
+  const emissiveIntensity = sign>0 ? .58 : .42;
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity, fog:false });
   const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
