@@ -1401,7 +1401,9 @@ function pushFront(pt){
   const dir  = side==='buy' ? 1 : -1;                      // beli (kiri) mendorong garis ke kanan
   cheerBias = Math.max(-CHEER_MAX, Math.min(CHEER_MAX, cheerBias + dir*CHEER_STEP));
   const crowd = side==='buy' ? buyCrowd : sellCrowd;
-  reviveSoldier(crowd); reviveSoldier(crowd);              // bala bantuan menyerbu masuk
+  // catatan: JANGAN menambah prajurit di sini — jumlah pasukan tiap sisi harus tetap
+  // mencerminkan porsi beli/jual (crowd.target). rally hanya mendorong garis depan sesaat
+  // (cheerBias, meluruh sendiri) + salvo semangat, tanpa mengubah jumlah army.
   const defender = side==='buy' ? sellCrowd : buyCrowd;
   for (let i=0;i<4;i++) fireBullet(side, crowdPoint(crowd,8), groundPoint(defender), false, defender);  // salvo semangat
   playVolley(1);
