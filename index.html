@@ -34,6 +34,8 @@
   #boot .ring{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:var(--long);animation:bootspin .8s linear infinite}
   @keyframes bootspin{to{transform:rotate(360deg)}}
   @media (prefers-reduced-motion: reduce){ #boot .ring{animation:none} }
+  #boot .bq{max-width:420px;padding:0 28px;margin-top:6px;text-align:center;font-style:italic;font-size:14px;line-height:1.5;color:rgba(255,255,255,.82);text-shadow:0 2px 10px rgba(0,0,0,.5)}
+  #boot .bq-by{margin-top:8px;font-size:10px;font-style:normal;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
 
@@ -172,10 +174,36 @@
 </head>
 <body>
 <div id="boot">
-  <div class="bt">BTC Battlefield</div>
+  <div class="bt" id="boot-title"></div>
   <div class="ring"></div>
   <div class="bs">LOADING…</div>
+  <div class="bq" id="boot-quote"></div>
+  <div class="bq-by" id="boot-quote-by"></div>
 </div>
+<script>
+/* judul & kutipan pembakar semangat, dipilih acak tiap kali layar muat tampil */
+(() => {
+  const TITLE = { en:'PREPARING FOR BATTLE', id:'BERSIAP UNTUK PERTEMPURAN' };
+  const QUOTES = [
+    { en:'The supreme art of war is to subdue the enemy without fighting.', id:'Seni perang tertinggi adalah menaklukkan musuh tanpa harus bertempur.', by:'Sun Tzu' },
+    { en:'Victorious warriors win first and then go to war, while defeated warriors go to war first and then seek to win.', id:'Prajurit yang menang, menang dahulu baru berperang; yang kalah, berperang dahulu baru mencari kemenangan.', by:'Sun Tzu' },
+    { en:'Know yourself and know your enemy, and you will never be defeated in a hundred battles.', id:'Kenali dirimu dan kenali musuhmu, maka kau takkan pernah kalah dalam seratus pertempuran.', by:'Sun Tzu' },
+    { en:'In the midst of chaos, there is also opportunity.', id:'Di tengah kekacauan, di situ pula ada peluang.', by:'Sun Tzu' },
+    { en:'A good plan violently executed now is better than a perfect plan next week.', id:'Rencana baik yang dijalankan dengan tegas sekarang lebih baik daripada rencana sempurna minggu depan.', by:'George S. Patton' },
+    { en:'Courage is fear holding on a minute longer.', id:'Keberanian adalah rasa takut yang bertahan semenit lebih lama.', by:'George S. Patton' },
+    { en:'Success is not final, failure is not fatal: it is the courage to continue that counts.', id:'Sukses bukan akhir, kegagalan bukan kiamat: keberanianlah untuk terus melangkah yang menentukan.', by:'Winston Churchill' },
+    { en:'Victory belongs to the most persevering.', id:'Kemenangan adalah milik mereka yang paling gigih bertahan.', by:'Napoleon Bonaparte' },
+  ];
+  let lang = 'en';
+  try { const saved = localStorage.getItem('bf-lang'); if (saved==='en' || saved==='id') lang = saved; } catch(e){}
+  const q = QUOTES[Math.floor(Math.random()*QUOTES.length)];
+  const titleEl = document.getElementById('boot-title');
+  const qEl = document.getElementById('boot-quote'), byEl = document.getElementById('boot-quote-by');
+  if (titleEl) titleEl.textContent = TITLE[lang];
+  if (qEl) qEl.textContent = '“' + q[lang] + '”';
+  if (byEl) byEl.textContent = '— ' + q.by;
+})();
+</script>
 <div id="flash"></div>
 <div id="fx-layer"></div>
 <div id="streak"></div>
