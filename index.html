@@ -111,6 +111,12 @@
   #unit-tip b.buy{color:var(--long)} #unit-tip b.sell{color:var(--short)}
   #unit-tip span{color:var(--ink);opacity:.92;font-variant-numeric:tabular-nums}
   #unit-tip .tt{opacity:.5;font-size:10px}
+  /* ── lencana kunci: mengikuti unit yang di-follow, klik untuk lepas ── */
+  #lock-badge{position:fixed;z-index:12;transform:translate(-50%,-150%);background:rgba(10,16,12,.85);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-family:var(--rounded);font-size:11px;font-weight:800;letter-spacing:.05em;display:none;align-items:center;gap:8px;backdrop-filter:blur(6px);box-shadow:0 8px 22px rgba(0,0,0,.45);cursor:pointer;white-space:nowrap;pointer-events:auto}
+  #lock-badge.show{display:inline-flex}
+  #lock-badge.buy{color:var(--long);border-color:rgba(45,214,165,.5)}
+  #lock-badge.sell{color:var(--short);border-color:rgba(255,101,132,.5)}
+  #lock-badge .lx{opacity:.55;font-weight:700;font-size:12px;line-height:1}
   #streak{position:fixed;top:calc(14% + 118px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
   #streak.show{opacity:1;transform:translateX(-50%) scale(1);animation:streakPulse .5s ease-out}
   #streak.buy{color:var(--long)} #streak.sell{color:var(--short)}
@@ -138,6 +144,7 @@
 <div id="fx-layer"></div>
 <div id="streak"></div>
 <div id="unit-tip"></div>
+<div id="lock-badge"><span id="lock-text"></span><span class="lx">✕</span></div>
 
 <div class="hud" id="feed-badge">
   <span id="feed-dot"></span><span id="feed-text">MENYAMBUNG…</span>
@@ -1236,6 +1243,7 @@ const followPos = new THREE.Vector3(0,10,0);
 const keys = {};
 function setCamMode(m){
   camMode = m;
+  if (typeof releaseLock === 'function') releaseLock();   // ambil alih kamera → lepas kunci unit
   document.querySelectorAll('.btn[data-m]').forEach(b=>b.classList.toggle('active', +b.dataset.m===m));
 }
 document.querySelectorAll('.btn[data-m]').forEach(b=> b.onclick=()=>setCamMode(+b.dataset.m));
@@ -1327,6 +1335,81 @@ const _hitPt = new THREE.Vector3();
 const tip = document.getElementById('unit-tip');
 let pinnedT = 0;
 
+/* ── A1: dorongan garis depan dari ketukan penonton (sorak "rally") — sementara, meluruh ── */
+let cheerBias = 0;               // pergeseran garis depan dari sorak; kembali ke 0 sendiri
+const CHEER_MAX = 90, CHEER_STEP = 20;
+
+/* ── A2: kunci kamera ke satu unit (prajurit biasa atau unit paus) sampai gugur ── */
+let lockUnit = null;             // { type:'soldier', crowd, idx } | { type:'big', obj }
+const lockBadge = document.getElementById('lock-badge');
+const lockText = document.getElementById('lock-text');
+const _lockPos = new THREE.Vector3();
+const lockRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.9, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
+lockRing.rotation.x = -Math.PI/2; lockRing.visible = false; lockRing.renderOrder = 5;
+scene.add(lockRing);
+
+function lockColor(){ return (lockUnit && lockUnit.side==='sell') ? C_SHORT : C_LONG; }
+function releaseLock(){ lockUnit = null; lockRing.visible = false; lockBadge.className = ''; }
+/* posisi dunia unit terkunci saat ini; false bila unit sudah tak ada → lepas kunci */
+function lockPosNow(out){
+  if (!lockUnit) return false;
+  if (lockUnit.type==='big'){
+    if (!lockUnit.obj.parent){ releaseLock(); return false; }
+    out.copy(lockUnit.obj.position); return true;
+  }
+  const s = lockUnit.crowd.slots[lockUnit.idx];
+  if (!s || (!s.active && !s.dying)){ releaseLock(); return false; }   // prajurit gugur → lepas
+  const gi = lockUnit.idx*3, gp = lockUnit.crowd.glowPos;
+  out.set(gp[gi], Math.max(2, gp[gi+1]-4), gp[gi+2]);
+  return true;
+}
+function lockOnSoldier(crowd, idx){
+  const L = I18N[lang];
+  lockUnit = { type:'soldier', crowd, idx, side: crowd.sign<0?'buy':'sell' };
+  lockBadge.className = 'show ' + lockUnit.side;
+  lockText.textContent = lockUnit.side==='buy' ? L.followBuy : L.followSell;
+}
+function lockOnBig(obj){
+  const L = I18N[lang];
+  lockUnit = { type:'big', obj, side: obj.userData.side };
+  lockBadge.className = 'show ' + lockUnit.side;
+  lockText.textContent = lockUnit.side==='buy' ? L.followBigBuy : L.followBigSell;
+}
+lockBadge.onclick = (e)=>{ e.stopPropagation(); releaseLock(); };
+lockBadge.addEventListener('pointerdown', e=>e.stopPropagation());
+lockBadge.addEventListener('pointerup', e=>e.stopPropagation());   // jangan bocor jadi ketukan kanvas
+
+/* raycast ke kerumunan ber-instance → prajurit aktif terdekat yang di-klik */
+function pickSoldier(e){
+  setRay(e);
+  let best = null, bestD = Infinity;
+  for (const crowd of [buyCrowd, sellCrowd]){
+    const hits = raycaster.intersectObject(crowd.mesh);
+    for (const h of hits){
+      const idx = h.instanceId;
+      if (idx==null) continue;
+      const s = crowd.slots[idx];
+      if (s && s.active && !s.dying && h.distance < bestD){ best = { crowd, idx }; bestD = h.distance; break; }
+    }
+  }
+  return best;
+}
+
+/* A1: dorong garis depan ke arah sisi yang di-sorak + bala bantuan & tembakan semangat */
+function pushFront(pt){
+  const side = pt.x < frontX ? 'buy' : 'sell';
+  const dir  = side==='buy' ? 1 : -1;                      // beli (kiri) mendorong garis ke kanan
+  cheerBias = Math.max(-CHEER_MAX, Math.min(CHEER_MAX, cheerBias + dir*CHEER_STEP));
+  const crowd = side==='buy' ? buyCrowd : sellCrowd;
+  reviveSoldier(crowd); reviveSoldier(crowd);              // bala bantuan menyerbu masuk
+  const defender = side==='buy' ? sellCrowd : buyCrowd;
+  for (let i=0;i<4;i++) fireBullet(side, crowdPoint(crowd,8), groundPoint(defender), false, defender);  // salvo semangat
+  playVolley(1);
+  spawnCheer(pt, side);
+  floatNum(pt, '▲ RALLY', side==='buy'?'up':'dn');
+  addShake(.5);
+}
+
 function setRay(e){ ndc.x=(e.clientX/innerWidth)*2-1; ndc.y=-(e.clientY/innerHeight)*2+1; raycaster.setFromCamera(ndc, camera); }
 function pickUnit(e){
   if (!bigUnitObjs.length) return null;
@@ -1354,18 +1437,24 @@ function hoverUnit(e){
   if (u){ showTip(u, e.clientX, e.clientY); cv.style.cursor='pointer'; }
   else { cv.style.cursor=''; if (performance.now() > pinnedT) hideTip(); }
 }
-function spawnCheer(pos){
-  const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color:C_GOLD, transparent:true, opacity:.7, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
+function spawnCheer(pos, side){
+  const col = side==='buy' ? C_LONG : side==='sell' ? C_SHORT : C_GOLD;
+  const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:.75, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false }));
   rm.rotation.x = -Math.PI/2; rm.position.copy(pos); rm.position.y = 1.5;
   scene.add(rm);
-  rings.push({ rm, t:0, dur:.7, max:16 });
+  rings.push({ rm, t:0, dur:.7, max:20 });
   playCheer();
 }
 function onTap(e){
   const u = pickUnit(e);
-  if (u){ showTip(u, e.clientX, e.clientY); pinnedT = performance.now()+1800; return; }
+  if (u){ lockOnBig(u); showTip(u, e.clientX, e.clientY); pinnedT = performance.now()+1800; return; }  // klik unit paus → tooltip + kunci kamera
+  const sol = pickSoldier(e);
+  if (sol){ lockOnSoldier(sol.crowd, sol.idx); return; }                    // klik prajurit → kunci kamera ke dia
   setRay(e);
-  if (raycaster.ray.intersectPlane(groundPlane, _hitPt)) spawnCheer(_hitPt);
+  if (raycaster.ray.intersectPlane(groundPlane, _hitPt)){
+    if (lockUnit) releaseLock();                                            // ketuk tanah kosong saat terkunci → lepas kunci dulu
+    else pushFront(_hitPt);                                                 // kalau tidak, sorak & dorong garis depan
+  }
 }
 
 /* ═══════════ MAIN LOOP ═══════════ */
@@ -1379,7 +1468,10 @@ function tick(){
   const sdt = hitstop > 0 ? dt*0.12 : dt;   // jeda hantam melambatkan simulasi sesaat
 
   // garis depan bergerak mengikuti tekanan; pasukan maju/mundur
-  const targetFront = (buyShare-0.5)*2*180;
+  // sorak penonton (cheerBias) mendorong sesaat lalu meluruh kembali ke tekanan pasar sebenarnya
+  cheerBias *= Math.pow(0.5, dt/1.6);              // paruh-waktu ~1.6 dtk
+  if (Math.abs(cheerBias) < 0.5) cheerBias = 0;
+  const targetFront = (buyShare-0.5)*2*180 + cheerBias;
   frontX += (targetFront - frontX)*Math.min(1, dt*0.8);
   buyCrowd.pressBias = frontX*0.55;
   sellCrowd.pressBias = frontX*0.55;
@@ -1533,7 +1625,14 @@ function tick(){
     r.rm.material.opacity = .8*(1-r.t);
   }
 
-  if (camMode===0){
+  if (lockUnit && lockPosNow(_lockPos)){
+    // A2: kunci — kamera merapat & mengorbit pelan unit yang dipilih, di atas mode apa pun
+    _camTgt.copy(_lockPos); _camTgt.y += 6;
+    orbit.target.lerp(_camTgt, Math.min(1, dt*4));
+    orbit.phi    += (0.32 - orbit.phi   )*Math.min(1, dt*2.2);
+    orbit.radius += (72   - orbit.radius)*Math.min(1, dt*2.2);
+    orbit.theta  += dt*0.25 * (lockUnit.side==='buy' ? 1 : -1);
+  } else if (camMode===0){
     const shotDef = CINE_SHOTS[cineIdx];
     if (t - cineShotStart > shotDef.dur){
       let ni; do { ni = (Math.random()*CINE_SHOTS.length)|0; } while (ni===cineIdx && CINE_SHOTS.length>1);
@@ -1594,6 +1693,23 @@ function tick(){
     shake = Math.max(0, shake - dt*14);
   }
 
+  // penanda cincin & lencana untuk unit yang terkunci (A2)
+  if (lockUnit && lockPosNow(_lockPos)){
+    lockRing.visible = true;
+    lockRing.position.set(_lockPos.x, 1.4, _lockPos.z);
+    const pl = 3 + Math.sin(t*6)*.5;
+    lockRing.scale.set(pl, pl, 1);
+    lockRing.material.color.setHex(lockColor());
+    _pv.copy(_lockPos); _pv.y += 10; _pv.project(camera);
+    if (_pv.z < 1){
+      lockBadge.style.left = ((_pv.x*.5+.5)*innerWidth) + 'px';
+      lockBadge.style.top  = ((-_pv.y*.5+.5)*innerHeight) + 'px';
+    }
+  } else if (lockRing.visible){
+    lockRing.visible = false;
+    lockBadge.className = '';
+  }
+
   renderer.render(scene, camera);
 }
 
@@ -1613,6 +1729,9 @@ const I18N = {
     camCinematic:'CINEMATIC', camFollow:'FOLLOW', camFree:'FREE', camAction:'ACTION',
     keysLine1:'<b>drag</b> rotate · <b>scroll</b> zoom',
     keysLine2:'<b>1/2/3</b> camera · <b>WASD</b> pan · <b>Q/E</b> height',
+    keysLine3:'<b>tap ground</b> rally · <b>tap soldier</b> follow',
+    followBuy:'FOLLOWING · BUYER', followSell:'FOLLOWING · SELLER',
+    followBigBuy:'FOLLOWING · BIG BUY', followBigSell:'FOLLOWING · BIG SELL',
     musicLabel:'MUSIC', sfxLabel:'SFX', muteTitle:'Click to mute',
     bigBuy:'BIG BUY ORDER', bigSell:'BIG SELL ORDER',
     buyer:'BUYERS', seller:'SELLERS', streakSuffix:'× STREAK',
@@ -1627,6 +1746,9 @@ const I18N = {
     camCinematic:'SINEMATIK', camFollow:'IKUTI', camFree:'BEBAS', camAction:'AKSI',
     keysLine1:'<b>drag</b> putar · <b>scroll</b> zoom',
     keysLine2:'<b>1/2/3</b> kamera · <b>WASD</b> geser · <b>Q/E</b> tinggi',
+    keysLine3:'<b>ketuk tanah</b> sorak · <b>ketuk prajurit</b> ikuti',
+    followBuy:'MENGIKUTI · PEMBELI', followSell:'MENGIKUTI · PENJUAL',
+    followBigBuy:'MENGIKUTI · BELI BESAR', followBigSell:'MENGIKUTI · JUAL BESAR',
     musicLabel:'MUSIK', sfxLabel:'EFEK', muteTitle:'Klik untuk bisukan',
     bigBuy:'ORDER BELI BESAR', bigSell:'ORDER JUAL BESAR',
     buyer:'PEMBELI', seller:'PENJUAL', streakSuffix:'× BERUNTUN',
@@ -1652,7 +1774,11 @@ function applyLanguage(){
   document.getElementById('pp-short-orders').textContent = L.ordersShort;
   const camLabels = [L.camCinematic, L.camFollow, L.camFree, L.camAction];
   document.querySelectorAll('.btn[data-m]').forEach(b=>{ b.textContent = camLabels[+b.dataset.m]; });
-  document.getElementById('keys-hint').innerHTML = L.keysLine1 + '<br>' + L.keysLine2;
+  document.getElementById('keys-hint').innerHTML = L.keysLine1 + '<br>' + L.keysLine2 + '<br>' + L.keysLine3;
+  if (lockUnit){   // segarkan teks lencana kunci saat bahasa berganti
+    if (lockUnit.type==='big') lockText.textContent = lockUnit.side==='buy' ? L.followBigBuy : L.followBigSell;
+    else lockText.textContent = lockUnit.side==='buy' ? L.followBuy : L.followSell;
+  }
   musicLabelEl.textContent = L.musicLabel; musicLabelEl.title = L.muteTitle;
   sfxLabelEl.textContent = L.sfxLabel; sfxLabelEl.title = L.muteTitle;
 }
