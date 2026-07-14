@@ -53,11 +53,13 @@
   #feed-badge.dead #feed-dot{background:var(--short)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   #retry{display:none;margin-left:6px;padding:3px 9px;font-size:9px}
-  /* saat fullscreen, tombol X exit browser (mis. iPad/Safari) menutup badge di kiri-atas → pindahkan badge ke kanan-atas, di bawah tombol EN/fullscreen */
+  /* saat fullscreen, tombol X exit browser bisa muncul di kiri/tengah/kanan-atas tergantung browser (iPad/Safari, Chrome, dll), sedangkan sudut lain sudah terpakai (kiri-bawah kontrol, kanan-bawah killfeed, bawah-tengah pressure) → taruh badge di tepi kiri, rata tengah vertikal: bebas dari chrome browser & tak menabrak widget mana pun, di ponsel maupun desktop */
   body.is-fs #feed-badge{
-    left:auto;
-    right:max(16px,env(safe-area-inset-right) + 12px);
-    top:calc(max(16px,env(safe-area-inset-top) + 12px) + 48px);
+    top:50%;
+    bottom:auto;
+    right:auto;
+    left:max(16px,env(safe-area-inset-left) + 12px);
+    transform:translateY(-50%);
   }
 
   /* ── tengah atas: harga besar mengambang di atas lapangan, kontras tinggi ── */
