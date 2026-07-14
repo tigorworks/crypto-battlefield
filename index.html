@@ -392,8 +392,8 @@ const soldierGeo = buildSoldier();
 const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
 const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0,0,1);
 
-function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
-  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.42, fog:false });
+function makeCrowd(color, sign, emissiveIntensity){ // sign: -1 = beli (kiri), 1 = jual (kanan)
+  const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity: emissiveIntensity ?? .42, fog:false });
   const mesh = new THREE.InstancedMesh(soldierGeo, mat, CROWD_MAX);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(mesh);
@@ -414,8 +414,8 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
   }
   return { mesh, slots, count:CROWD_START, target:CROWD_START, q, sign };
 }
-const buyCrowd = makeCrowd(C_LONG, -1);
-const sellCrowd = makeCrowd(C_SHORT, 1);
+const buyCrowd = makeCrowd(C_LONG, -1, .42);
+const sellCrowd = makeCrowd(C_SHORT, 1, .95); // lebih terang agar tetap terlihat saat zoom out (kontras dgn latar hijau/cokelat)
 
 /* mati HANYA karena tertembak (dipanggil saat peluru mendarat) */
 function killSoldier(crowd, n){
