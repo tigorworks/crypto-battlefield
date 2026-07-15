@@ -200,6 +200,8 @@
   #streak{position:fixed;top:calc(14% + 118px);left:50%;transform:translateX(-50%) scale(.7);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(16px,2.4vw,22px);letter-spacing:.05em;opacity:0;transition:opacity .18s,transform .18s;text-shadow:0 2px 12px rgba(0,0,0,.6);white-space:nowrap}
   #streak.show{opacity:1;transform:translateX(-50%) scale(1);animation:streakPulse .5s ease-out}
   #streak.buy{color:var(--long)} #streak.sell{color:var(--short)}
+  #streak.t2{font-size:clamp(19px,2.9vw,27px);text-shadow:0 2px 16px rgba(0,0,0,.65),0 0 18px currentColor}
+  #streak.t3{font-size:clamp(22px,3.4vw,32px);text-shadow:0 2px 20px rgba(0,0,0,.7),0 0 26px currentColor;letter-spacing:.07em}
   @keyframes streakPulse{0%{transform:translateX(-50%) scale(1.45)}100%{transform:translateX(-50%) scale(1)}}
   /* ── kabar peristiwa: rout, serangan udara, jeda pasar ── */
   #event-ticker{position:fixed;top:calc(14% + 156px);left:50%;transform:translateX(-50%) translateY(7px);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(12px,1.8vw,16px);letter-spacing:.16em;text-transform:uppercase;opacity:0;transition:opacity .3s,transform .3s;text-shadow:0 2px 14px rgba(0,0,0,.72);white-space:nowrap;display:flex;align-items:center;gap:9px}
@@ -554,7 +556,7 @@ const boltGeo = new THREE.BufferGeometry();
 const boltPts = new Float32Array(9*3);
 boltGeo.setAttribute('position', new THREE.BufferAttribute(boltPts,3).setUsage(THREE.DynamicDrawUsage));
 const bolt = new THREE.Line(boltGeo, boltMat); bolt.visible = false; scene.add(bolt);
-let boltT = 0, lightningT = 2 + Math.random()*4;
+let boltT = 0, lightningT = 6 + Math.random()*3;
 function strikeBolt(){
   const x0 = (Math.random()-.5)*720; let y = 350;
   const z0 = -260 - Math.random()*460;
@@ -566,6 +568,32 @@ function strikeBolt(){
   }
   boltGeo.attributes.position.needsUpdate = true;
   bolt.visible = true; boltMat.opacity = 1; boltT = 0.18;
+  return z0;   // dipakai untuk menjauhkan/meredam suara guntur sesuai jarak sambaran
+}
+
+/* ═══════════ BINTANG JATUH — kejutan visual langka saat malam, tak terkait pasar sama sekali ═══════════ */
+const starMat = new THREE.SpriteMaterial({ map:GLOW, color:0xfff6d9, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+const shootingStar = new THREE.Sprite(starMat); shootingStar.scale.set(10,3,1); scene.add(shootingStar);
+let starT = 0, starDur = 0, nextStarCheck = 30 + Math.random()*40;
+const starFrom = new THREE.Vector3(), starTo = new THREE.Vector3();
+function updateShootingStar(dt, daylight){
+  if (starT > 0){
+    starT -= dt;
+    const k = 1 - Math.max(0, starT)/starDur;
+    shootingStar.position.lerpVectors(starFrom, starTo, k);
+    const fadeIn = Math.min(1, k/0.15), fadeOut = Math.min(1, (1-k)/0.3);
+    starMat.opacity = Math.max(0, Math.min(fadeIn, fadeOut))*0.9;
+    if (starT <= 0){ starT = 0; starMat.opacity = 0; }
+    return;
+  }
+  if (daylight > 0.28) return;   // hanya muncul saat cukup gelap
+  nextStarCheck -= dt;
+  if (nextStarCheck > 0) return;
+  nextStarCheck = 45 + Math.random()*75;   // rata-rata sekali per ~1-2 menit selama malam
+  const side = Math.random()<.5 ? -1 : 1;
+  starFrom.set(side*700, 260+Math.random()*120, -500-Math.random()*300);
+  starTo.set(-side*500, 60+Math.random()*60, -200-Math.random()*300);
+  starDur = 1.1 + Math.random()*.5; starT = starDur;
 }
 
 /* gabung beberapa BufferGeometry (posisi+normal) jadi satu — tanpa lib eksternal */
@@ -905,6 +933,7 @@ function spawnBigUnit(side, usd){
   scene.add(obj);
   bigUnitObjs.push(obj);
   playChargeHorn();
+  directorCut(()=>obj.position, { duration:3400, priority:1 });   // SINEMATIK: singgah sejenak ke paus yang muncul
   // mode AKSI: potong sejenak ke unit paus yang datang — kini bertahan lebih lama agar efek menetapnya terlihat
   if (camMode===3 && performance.now() > heroCooldown){
     heroUnit = obj; heroUntil = performance.now()+4200; heroCooldown = performance.now()+9000;
@@ -957,9 +986,31 @@ function spawnAirstrike(side, usd){
   addSlowmo(1.2); addFlash(.5, '#fff2c8'); addShake(3.4);
   playChargeHorn();
   showEvent(side==='buy' ? I18N[lang].airstrikeBuy : I18N[lang].airstrikeSell, side, true);
+  directorCut(()=>obj.position, { duration:3800, priority:3 });
   if (camMode===3 && now > heroCooldown){
     heroUnit = obj; heroUntil = now + 3800; heroCooldown = now + 9000;
   }
+}
+
+/* ═══════════ TEMBAKAN ARTILERI — varian lain peristiwa langka untuk order raksasa (≥ T_BOSS):
+   rentetan mortir jatuh dari langit ke wilayah lawan tanpa unit pembom, supaya order boss
+   tak selalu terlihat sama seperti serangan udara. ═══════════ */
+const barrages = [];
+let lastBarrage = -1e9;
+function spawnBarrage(side, usd){
+  const now = performance.now();
+  if (now - lastBarrage < 9000 || barrages.length) return;   // sangat langka — jangan spam
+  lastBarrage = now;
+  const defender = side==='buy' ? sellCrowd : buyCrowd;
+  const shells = [];
+  let tCursor = .5;
+  for (let k=0;k<6;k++){ tCursor += .32 + Math.random()*.18; shells.push({ at:tCursor, pos:groundPoint(defender) }); }
+  const b = { t:0, dur: shells[shells.length-1].at + .7, shells, done:0, side, defender, curPos:shells[0].pos.clone() };
+  barrages.push(b);
+  addSlowmo(1.0); addFlash(.42, '#ffe8c8'); addShake(2.8);
+  playChargeHorn();
+  showEvent(side==='buy' ? I18N[lang].barrageBuy : I18N[lang].barrageSell, side, true);
+  directorCut(()=>b.curPos, { duration:3600, priority:3 });
 }
 
 /* ═══════════ TEMBAK-TEMBAKAN — peluru pelacak, kilatan moncong & percikan ═══════════ */
@@ -1073,11 +1124,18 @@ function bumpStreak(side){
   if (streakCount >= 5 && streakCount % 5 === 0){
     const L = I18N[lang];
     const who = side==='buy' ? L.buyer : L.seller;
-    streakEl.textContent = `${who} ${streakCount}${L.streakSuffix}`;
-    streakEl.className = 'show ' + side;
+    // eskalasi visual: makin panjang beruntun, makin besar & menyala tampilannya (bukan cuma teks berulang)
+    const tier = streakCount>=20 ? 3 : streakCount>=10 ? 2 : 1;
+    const suffix = tier===3 ? L.streakSuffixT3 : tier===2 ? L.streakSuffixT2 : L.streakSuffix;
+    streakEl.textContent = `${who} ${streakCount}${suffix}`;
+    streakEl.className = `show t${tier} ` + side;
     addShake(.8 + Math.min(2, streakCount*.05));
     clearTimeout(streakHide);
     streakHide = setTimeout(()=>{ streakEl.className = ''; }, 2200);
+    if (tier >= 2){
+      const winner = side==='buy' ? buyCrowd : sellCrowd;
+      directorCut(()=>crowdPoint(winner, 20), { duration:2600, priority:2 });
+    }
     // dominasi ekstrem → sisi yang kalah pecah formasi & lari
     if (streakCount === 20 || (streakCount > 20 && streakCount % 15 === 0)){
       triggerRout(side==='buy' ? 'sell' : 'buy', Math.min(1, (streakCount-20)/40));
@@ -1103,6 +1161,21 @@ const flashEl = document.getElementById('flash');
 let flashV = 0, flashColor = '#ffffff', slowmo = 0;
 function addFlash(v, color){ flashV = Math.max(flashV, v); if (color) flashColor = color; }
 function addSlowmo(s){ slowmo = Math.max(slowmo, s); }
+
+/* ═══════════ AUTO-DIRECTOR — di mode SINEMATIK, potong sejenak ke momen besar (paus, boss, beruntun)
+   alih-alih hanya berputar acak lewat CINE_SHOTS; prioritas lebih tinggi bisa menyela cut yang sedang
+   berjalan, prioritas rendah menunggu jeda singkat supaya kamera tak "kedutan" tiap peristiwa kecil. */
+let directorGetPos = null, directorUntil = 0, directorCooldown = 0, directorPriority = 0;
+function directorCut(getPos, opts){
+  const { duration=3200, priority=1 } = opts || {};
+  const now = performance.now();
+  if (now < directorUntil && priority < directorPriority) return;
+  if (now < directorCooldown && priority < 2) return;
+  directorGetPos = typeof getPos === 'function' ? getPos : ()=>getPos;
+  directorUntil = now + duration;
+  directorPriority = priority;
+  directorCooldown = now + 1600;
+}
 
 /* ═══════════ ROUT — pasukan yang kalah telak lari kocar-kacir ═══════════ */
 function triggerRout(loserSide, intensity){
@@ -1191,6 +1264,7 @@ function logKill(side, qty, price, tag){
 
 /* ═══════════ TEKANAN PASAR (panjang vs pendek, 60s) ═══════════ */
 let flow = [];   // {t, usd, buy}
+let flowRateEMA = null;   // rerata laju transaksi adaptif (transaksi/detik) — dasar pembanding pasar "sepi"
 function fmtUsd(n){
   if (n>=1e6) return '$'+(n/1e6).toFixed(1)+'M';
   if (n>=1e3) return '$'+Math.round(n/1e3)+'K';
@@ -1219,8 +1293,8 @@ function meterUpdate(){
   document.getElementById('pp-short-cnt').textContent = sc;
 }
 
-/* ═══════════ AUDIO — musik latar (file loop) & efek suara (generatif), masing-masing slider volume sendiri ═══════════ */
-let AC=null, masterG, musicG, sfxG, musicSource=null;
+/* ═══════════ AUDIO — musik latar (dua lapis, berpindah sesuai keramaian pasar) & efek suara (generatif), masing-masing slider volume sendiri ═══════════ */
+let AC=null, masterG, musicG, sfxG;
 let musicOn = false, sfxOn = false;   // turunan dari volume > 0 — dipakai agar tak kerja sia-sia saat senyap
 const musicVolEl = document.getElementById('music-vol');
 const sfxVolEl = document.getElementById('sfx-vol');
@@ -1229,9 +1303,14 @@ const sfxLabelEl = document.getElementById('sfx-label');
 let musicLastVol = 100, sfxLastVol = 100;   // volume terakhir sebelum dibisukan, untuk tombol mute
 const MUSIC_LEVEL = .55, SFX_LEVEL = .85;
 let musicTargetGain = MUSIC_LEVEL;   // gain yang dituju musik (sebelum diredam sesaat oleh tembakan)
-const MUSIC_SRC = 'bgm.m4a';   // "Determined Pursuit" oleh Emma_MA (CC0, opengameart.org) — di-loop gapless
+const MUSIC_SRC_BUSY = 'bgm.m4a';        // "Determined Pursuit" oleh Emma_MA (CC0, opengameart.org) — di-loop gapless, untuk pasar ramai
+const MUSIC_SRC_CALM = 'bgm_calm.m4a';   // "Ambient Relaxing Loop" oleh isaiah658 (CC0, opengameart.org) — untuk pasar sepi/gencatan
 const SFX_GUNSHOT_SRC = 'sfx_gunshot.mp3', SFX_CANNON_SRC = 'sfx_cannon.mp3';   // CC0, "Basic Sound Effects" oleh n4 (opengameart.org)
-let sfxBufGunshot=null, sfxBufCannon=null;
+const SFX_THUNDER_SRC = 'sfx_thunder.m4a';   // rekaman asli guntur dari paket "100 CC0 SFX #2" oleh rubberduck (CC0, opengameart.org)
+let sfxBufGunshot=null, sfxBufCannon=null, sfxBufThunder=null;
+/* dua lapis musik diputar bersamaan terus-menerus; hanya gain-nya yang di-crossfade,
+   supaya perpindahan mulus tanpa jeda decode/restart saat keramaian pasar berubah */
+let musicBusyG=null, musicCalmG=null, musicLayer='busy';
 
 function initAudio(){
   AC = new (window.AudioContext||window.webkitAudioContext)();
@@ -1242,29 +1321,44 @@ function initAudio(){
   loadSfxBuffers();
 }
 
-/* efek tembakan: sampel rekaman asli (bukan noise sintetis) di-decode sekali lalu diputar berulang */
+/* efek tembakan & guntur: sampel rekaman asli (bukan noise sintetis) di-decode sekali lalu diputar berulang */
 async function loadSfxBuffers(){
   try {
-    const [gRes, cRes] = await Promise.all([fetch(SFX_GUNSHOT_SRC), fetch(SFX_CANNON_SRC)]);
-    [sfxBufGunshot, sfxBufCannon] = await Promise.all([
+    const [gRes, cRes, tRes] = await Promise.all([fetch(SFX_GUNSHOT_SRC), fetch(SFX_CANNON_SRC), fetch(SFX_THUNDER_SRC)]);
+    [sfxBufGunshot, sfxBufCannon, sfxBufThunder] = await Promise.all([
       AC.decodeAudioData(await gRes.arrayBuffer()),
       AC.decodeAudioData(await cRes.arrayBuffer()),
+      AC.decodeAudioData(await tRes.arrayBuffer()),
     ]);
-  } catch (e) { console.warn('sfx tembakan gagal dimuat:', e); }
+  } catch (e) { console.warn('sfx tembakan/guntur gagal dimuat:', e); }
 }
 
-/* musik latar: file audio di-decode lalu diputar lewat AudioBufferSourceNode (loop=true) agar
-   sambungan loop mulus, bukan <audio loop> yang bisa berjeda sekejap di titik ulang */
+/* musik latar: kedua file di-decode lalu diputar lewat AudioBufferSourceNode (loop=true) agar
+   sambungan loop mulus, bukan <audio loop> yang bisa berjeda sekejap di titik ulang.
+   Keduanya berjalan bersamaan sejak awal — hanya gain masing-masing yang di-crossfade. */
 async function startMusic(){
   try {
-    const res = await fetch(MUSIC_SRC, { cache: 'force-cache' });
-    const buf = await AC.decodeAudioData(await res.arrayBuffer());
-    musicSource = AC.createBufferSource();
-    musicSource.buffer = buf; musicSource.loop = true;
-    musicSource.connect(musicG);
-    musicSource.start();
+    const [busyBuf, calmBuf] = await Promise.all([
+      fetch(MUSIC_SRC_BUSY, { cache: 'force-cache' }).then(r=>r.arrayBuffer()).then(b=>AC.decodeAudioData(b)),
+      fetch(MUSIC_SRC_CALM, { cache: 'force-cache' }).then(r=>r.arrayBuffer()).then(b=>AC.decodeAudioData(b)),
+    ]);
+    musicBusyG = AC.createGain(); musicBusyG.gain.value = 1; musicBusyG.connect(musicG);
+    musicCalmG = AC.createGain(); musicCalmG.gain.value = 0; musicCalmG.connect(musicG);
+    const busySrc = AC.createBufferSource(); busySrc.buffer = busyBuf; busySrc.loop = true; busySrc.connect(musicBusyG); busySrc.start();
+    const calmSrc = AC.createBufferSource(); calmSrc.buffer = calmBuf; calmSrc.loop = true; calmSrc.connect(musicCalmG); calmSrc.start();
   } catch (e) { console.warn('musik latar gagal dimuat:', e); }
 }
+/* pindah lapis musik ('busy'/'calm') dengan crossfade mulus, dipicu oleh gencatan (lull) saat pasar sepi */
+function setMusicLayer(layer){
+  if (layer === musicLayer || !musicBusyG || !musicCalmG) return;
+  musicLayer = layer;
+  const t = AC.currentTime, dur = 3.2;
+  const inG = layer==='calm' ? musicCalmG : musicBusyG;
+  const outG = layer==='calm' ? musicBusyG : musicCalmG;
+  inG.gain.cancelScheduledValues(t); inG.gain.setValueAtTime(inG.gain.value, t); inG.gain.linearRampToValueAtTime(1, t+dur);
+  outG.gain.cancelScheduledValues(t); outG.gain.setValueAtTime(outG.gain.value, t); outG.gain.linearRampToValueAtTime(0, t+dur);
+}
+window.__testMusicLayer = setMusicLayer;   // bantuan uji manual dari console: __testMusicLayer('calm') / ('busy')
 /* mengecat isian slider (hijau sampai posisi thumb) & tandai bisu lewat CSS class */
 function paintVol(el, muted){
   const pct = +el.value, col = muted ? 'var(--muted)' : 'var(--long)';
@@ -1366,6 +1460,17 @@ function playCannon(){                      // tembakan unit paus (tank/heli/jet
   src.connect(g).connect(sfxG); src.start(t);
   duckMusic(.7, .03, .1, .5);
 }
+function playThunder(z0){                   // guntur saat badai (dump keras) — z0 sambaran menentukan jarak & kesan redam
+  if (!sfxOn || !AC || !sfxBufThunder) return;
+  const dist = Math.min(1, Math.max(0, (-z0-260)/460));   // 0=dekat, 1=jauh
+  const t = AC.currentTime + dist*0.35;                    // jeda mengikuti kecepatan suara (dibuat-buat, bukan fisik akurat)
+  const src = AC.createBufferSource(); src.buffer = sfxBufThunder;
+  src.playbackRate.value = .92 - dist*.12 + Math.random()*.1;
+  const f = AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value = 7200 - dist*5200;
+  const g = AC.createGain(); g.gain.value = .8 - dist*.35;
+  src.connect(f).connect(g).connect(sfxG); src.start(t);
+  duckMusic(.35, .05, .3, 1.1);
+}
 function playVolley(tier){
   if (!sfxOn || !AC || !sfxBufGunshot) return;
   const t0 = AC.currentTime;
@@ -1426,7 +1531,7 @@ function onTrade(p, qty, isBuy){
     spawnBigUnit(side, usd);
     fireVolley(side, 2, Math.min(killed, 16));
     addShake(2.2); addHitstop(.09);
-    if (usd >= T_BOSS) spawnAirstrike(side, usd);   // order raksasa → serangan udara sinematik
+    if (usd >= T_BOSS){ if (Math.random()<.5) spawnAirstrike(side, usd); else spawnBarrage(side, usd); }   // order raksasa → variasi peristiwa langka
     bigMoment('whale', side, usd, p);
   } else if (usd >= T_SHELL){
     fireVolley(side, tier, killed);        // peluru yang membunuh saat mendarat
@@ -1868,18 +1973,19 @@ function tick(){
   sun.intensity = (.7 + mood*.22) * (0.3 + 0.7*daylight);
   sun.color.setHex(mood < 0 ? 0xa7bcd6 : 0xfff0cf);
   moonMat.opacity = (1-daylight)*0.85;
+  updateShootingStar(dt, daylight);
 
-  // petir saat badai (dump keras) — kilat menyeluruh + guruh
+  // petir saat badai (dump keras) — kilat menyeluruh + guntur asli, dijarangkan agar tak melelahkan mata
   if (mood < -0.32){
     lightningT -= dt;
     if (lightningT <= 0){
-      lightningT = 2.5 + Math.random()*5;
-      addFlash(.55 + Math.random()*.3, '#dfeaff');
-      setTimeout(()=>addFlash(.4, '#dfeaff'), 90);   // kilat ganda
-      strikeBolt();
-      if (Math.random() < .7) playBoom(.5, 1);
+      lightningT = 7 + Math.random()*4;
+      addFlash(.32 + Math.random()*.15, '#dfeaff');
+      setTimeout(()=>addFlash(.2, '#dfeaff'), 90);   // kilat ganda, lebih redup
+      const z0 = strikeBolt();
+      playThunder(z0);
     }
-  } else lightningT = 1.5 + Math.random()*3;
+  } else lightningT = 4 + Math.random()*3;
   if (bolt.visible){ boltT -= dt; boltMat.opacity = Math.max(0, boltT/0.18); if (boltT <= 0) bolt.visible = false; }
   // kilat layar meluruh
   if (flashV > .001){ flashEl.style.background = flashColor; flashEl.style.opacity = flashV; flashV = Math.max(0, flashV - dt*3.2); }
@@ -1912,13 +2018,22 @@ function tick(){
     c.flee += (routing - c.flee) * Math.min(1, dt*(routing ? 3 : 1.4));
   }
 
-  // JEDA TENANG — saat aktivitas pasar nyaris nol, tembak-tembakan mereda jadi gencatan
-  let recentCnt = 0;
-  for (let i=flow.length-1;i>=0;i--){ if (nowMs - flow[i].t < 6000) recentCnt++; else break; }
-  const lullTarget = recentCnt < 4 ? 1 : 0;
+  // JEDA TENANG — dinilai relatif terhadap rerata laju transaksi sesi berjalan (bukan angka mutlak),
+  // supaya tetap peka baik di pasangan cepat (BTC, puluhan transaksi/detik) maupun lambat: dianggap
+  // "sepi" saat laju 15 detik terakhir jatuh jauh di bawah rerata adaptifnya sendiri.
+  let recentCnt = 0, cnt15 = 0;
+  for (let i=flow.length-1;i>=0;i--){
+    const age = nowMs - flow[i].t;
+    if (age >= 15000) break;
+    cnt15++;
+    if (age < 6000) recentCnt++;
+  }
+  const rate15 = cnt15/15;
+  flowRateEMA = flowRateEMA===null ? rate15 : flowRateEMA + (rate15-flowRateEMA)*Math.min(1, dt/45);
+  const lullTarget = (recentCnt < 4 || (flowRateEMA > 0.15 && rate15 < flowRateEMA*0.4)) ? 1 : 0;
   lull += (lullTarget - lull) * Math.min(1, dt*(lullTarget ? 0.7 : 2.5));
-  if (!lullActive && lull > 0.7){ lullActive = true; showEvent(I18N[lang].lull, 'neutral'); }
-  else if (lullActive && lull < 0.3){ lullActive = false; showEvent(I18N[lang].lullEnd, 'neutral'); playChargeHorn(); }
+  if (!lullActive && lull > 0.7){ lullActive = true; showEvent(I18N[lang].lull, 'neutral'); setMusicLayer('calm'); }
+  else if (lullActive && lull < 0.3){ lullActive = false; showEvent(I18N[lang].lullEnd, 'neutral'); playChargeHorn(); setMusicLayer('busy'); }
 
   updateCrowd(buyCrowd, sdt, t);
   updateCrowd(sellCrowd, sdt, t);
@@ -2026,6 +2141,26 @@ function tick(){
     }
   }
 
+  // tembakan artileri — mortir jatuh beruntun ke wilayah lawan (varian lain order boss)
+  for (let i=barrages.length-1;i>=0;i--){
+    const b = barrages[i];
+    b.t += sdt;
+    while (b.done < b.shells.length && b.t >= b.shells[b.done].at){
+      const s = b.shells[b.done++];
+      b.curPos.copy(s.pos);
+      explode(s.pos, C_GOLD2, .85+Math.random()*.25, 2);
+      makeSpark(s.pos, C_GOLD, 26, .3);
+      killSoldier(b.defender, 4);
+      spawnSkull(s.pos);
+      addShake(1.3); addFlash(.2, '#ffcf8c');
+      playBoom(.85, 2);
+    }
+    if (b.t >= b.dur){
+      barrages.splice(i,1);
+      triggerRout(b.side==='buy' ? 'sell' : 'buy', .8);
+    }
+  }
+
   // peluru pelacak
   for (let i=bullets.length-1;i>=0;i--){
     const b = bullets[i];
@@ -2093,17 +2228,28 @@ function tick(){
     orbit.radius += (72   - orbit.radius)*Math.min(1, dt*2.2);
     orbit.theta  += dt*0.25 * (lockUnit.side==='buy' ? 1 : -1);
   } else if (camMode===0){
-    const shotDef = CINE_SHOTS[cineIdx];
-    if (t - cineShotStart > shotDef.dur){
-      let ni; do { ni = (Math.random()*CINE_SHOTS.length)|0; } while (ni===cineIdx && CINE_SHOTS.length>1);
-      cineIdx = ni; cineShotStart = t;
+    if (directorGetPos && performance.now() < directorUntil){
+      // auto-director: sela rotasi shot biasa untuk menyorot momen besar (paus, boss, beruntun)
+      _camTgt.copy(directorGetPos()); _camTgt.y += 9;
+      orbit.target.lerp(_camTgt, dt*2.4);
+      orbit.phi    += (0.22 - orbit.phi)*dt*2;
+      orbit.radius += (150  - orbit.radius)*dt*2;
+      orbit.theta  += dt*0.2;
+      cineShotStart = t;   // shot normal dilanjut segar begitu potongan ini berakhir
+    } else {
+      directorGetPos = null;
+      const shotDef = CINE_SHOTS[cineIdx];
+      if (t - cineShotStart > shotDef.dur){
+        let ni; do { ni = (Math.random()*CINE_SHOTS.length)|0; } while (ni===cineIdx && CINE_SHOTS.length>1);
+        cineIdx = ni; cineShotStart = t;
+      }
+      const shot = shotDef.run(t-cineShotStart, t, frontX, shotDef.dur);
+      orbit.theta  += (shot.theta  - orbit.theta )*dt*.8;
+      orbit.phi    += (shot.phi    - orbit.phi   )*dt*.8;
+      orbit.radius += (shot.radius - orbit.radius)*dt*.7;
+      _camTgt.set(shot.tx, shot.ty, shot.tz);
+      orbit.target.lerp(_camTgt, dt*.8);
     }
-    const shot = shotDef.run(t-cineShotStart, t, frontX, shotDef.dur);
-    orbit.theta  += (shot.theta  - orbit.theta )*dt*.8;
-    orbit.phi    += (shot.phi    - orbit.phi   )*dt*.8;
-    orbit.radius += (shot.radius - orbit.radius)*dt*.7;
-    _camTgt.set(shot.tx, shot.ty, shot.tz);
-    orbit.target.lerp(_camTgt, dt*.8);
   } else if (camMode===1){
     followPos.lerp(lastImpact, dt*2.2);
     orbit.target.lerp(new THREE.Vector3(followPos.x,15,followPos.z), dt*2.2);
@@ -2196,6 +2342,7 @@ const I18N = {
     musicLabel:'MUSIC', sfxLabel:'SFX', muteTitle:'Click to mute',
     bigBuy:'BIG BUY ORDER', bigSell:'BIG SELL ORDER',
     buyer:'BUYERS', seller:'SELLERS', streakSuffix:'× STREAK',
+    streakSuffixT2:'× ON A TEAR', streakSuffixT3:'× UNSTOPPABLE',
     whaleTag:'WHALE', liqTag:'LIQUIDATION',
     topBuy:'TOP BUY', topSell:'TOP SELL',
     langBtnTitle:'Switch language',
@@ -2204,6 +2351,7 @@ const I18N = {
     momentToastWhale:'Big whale spotted', momentToastLiq:'Big liquidation',
     routBuyers:'Buyers routed', routSellers:'Sellers routed',
     airstrikeBuy:'Buy airstrike inbound', airstrikeSell:'Sell airstrike inbound',
+    barrageBuy:'Buy artillery barrage', barrageSell:'Sell artillery barrage',
     lull:'Market quiet · ceasefire', lullEnd:'Battle resumes',
   },
   id: {
@@ -2221,6 +2369,7 @@ const I18N = {
     musicLabel:'MUSIK', sfxLabel:'EFEK', muteTitle:'Klik untuk bisukan',
     bigBuy:'ORDER BELI BESAR', bigSell:'ORDER JUAL BESAR',
     buyer:'PEMBELI', seller:'PENJUAL', streakSuffix:'× BERUNTUN',
+    streakSuffixT2:'× SEDANG PANAS', streakSuffixT3:'× TAK TERBENDUNG',
     whaleTag:'PAUS', liqTag:'LIKUIDASI',
     topBuy:'BELI TERBESAR', topSell:'JUAL TERBESAR',
     langBtnTitle:'Ganti bahasa',
@@ -2229,6 +2378,7 @@ const I18N = {
     momentToastWhale:'Paus besar terdeteksi', momentToastLiq:'Likuidasi besar',
     routBuyers:'Pembeli kabur', routSellers:'Penjual kabur',
     airstrikeBuy:'Serangan udara beli', airstrikeSell:'Serangan udara jual',
+    barrageBuy:'Tembakan artileri beli', barrageSell:'Tembakan artileri jual',
     lull:'Pasar sunyi · gencatan', lullEnd:'Pertempuran berlanjut',
   },
 };
@@ -2352,6 +2502,18 @@ cardShareBtn.onclick=()=>{ if(!cardCanvas) return; cardCanvas.toBlob(async (blob
 }, 'image/png'); };
 
 applyLanguage();
+
+/* bantuan uji manual dari console (peristiwa langka sulit ditunggu secara alami di pasar nyata):
+   __testEvent('airstrike' | 'barrage' | 'streak' | 'star') */
+window.__testEvent = (name)=>{
+  const usd = T_BOSS*1.5, side = Math.random()<.5 ? 'buy' : 'sell';
+  if (name==='airstrike') spawnAirstrike(side, usd);
+  else if (name==='barrage') spawnBarrage(side, usd);
+  else if (name==='streak'){ for (let i=0;i<20;i++) bumpStreak(side); }
+  else if (name==='star') nextStarCheck = 0;
+  else return 'unknown — use: airstrike | barrage | streak | star';
+  return 'triggered: ' + name;
+};
 
 connect();
 tick();
