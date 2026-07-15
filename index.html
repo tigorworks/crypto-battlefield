@@ -1369,6 +1369,11 @@ sfxLabelEl.onclick   = ()=>{ if (!AC) initAudio(); sfxVolEl.value   = (+sfxVolEl
    sebelum AudioContext bisa benar-benar bersuara, jadi kita siapkan
    di awal lalu resume pada interaksi pertama apa pun */
 initAudio();
+if (AC && AC.state !== 'running'){
+  // autoplay diblokir browser (a.l. Safari) — bisukan dulu supaya UI tak menampilkan "menyala"
+  // padahal sebenarnya senyap; musicLastVol/sfxLastVol tetap tersimpan, tinggal klik label untuk menyalakan
+  musicVolEl.value = 0; sfxVolEl.value = 0;
+}
 applyMusicVol(); applySfxVol();
 /* Browser memblokir suara sampai ada satu interaksi pengguna. Kita coba
    resume sedini mungkin pada gerakan/gesture apa pun (bergerak mouse,
