@@ -201,6 +201,12 @@
   #streak.show{opacity:1;transform:translateX(-50%) scale(1);animation:streakPulse .5s ease-out}
   #streak.buy{color:var(--long)} #streak.sell{color:var(--short)}
   @keyframes streakPulse{0%{transform:translateX(-50%) scale(1.45)}100%{transform:translateX(-50%) scale(1)}}
+  /* ── kabar peristiwa: rout, serangan udara, jeda pasar ── */
+  #event-ticker{position:fixed;top:calc(14% + 156px);left:50%;transform:translateX(-50%) translateY(7px);z-index:11;pointer-events:none;font-family:var(--rounded);font-weight:800;font-size:clamp(12px,1.8vw,16px);letter-spacing:.16em;text-transform:uppercase;opacity:0;transition:opacity .3s,transform .3s;text-shadow:0 2px 14px rgba(0,0,0,.72);white-space:nowrap;display:flex;align-items:center;gap:9px}
+  #event-ticker.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #event-ticker .et-dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 11px currentColor;animation:etPulse 1s ease-in-out infinite}
+  #event-ticker.buy{color:var(--long)} #event-ticker.sell{color:var(--short)} #event-ticker.neutral{color:#dfe6ff}
+  @keyframes etPulse{0%,100%{opacity:.35}50%{opacity:1}}
   @media (prefers-reduced-motion: reduce){ .kill{animation:none} }
 
   /* ── tombol bagikan momen di panel kontrol ── */
@@ -274,6 +280,7 @@
 <div id="flash"></div>
 <div id="fx-layer"></div>
 <div id="streak"></div>
+<div id="event-ticker"><span class="et-dot"></span><span id="et-txt"></span></div>
 <div id="unit-tip"></div>
 <div id="lock-badge"><span id="lock-text"></span><span class="lx">✕</span></div>
 
@@ -399,6 +406,7 @@ const STREAM = 'btcusdt';
 const T_SHELL = 40;        // ≥ $40   → tembakan kecil (sangat sering, sangat intens)
 const T_HEAVY = 25000;     // ≥ $25K  → tembakan berat + sorotan
 const T_WHALE = 50000;     // ≥ $50K → paus kecil, unit besar mulai muncul
+const T_BOSS = 2000000;    // ≥ $2jt → peristiwa langka: serangan udara + gerak lambat sinematik
 const MAX_UNITS = 30;
 const CROWD_MAX = 96;      // jumlah maksimum prajurit per sisi (headroom untuk pertempuran padat)
 const CROWD_START = 48;    // jumlah awal prajurit per sisi
@@ -502,9 +510,11 @@ const clashLine = new THREE.Mesh(
 clashLine.position.y = 1.4; scene.add(clashLine);
 
 /* ═══════════ LANGIT & CUACA DINAMIS — ikut mood pasar ═══════════ */
-let mood = 0, moodTarget = 0;
+let mood = 0, moodTarget = 0, lull = 0, lullActive = false;
 const SKY_STORM = new THREE.Color(0x2b3542), SKY_CALM = new THREE.Color(SKY), SKY_PUMP = new THREE.Color(0xffd9a3);
+const SKY_NIGHT = new THREE.Color(0x0b1230);
 const _sky = new THREE.Color();
+const DAY_PERIOD = 240;   // detik untuk satu siklus siang→malam penuh — malam bikin tracer & ledakan menonjol
 function weatherPoints(n, color, size, additive){
   const g = new THREE.BufferGeometry();
   const p = new Float32Array(n*3), v = new Float32Array(n);
@@ -535,6 +545,28 @@ function glowTexture(){
 const GLOW = glowTexture();
 const ringGeo = new THREE.RingGeometry(1, 1.35, 48);
 const IDENT_Q = new THREE.Quaternion();
+
+/* ═══════════ BULAN & PETIR — untuk siklus malam & badai (dump keras) ═══════════ */
+const moonMat = new THREE.SpriteMaterial({ map:GLOW, color:0xd4e2ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+const moon = new THREE.Sprite(moonMat); moon.scale.set(140,140,1); moon.position.set(360,380,-980); scene.add(moon);
+const boltMat = new THREE.LineBasicMaterial({ color:0xe4eeff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false });
+const boltGeo = new THREE.BufferGeometry();
+const boltPts = new Float32Array(9*3);
+boltGeo.setAttribute('position', new THREE.BufferAttribute(boltPts,3).setUsage(THREE.DynamicDrawUsage));
+const bolt = new THREE.Line(boltGeo, boltMat); bolt.visible = false; scene.add(bolt);
+let boltT = 0, lightningT = 2 + Math.random()*4;
+function strikeBolt(){
+  const x0 = (Math.random()-.5)*720; let y = 350;
+  const z0 = -260 - Math.random()*460;
+  for (let i=0;i<9;i++){
+    boltPts[i*3]   = x0 + (Math.random()-.5)*80*(i/8);
+    boltPts[i*3+1] = y;
+    boltPts[i*3+2] = z0 + (Math.random()-.5)*44;
+    y -= 38 + Math.random()*22;
+  }
+  boltGeo.attributes.position.needsUpdate = true;
+  bolt.visible = true; boltMat.opacity = 1; boltT = 0.18;
+}
 
 /* gabung beberapa BufferGeometry (posisi+normal) jadi satu — tanpa lib eksternal */
 function mergeGeoms(geoms){
@@ -589,6 +621,7 @@ function spawnSkull(pos){
 const soldierGeo = buildSoldier();
 const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
 const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0,0,1);
+const faceQ = new THREE.Quaternion(), AXIS_Y = new THREE.Vector3(0,1,0);
 
 function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
   const mat = new THREE.MeshLambertMaterial({ color, emissive:color, emissiveIntensity:.42, fog:false });
@@ -620,7 +653,7 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
       phase: Math.random()*Math.PI*2,
     });
   }
-  return { mesh, glow, glowPos, slots, count:CROWD_START, target:CROWD_START, q, sign };
+  return { mesh, glow, glowPos, slots, count:CROWD_START, target:CROWD_START, q, sign, routUntil:0, flee:0 };
 }
 const buyCrowd = makeCrowd(C_LONG, -1);
 const sellCrowd = makeCrowd(C_SHORT, 1);
@@ -680,6 +713,15 @@ function updateCrowd(crowd, dt, t){
       sc = 1;
     }
 
+    // ROUT — sisi yang kalah telak pecah formasi & lari panik ke belakang wilayah sendiri
+    let facing = 0;
+    const flee = crowd.flee;
+    if (flee > .02 && !s.dying && (s.active || s.walking)){
+      x += crowd.sign * flee * (58 + (s.phase*13 % 46));   // makin jauh dari musuh
+      bob = Math.abs(Math.sin(t*11 + s.phase)) * (.9 + flee);   // langkah panik cepat
+      if (flee > .5) facing = Math.PI;                    // balik badan membelakangi musuh
+    }
+
     // jangan biarkan prajurit melewati garis depan ke wilayah lawan
     if (crowd.sign < 0) x = Math.min(x, frontX - 16);
     else                x = Math.max(x, frontX + 16);
@@ -687,6 +729,7 @@ function updateCrowd(crowd, dt, t){
     if (sc <= .002 && !s.active && !s.dying) sscl.set(.0001,.0001,.0001);
     else sscl.set(sc, sc, sc);
     sq.copy(crowd.q);
+    if (facing){ faceQ.setFromAxisAngle(AXIS_Y, facing); sq.multiply(faceQ); }
     if (topple){ toppleQ.setFromAxisAngle(AXIS_Z, topple); sq.premultiply(toppleQ); }
     spos.set(x, bob, z);
     smx.compose(spos, sq, sscl);
@@ -887,6 +930,38 @@ function enterDeath(u){
   playVolley(2);
 }
 
+/* ═══════════ SERANGAN UDARA — peristiwa langka untuk order raksasa (≥ T_BOSS) ═══════════
+   pembom raksasa melintas tinggi menembus barisan lawan sambil menjatuhkan bom beruntun;
+   dipadukan gerak lambat sinematik, kilat layar & guncangan besar. */
+const airstrikes = [];
+let lastAirstrike = -1e9;
+function spawnAirstrike(side, usd){
+  const now = performance.now();
+  if (now - lastAirstrike < 9000 || airstrikes.length) return;   // sangat langka — jangan spam
+  lastAirstrike = now;
+  const defender = side==='buy' ? sellCrowd : buyCrowd;
+  const ownSign = side==='buy' ? -1 : 1;
+  const z0 = (Math.random()-.5)*130;
+  const from = new THREE.Vector3(ownSign*280, 150, z0);
+  const to   = new THREE.Vector3(-ownSign*280, 150, z0);
+  const obj = makeBomber(side);
+  const sc = UNIT_BASE_SCALE.bomber * 1.9;   // jauh lebih besar dari pembom biasa
+  obj.scale.set(sc, sc, sc);
+  obj.rotation.y = side==='buy' ? 0 : Math.PI;
+  obj.position.copy(from);
+  scene.add(obj); bigUnitObjs.push(obj);
+  const drops = [];
+  for (let k=0;k<7;k++) drops.push(.34 + k*.075);   // fraksi lintasan tempat bom jatuh
+  airstrikes.push({ obj, from, to, t:0, dur:3.2, side, defender, drops, dropped:0, z0 });
+  // sentuhan sinematik
+  addSlowmo(1.2); addFlash(.5, '#fff2c8'); addShake(3.4);
+  playChargeHorn();
+  showEvent(side==='buy' ? I18N[lang].airstrikeBuy : I18N[lang].airstrikeSell, side, true);
+  if (camMode===3 && now > heroCooldown){
+    heroUnit = obj; heroUntil = now + 3800; heroCooldown = now + 9000;
+  }
+}
+
 /* ═══════════ TEMBAK-TEMBAKAN — peluru pelacak, kilatan moncong & percikan ═══════════ */
 const bullets = [], sparks = [], bigUnitObjs = [];
 let lastFireT = 0;   // waktu tembakan terakhir (ms) — agar tak pernah ada jeda kosong
@@ -1003,7 +1078,38 @@ function bumpStreak(side){
     addShake(.8 + Math.min(2, streakCount*.05));
     clearTimeout(streakHide);
     streakHide = setTimeout(()=>{ streakEl.className = ''; }, 2200);
+    // dominasi ekstrem → sisi yang kalah pecah formasi & lari
+    if (streakCount === 20 || (streakCount > 20 && streakCount % 15 === 0)){
+      triggerRout(side==='buy' ? 'sell' : 'buy', Math.min(1, (streakCount-20)/40));
+    }
   }
+}
+
+/* ═══════════ KABAR PERISTIWA — banner naratif singkat (rout, serangan udara, jeda) ═══════════ */
+const eventTickerEl = document.getElementById('event-ticker'), etTxtEl = document.getElementById('et-txt');
+let eventTickerHide = null, lastEventAt = -1e9;
+function showEvent(text, tone, force){   // tone: 'buy' | 'sell' | 'neutral'
+  const now = performance.now();
+  if (!force && now - lastEventAt < 1500) return;   // jangan bertumpuk (kecuali peristiwa penting)
+  lastEventAt = now;
+  etTxtEl.textContent = text;
+  eventTickerEl.className = 'show ' + (tone || 'neutral');
+  clearTimeout(eventTickerHide);
+  eventTickerHide = setTimeout(()=>{ eventTickerEl.className = ''; }, 2600);
+}
+
+/* ═══════════ KILAT LAYAR & GERAK LAMBAT — untuk peristiwa besar/petir ═══════════ */
+const flashEl = document.getElementById('flash');
+let flashV = 0, flashColor = '#ffffff', slowmo = 0;
+function addFlash(v, color){ flashV = Math.max(flashV, v); if (color) flashColor = color; }
+function addSlowmo(s){ slowmo = Math.max(slowmo, s); }
+
+/* ═══════════ ROUT — pasukan yang kalah telak lari kocar-kacir ═══════════ */
+function triggerRout(loserSide, intensity){
+  const loser = loserSide==='buy' ? buyCrowd : sellCrowd;
+  loser.routUntil = performance.now() + 2400 + intensity*1500;
+  const L = I18N[lang];
+  showEvent(loserSide==='buy' ? L.routBuyers : L.routSellers, loserSide==='buy' ? 'sell' : 'buy');
 }
 
 /* ═══════════ LEDAKAN ═══════════ */
@@ -1320,6 +1426,7 @@ function onTrade(p, qty, isBuy){
     spawnBigUnit(side, usd);
     fireVolley(side, 2, Math.min(killed, 16));
     addShake(2.2); addHitstop(.09);
+    if (usd >= T_BOSS) spawnAirstrike(side, usd);   // order raksasa → serangan udara sinematik
     bigMoment('whale', side, usd, p);
   } else if (usd >= T_SHELL){
     fireVolley(side, tier, killed);        // peluru yang membunuh saat mendarat
@@ -1729,7 +1836,9 @@ function tick(){
   const dt = Math.min(clock.getDelta(), .05);
   const t = clock.elapsedTime;
   if (hitstop > 0) hitstop -= dt;
-  const sdt = hitstop > 0 ? dt*0.12 : dt;   // jeda hantam melambatkan simulasi sesaat
+  if (slowmo > 0) slowmo -= dt;
+  // jeda hantam melambatkan simulasi sesaat; gerak lambat (serangan udara) menahan lebih lama & tak sekeras
+  const sdt = hitstop > 0 ? dt*0.12 : (slowmo > 0 ? dt*0.4 : dt);
 
   // garis depan bergerak mengikuti tekanan; pasukan maju/mundur
   // sorak penonton (cheerBias) mendorong sesaat lalu meluruh kembali ke tekanan pasar sebenarnya
@@ -1745,15 +1854,36 @@ function tick(){
   sellTerr.scale.set(sw, 480, 1); sellTerr.position.x = frontX + sw/2;
   clashLine.position.x = frontX;
   clashLine.material.color.setHex(buyShare>=0.5 ? C_LONG : C_SHORT);
-  clashLine.material.opacity = .3 + Math.abs(buyShare-0.5)*1.1 + Math.sin(t*4)*.05;
+  clashLine.material.opacity = (.3 + Math.abs(buyShare-0.5)*1.1 + Math.sin(t*4)*.05) * (1 - lull*0.7);
 
   // langit & cuaca ikut mood
   mood += (moodTarget - mood)*Math.min(1, dt*0.5);
   _sky.copy(SKY_CALM);
   if (mood < 0) _sky.lerp(SKY_STORM, -mood); else _sky.lerp(SKY_PUMP, mood);
+  // siklus siang–malam (independen dari pasar): malam bikin tracer & ledakan makin menonjol
+  const daylight = 0.5 + 0.5*Math.cos((t % DAY_PERIOD)/DAY_PERIOD * Math.PI*2);   // 1=siang, 0=malam
+  _sky.lerp(SKY_NIGHT, (1-daylight)*0.82);
+  _sky.multiplyScalar(0.5 + 0.5*daylight);
   scene.background.copy(_sky); scene.fog.color.copy(_sky);
-  sun.intensity = .7 + mood*.22;
+  sun.intensity = (.7 + mood*.22) * (0.3 + 0.7*daylight);
   sun.color.setHex(mood < 0 ? 0xa7bcd6 : 0xfff0cf);
+  moonMat.opacity = (1-daylight)*0.85;
+
+  // petir saat badai (dump keras) — kilat menyeluruh + guruh
+  if (mood < -0.32){
+    lightningT -= dt;
+    if (lightningT <= 0){
+      lightningT = 2.5 + Math.random()*5;
+      addFlash(.55 + Math.random()*.3, '#dfeaff');
+      setTimeout(()=>addFlash(.4, '#dfeaff'), 90);   // kilat ganda
+      strikeBolt();
+      if (Math.random() < .7) playBoom(.5, 1);
+    }
+  } else lightningT = 1.5 + Math.random()*3;
+  if (bolt.visible){ boltT -= dt; boltMat.opacity = Math.max(0, boltT/0.18); if (boltT <= 0) bolt.visible = false; }
+  // kilat layar meluruh
+  if (flashV > .001){ flashEl.style.background = flashColor; flashEl.style.opacity = flashV; flashV = Math.max(0, flashV - dt*3.2); }
+  else if (flashEl.style.opacity !== '0'){ flashEl.style.opacity = '0'; }
   const rainOp = Math.max(0, -mood), embOp = Math.max(0, mood);
   rain.m.material.opacity = rainOp*.55;
   if (rainOp > .02){
@@ -1775,6 +1905,21 @@ function tick(){
     embers.attr.needsUpdate = true;
   }
 
+  // ROUT — haluskan derajat kabur tiap sisi (masuk cepat, pulih perlahan)
+  const nowMs = performance.now();
+  for (const c of [buyCrowd, sellCrowd]){
+    const routing = c.routUntil > nowMs ? 1 : 0;
+    c.flee += (routing - c.flee) * Math.min(1, dt*(routing ? 3 : 1.4));
+  }
+
+  // JEDA TENANG — saat aktivitas pasar nyaris nol, tembak-tembakan mereda jadi gencatan
+  let recentCnt = 0;
+  for (let i=flow.length-1;i>=0;i--){ if (nowMs - flow[i].t < 6000) recentCnt++; else break; }
+  const lullTarget = recentCnt < 4 ? 1 : 0;
+  lull += (lullTarget - lull) * Math.min(1, dt*(lullTarget ? 0.7 : 2.5));
+  if (!lullActive && lull > 0.7){ lullActive = true; showEvent(I18N[lang].lull, 'neutral'); }
+  else if (lullActive && lull < 0.3){ lullActive = false; showEvent(I18N[lang].lullEnd, 'neutral'); playChargeHorn(); }
+
   updateCrowd(buyCrowd, sdt, t);
   updateCrowd(sellCrowd, sdt, t);
   // bala bantuan HANYA masuk saat jumlah di bawah target (persentase buy/sell).
@@ -1788,8 +1933,8 @@ function tick(){
       while (n-- > 0) reviveSoldier(c);
     }
   }
-  // jangan pernah ada jeda tembakan lebih dari ~0.25 detik
-  if (performance.now() - lastFireT > 250) ambientFire();
+  // jangan pernah ada jeda tembakan lebih dari ~0.25 detik — KECUALI saat gencatan (pasar sunyi)
+  if (lull < 0.6 && performance.now() - lastFireT > 250) ambientFire();
 
   for (let i=skulls.length-1;i>=0;i--){
     const s = skulls[i];
@@ -1852,6 +1997,32 @@ function tick(){
       const k = u.t;
       u.obj.position.lerpVectors(u.start, u.end, k);
       u.obj.position.y = u.start.y + Math.sin(k*Math.PI)*u.apex;
+    }
+  }
+
+  // serangan udara — pembom melintas menjatuhkan bom beruntun di garis lawan
+  for (let i=airstrikes.length-1;i>=0;i--){
+    const a = airstrikes[i];
+    a.t += sdt / a.dur;
+    const k = Math.min(1, a.t);
+    a.obj.position.lerpVectors(a.from, a.to, k);
+    a.obj.position.y = 150 + Math.sin(k*Math.PI)*8;
+    if (a.rotor) a.rotor.rotation.y += sdt*40;
+    while (a.dropped < a.drops.length && k >= a.drops[a.dropped]){
+      a.dropped++;
+      const gp = new THREE.Vector3(a.obj.position.x, 1, a.z0 + (Math.random()-.5)*42);
+      explode(gp, a.side==='buy' ? C_LONG : C_SHORT, .9, 2);
+      makeSpark(gp, C_GOLD, 34, .4);
+      killSoldier(a.defender, 5);
+      spawnSkull(gp);
+      addShake(1.6); addFlash(.26, '#ffd9a3');
+      playBoom(.9, 2);
+    }
+    if (a.t >= 1){
+      scene.remove(a.obj);
+      const bi = bigUnitObjs.indexOf(a.obj); if (bi>=0) bigUnitObjs.splice(bi,1);
+      airstrikes.splice(i,1);
+      triggerRout(a.side==='buy' ? 'sell' : 'buy', 1);   // korban lari kocar-kacir
     }
   }
 
@@ -2031,6 +2202,9 @@ const I18N = {
     shareBtn:'SHARE MOMENT', momentSave:'Save card', cardDownload:'Download', cardShare:'Share', cardClose:'Close',
     momentWhaleBuy:'WHALE BUY', momentWhaleSell:'WHALE SELL', momentLiq:'LIQUIDATION', momentSnap:'BATTLE SNAPSHOT',
     momentToastWhale:'Big whale spotted', momentToastLiq:'Big liquidation',
+    routBuyers:'Buyers routed', routSellers:'Sellers routed',
+    airstrikeBuy:'Buy airstrike inbound', airstrikeSell:'Sell airstrike inbound',
+    lull:'Market quiet · ceasefire', lullEnd:'Battle resumes',
   },
   id: {
     connecting:'MENYAMBUNG…', live:'LANGSUNG', dead:'TERPUTUS', retry:'SAMBUNG ULANG',
@@ -2053,6 +2227,9 @@ const I18N = {
     shareBtn:'BAGIKAN MOMEN', momentSave:'Simpan kartu', cardDownload:'Unduh', cardShare:'Bagikan', cardClose:'Tutup',
     momentWhaleBuy:'PAUS BELI', momentWhaleSell:'PAUS JUAL', momentLiq:'LIKUIDASI', momentSnap:'CUPLIKAN MEDAN',
     momentToastWhale:'Paus besar terdeteksi', momentToastLiq:'Likuidasi besar',
+    routBuyers:'Pembeli kabur', routSellers:'Penjual kabur',
+    airstrikeBuy:'Serangan udara beli', airstrikeSell:'Serangan udara jual',
+    lull:'Pasar sunyi · gencatan', lullEnd:'Pertempuran berlanjut',
   },
 };
 let lang = 'en';
