@@ -131,6 +131,11 @@
   #fs-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
   #fs-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   #fs-btn:hover{color:var(--long);border-color:rgba(45,214,165,.5)}
+  /* ── toggle audio master: satu ketukan bisukan/nyalakan musik + efek (penting di ponsel) ── */
+  #audio-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;background:rgba(10,16,12,.6);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;backdrop-filter:blur(6px)}
+  #audio-btn svg{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  @media (hover:hover){ #audio-btn:hover{color:var(--long);border-color:rgba(45,214,165,.5)} }
+  #audio-btn.muted{color:var(--short);border-color:rgba(255,101,132,.5)}
 
   #online-pill{display:inline-flex;align-items:center;margin-left:8px;padding:3px 9px 3px 8px;border-radius:999px;background:rgba(45,214,165,.16);border:1px solid rgba(45,214,165,.4);color:var(--long);font-weight:800;font-size:10px;letter-spacing:.04em}
 
@@ -291,6 +296,10 @@
 </div>
 
 <div class="hud" id="hud-topright">
+  <button class="hud" id="audio-btn" title="Bisukan suara" aria-label="Bisukan suara">
+    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.7a4.4 4.4 0 010 6.6M18.3 6a8.4 8.4 0 010 12"/></svg>
+  </button>
+
   <button class="hud" id="chat-btn" title="Obrolan" aria-label="Obrolan">
     <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 5h16v11H9l-4 4V5z"/><path d="M8 9.5h8M8 12.5h5"/></svg>
     <span class="badge" id="chat-badge">0</span>
@@ -1278,6 +1287,7 @@ function applyMusicVol(){
   if (musicG){ musicG.gain.cancelScheduledValues(AC.currentTime); musicG.gain.value = musicTargetGain; }
   musicLabelEl.classList.toggle('muted', muted);
   paintVol(musicVolEl, muted);
+  syncAudioBtn();
 }
 /* "duck" musik sesaat tiap ada tembakan, supaya efek suara tetap terdengar tembus di atas musik latar */
 function duckMusic(depth, atk, hold, rel){
@@ -1295,11 +1305,46 @@ function applySfxVol(){
   if (sfxG) sfxG.gain.value = (pct/100)*SFX_LEVEL;
   sfxLabelEl.classList.toggle('muted', muted);
   paintVol(sfxVolEl, muted);
+  syncAudioBtn();
 }
 musicVolEl.oninput = ()=>{ if (!AC) initAudio(); if (+musicVolEl.value>0) musicLastVol = +musicVolEl.value; applyMusicVol(); };
 sfxVolEl.oninput   = ()=>{ if (!AC) initAudio(); if (+sfxVolEl.value>0)   sfxLastVol   = +sfxVolEl.value;   applySfxVol(); };
 musicLabelEl.onclick = ()=>{ if (!AC) initAudio(); musicVolEl.value = (+musicVolEl.value>0) ? 0 : musicLastVol; applyMusicVol(); };
 sfxLabelEl.onclick   = ()=>{ if (!AC) initAudio(); sfxVolEl.value   = (+sfxVolEl.value>0)   ? 0 : sfxLastVol;   applySfxVol(); };
+
+/* ═══════════ TOGGLE AUDIO MASTER — satu tombol untuk musik + efek sekaligus ═══════════
+   Di ponsel, panel kontrol sering disembunyikan dan browser butuh gestur pengguna sebelum
+   audio boleh bunyi — tombol ini selalu terlihat di kanan atas dan ketukannya sekaligus
+   menjadi gestur yang membuka AudioContext. Ikon mute tampil hanya bila KEDUA volume 0. */
+const audioBtn = document.getElementById('audio-btn');
+const AUDIO_ON_ICON   = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.7a4.4 4.4 0 010 6.6M18.3 6a8.4 8.4 0 010 12"/></svg>';
+const AUDIO_MUTE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
+function audioAllMuted(){ return +musicVolEl.value===0 && +sfxVolEl.value===0; }
+function syncAudioBtn(){
+  const muted = audioAllMuted();
+  audioBtn.classList.toggle('muted', muted);
+  audioBtn.innerHTML = muted ? AUDIO_MUTE_ICON : AUDIO_ON_ICON;
+  try {   // pemanggilan pertama terjadi saat init, sebelum I18N dideklarasikan — title bawaan HTML dipakai dulu
+    const L = I18N[lang];
+    audioBtn.title = muted ? L.audioUnmute : L.audioMute;
+    audioBtn.setAttribute('aria-label', audioBtn.title);
+  } catch(e){}
+}
+audioBtn.onclick = ()=>{
+  if (!AC) initAudio();
+  if (audioAllMuted()){
+    // nyalakan kembali kedua kanal ke volume terakhir sebelum dibisukan
+    musicVolEl.value = musicLastVol;
+    sfxVolEl.value   = sfxLastVol;
+    if (AC && AC.state === 'suspended') AC.resume().catch(()=>{});   // ketukan ini adalah gestur pengguna
+  } else {
+    // simpan volume saat ini supaya unmute kembali ke posisi semula
+    if (+musicVolEl.value>0) musicLastVol = +musicVolEl.value;
+    if (+sfxVolEl.value>0)   sfxLastVol   = +sfxVolEl.value;
+    musicVolEl.value = 0; sfxVolEl.value = 0;
+  }
+  applyMusicVol(); applySfxVol();
+};
 
 /* musik & efek aktif otomatis — browser mensyaratkan satu gestur pengguna
    sebelum AudioContext bisa benar-benar bersuara, jadi kita siapkan
@@ -2205,6 +2250,7 @@ const I18N = {
     routBuyers:'Buyers routed', routSellers:'Sellers routed',
     airstrikeBuy:'Buy airstrike inbound', airstrikeSell:'Sell airstrike inbound',
     lull:'Market quiet · ceasefire', lullEnd:'Battle resumes',
+    audioMute:'Mute sound', audioUnmute:'Turn sound on',
   },
   id: {
     connecting:'MENYAMBUNG…', live:'LANGSUNG', dead:'TERPUTUS', retry:'SAMBUNG ULANG',
@@ -2230,6 +2276,7 @@ const I18N = {
     routBuyers:'Pembeli kabur', routSellers:'Penjual kabur',
     airstrikeBuy:'Serangan udara beli', airstrikeSell:'Serangan udara jual',
     lull:'Pasar sunyi · gencatan', lullEnd:'Pertempuran berlanjut',
+    audioMute:'Bisukan suara', audioUnmute:'Nyalakan suara',
   },
 };
 let lang = 'en';
@@ -2258,6 +2305,7 @@ function applyLanguage(){
   }
   musicLabelEl.textContent = L.musicLabel; musicLabelEl.title = L.muteTitle;
   sfxLabelEl.textContent = L.sfxLabel; sfxLabelEl.title = L.muteTitle;
+  syncAudioBtn();   // segarkan title/aria toggle audio saat bahasa berganti
   document.getElementById('share-btn').textContent = L.shareBtn;
   renderRecord('buy'); renderRecord('sell');
 }
