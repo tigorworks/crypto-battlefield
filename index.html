@@ -3506,7 +3506,9 @@
               u.fireT -= sdt;
               if (u.fireT <= 0) {
                 u.fireT = .16;
-                const from = u.obj.position.clone(); from.y += 2;
+                // tembakan keluar dari moncong senjata (node 'gun') kalau ada — bukan dari dasar unit
+                const from = u.gun ? u.gun.getWorldPosition(new THREE.Vector3()) : u.obj.position.clone();
+                if (!u.gun) from.y += u.fly > 0 ? 2 : 16;   // unit tanpa node 'gun' eksplisit (heli/jet/bomber) — perkiraan tinggi moncong
                 fireBullet(u.side, from, crowdPoint(u.defender, 14), true, u.defender, true); // peluru besar, jangkauan jauh
                 if (u.gun) u.gun.userData.recoilT = .16;
                 playCannon();
