@@ -521,6 +521,16 @@ clashLine.position.y = 1.4; scene.add(clashLine);
 
 /* ═══════════ LANGIT & CUACA DINAMIS — ikut mood pasar ═══════════ */
 let mood = 0, moodTarget = 0, lull = 0, lullActive = false;
+/* ── SISTEM CUACA VOLATILITAS — cuaca dikendalikan pergerakan HARGA, bukan sekadar arus order:
+   pasar tenang → cerah; pump kencang → aurora hijau + tracer lebih menyala;
+   dump tajam / likuidasi massal → badai petir gelap, hujan deras & kabut tebal ── */
+let vol = 0;                     // arah volatilitas harga yang dihaluskan, -1 (dump)..1 (pump)
+let liqStorm = 0;                // dorongan badai ekstra dari likuidasi massal, meluruh sendiri
+let pumpW = 0, stormW = 0;       // bobot cuaca aktif frame ini (dipakai juga oleh tracer)
+let volForce = 0, volForceUntil = 0;   // paksaan uji manual lewat __testEvent('pump'/'dump')
+let stormActive = false, auroraActive = false;
+const priceHist = [];            // sampel harga ±50 dtk terakhir untuk mengukur volatilitas
+const FOG_NEAR = 500, FOG_FAR = 2400;   // jarak kabut normal — dirapatkan saat badai
 const SKY_STORM = new THREE.Color(0x2b3542), SKY_CALM = new THREE.Color(SKY), SKY_PUMP = new THREE.Color(0xffd9a3);
 const SKY_NIGHT = new THREE.Color(0x0b1230);
 const _sky = new THREE.Color();
@@ -540,6 +550,36 @@ function weatherPoints(n, color, size, additive){
 }
 const rain = weatherPoints(520, 0xcfe0ff, 2.2, false);
 const embers = weatherPoints(280, 0xffc46b, 3.4, true);
+
+/* ── AURORA — tirai cahaya hijau di langit saat harga pump kencang ── */
+function auroraTexture(){
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  for (let i=0;i<64;i++){   // pita-pita vertikal acak → kesan tirai aurora bergelombang
+    const x = Math.random()*512, w = 6 + Math.random()*26, a = .05 + Math.random()*.16;
+    const grd = g.createLinearGradient(0,0,0,128);
+    grd.addColorStop(0,  'rgba(110,255,185,0)');
+    grd.addColorStop(.3, `rgba(110,255,185,${a})`);
+    grd.addColorStop(.72,`rgba(70,215,255,${a*.6})`);
+    grd.addColorStop(1,  'rgba(70,215,255,0)');
+    g.fillStyle = grd; g.fillRect(x,0,w,128);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+const auroras = [];
+for (const d of [ { w:2800, h:430, y:330, z:1350, sp:.012, op:1 },
+                  { w:3400, h:540, y:410, z:1620, sp:-.007, op:.65 } ]){
+  for (const zs of [-1,1]){   // sepasang di depan & belakang medan agar terlihat dari segala arah kamera
+    const mat = new THREE.MeshBasicMaterial({ map:auroraTexture(), transparent:true, opacity:0,
+      blending:THREE.AdditiveBlending, depthWrite:false, fog:false, side:THREE.DoubleSide });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(d.w, d.h), mat);
+    m.position.set(0, d.y, zs*d.z);
+    scene.add(m);
+    auroras.push({ mat, sp:d.sp*zs, op:d.op, ph:Math.random()*Math.PI*2 });
+  }
+}
 
 /* ═══════════ TEXTURES / GEOMETRY BERSAMA ═══════════ */
 function glowTexture(){
@@ -636,6 +676,12 @@ function buildSoldier(){
     boxPart(1.9,0.55,0.6, 0.9,4.9, 0.85),// lengan depan
     boxPart(3.7,0.35,0.35,2.2,4.7,0.55), // laras senapan
     boxPart(0.9,0.8,0.4,  0.9,4.3,0.55), // magasin
+    boxPart(0.9,0.55,0.42,0.0,4.55,0.55),// popor senapan
+    boxPart(0.7,1.7,1.5, -1.05,5.0,0),   // ransel punggung
+    boxPart(1.0,0.5,0.6,  0,6.45,-1.2),  // pelindung bahu kiri
+    boxPart(1.0,0.5,0.6,  0,6.45, 1.2),  // pelindung bahu kanan
+    boxPart(1.0,0.5,0.9,  0.15,0.25,-0.6),// sepatu kiri
+    boxPart(1.0,0.5,0.9,  0.15,0.25, 0.6),// sepatu kanan
   ];
   const geo = mergeGeoms(parts);
   parts.forEach(p=>p.dispose());
@@ -687,6 +733,7 @@ function makeCrowd(color, sign){ // sign: -1 = beli (kiri), 1 = jual (kanan)
       dying:false, dieT:0,
       walking:i<CROWD_START, walkT:0,
       phase: Math.random()*Math.PI*2,
+      recoil: 0,   // 1 tepat setelah menembak → tersentak ke belakang, meluruh cepat
     });
   }
   return { mesh, glow, glowPos, slots, count:CROWD_START, target:CROWD_START, q, sign, routUntil:0, flee:0 };
@@ -749,6 +796,13 @@ function updateCrowd(crowd, dt, t){
       sc = 1;
     }
 
+    // RECOIL — prajurit tersentak ke belakang sesaat setelah melepas tembakan
+    if (s.recoil > 0 && !s.dying){
+      x += crowd.sign * s.recoil * 1.1;
+      topple += s.recoil * .1 * crowd.sign;   // condong ke belakang sedikit
+      s.recoil = Math.max(0, s.recoil - dt*5);
+    }
+
     // ROUT — sisi yang kalah telak pecah formasi & lari panik ke belakang wilayah sendiri
     let facing = 0;
     const flee = crowd.flee;
@@ -797,19 +851,42 @@ const eyeGeo = new THREE.SphereGeometry(.13, 8, 6);
 const darkMat = new THREE.MeshLambertMaterial({ color:0x262b36 });
 const rotorMat = new THREE.MeshBasicMaterial({ color:0x1a1e26, transparent:true, opacity:.5, side:THREE.DoubleSide, depthWrite:false });
 
-/* — TANK (menghadap +x) — */
+/* — TANK (menghadap +x) — low-poly detail: roda jalan bersegi yang terlihat berputar,
+   rem moncong, palka komandan & antena */
 const tankHullGeo = new THREE.BoxGeometry(5, 1.4, 3);
 const tankTreadGeo = new THREE.BoxGeometry(5.4, 1, .95);
 const tankTurretGeo = new THREE.BoxGeometry(2.6, 1.1, 2.1);
 const tankBarrelGeo = new THREE.CylinderGeometry(.22, .22, 3.4, 8);
+const tankBrakeGeo = new THREE.BoxGeometry(.55,.55,.55);
+const tankHatchGeo = new THREE.CylinderGeometry(.5,.55,.28,8);
+const tankAntGeo = new THREE.CylinderGeometry(.03,.03,1.8,4);
+/* roda: sumbu silinder diputar ke Z (arah samping) supaya rotation.z = menggelinding;
+   7 segmen + gerigi kotak membuat putarannya benar-benar terlihat, bukan silinder mulus */
+const tankWheelGeo = new THREE.CylinderGeometry(.46,.46,.34,7); tankWheelGeo.rotateX(Math.PI/2);
+const wheelLugGeo = new THREE.BoxGeometry(.5,.16,.44);
+const hubMat = new THREE.MeshLambertMaterial({ color:0x4a515e });
+function makeWheel(geo){
+  const w = new THREE.Mesh(geo, darkMat);
+  const lug = new THREE.Mesh(wheelLugGeo, hubMat); lug.position.set(.2,0,0);
+  w.add(lug);
+  return w;
+}
 function makeTank(side){
   const mat = tankMat[side];
   const g = new THREE.Group();
   const hull = new THREE.Mesh(tankHullGeo, mat); hull.position.set(0,1.3,0); g.add(hull);
   for (const s of [-1,1]){ const tr = new THREE.Mesh(tankTreadGeo, darkMat); tr.position.set(0,.6,s*1.45); g.add(tr); }
+  const wheels = [];
+  for (const s of [-1,1]) for (const x of [-1.8,-.6,.6,1.8]){
+    const w = makeWheel(tankWheelGeo); w.position.set(x,.55,s*2.02); g.add(w); wheels.push(w);
+  }
   const turret = new THREE.Mesh(tankTurretGeo, mat); turret.position.set(-.3,2.35,0); g.add(turret);
   const barrel = new THREE.Mesh(tankBarrelGeo, darkMat); barrel.rotation.z=-Math.PI/2; barrel.position.set(2,2.4,0); g.add(barrel);
+  const brake = new THREE.Mesh(tankBrakeGeo, darkMat); brake.position.set(3.5,2.4,0); g.add(brake);
+  const hatch = new THREE.Mesh(tankHatchGeo, mat); hatch.position.set(-.5,3.02,.55); g.add(hatch);
+  const ant = new THREE.Mesh(tankAntGeo, darkMat); ant.position.set(-1.3,3.5,-.7); g.add(ant);
   const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(18,18,1); aura.position.y=2; g.add(aura);
+  g.userData = { wheels };
   return g;
 }
 
@@ -821,10 +898,12 @@ const heliFinGeo = new THREE.BoxGeometry(.4, 1.2, .15);
 const heliSkidGeo = new THREE.BoxGeometry(2.8, .16, .16);
 const heliRotorGeo = new THREE.CylinderGeometry(3.4, 3.4, .08, 16);
 const heliTailRotorGeo = new THREE.CylinderGeometry(.7, .7, .08, 10);
+const heliHubGeo = new THREE.CylinderGeometry(.2, .26, .5, 8);
 function makeHelicopter(side){
   const mat = tankMat[side];
   const g = new THREE.Group();
   const body = new THREE.Mesh(heliBodyGeo, mat); g.add(body);
+  const hub = new THREE.Mesh(heliHubGeo, darkMat); hub.position.set(0,.95,0); g.add(hub);
   const nose = new THREE.Mesh(heliNoseGeo, mat); nose.scale.set(1.1,.9,.9); nose.position.set(1.9,-.1,0); g.add(nose);
   const boom = new THREE.Mesh(heliBoomGeo, mat); boom.position.set(-3,.3,0); g.add(boom);
   const fin = new THREE.Mesh(heliFinGeo, mat); fin.position.set(-4.4,.7,0); g.add(fin);
@@ -859,7 +938,7 @@ const apcHullGeo = new THREE.BoxGeometry(3.6, 1.1, 2.2);
 const apcNoseGeo = new THREE.BoxGeometry(1.3, 1.1, 1.8);
 const apcTurretGeo = new THREE.CylinderGeometry(.7, .8, .6, 8);
 const apcGunGeo = new THREE.CylinderGeometry(.09, .09, 1.8, 6);
-const apcWheelGeo = new THREE.CylinderGeometry(.45, .45, .3, 10);
+const apcWheelGeo = new THREE.CylinderGeometry(.45, .45, .3, 7); apcWheelGeo.rotateX(Math.PI/2);
 function makeAPC(side){
   const mat = tankMat[side];
   const g = new THREE.Group();
@@ -867,10 +946,12 @@ function makeAPC(side){
   const nose = new THREE.Mesh(apcNoseGeo, mat); nose.position.set(2,.9,0); g.add(nose);
   const turret = new THREE.Mesh(apcTurretGeo, mat); turret.position.set(0,1.8,0); g.add(turret);
   const gun = new THREE.Mesh(apcGunGeo, darkMat); gun.rotation.z=-Math.PI/2; gun.position.set(1.3,1.85,0); g.add(gun);
+  const wheels = [];
   for (const s of [-1,1]) for (const x of [-1.4,0,1.4]){
-    const wheel = new THREE.Mesh(apcWheelGeo, darkMat); wheel.rotation.x=Math.PI/2; wheel.position.set(x,.4,s*1.2); g.add(wheel);
+    const wheel = makeWheel(apcWheelGeo); wheel.position.set(x,.4,s*1.25); g.add(wheel); wheels.push(wheel);
   }
   const aura = new THREE.Sprite(tankAuraMat[side]); aura.scale.set(15,15,1); aura.position.y=1.6; g.add(aura);
+  g.userData = { wheels };
   return g;
 }
 
@@ -934,6 +1015,7 @@ function spawnBigUnit(side, usd){
   const end = new THREE.Vector3(ex, pick.fly, (Math.random()-.5)*180);
   const obj = pick.maker(side);
   const rotor = obj.userData && obj.userData.rotor;
+  const wheels = obj.userData && obj.userData.wheels;
   const sc = UNIT_BASE_SCALE[pick.key] * (0.9 + mag*0.3);   // identitas ukuran per jenis, mag cuma variasi ±
   obj.scale.set(sc, sc, sc);
   obj.rotation.y = side==='buy' ? 0 : Math.PI;   // moncong menghadap musuh
@@ -943,7 +1025,8 @@ function spawnBigUnit(side, usd){
   playChargeHorn();
   // fase: 'approach' (masuk) → 'hold' (menetap & menghujani lawan) → 'death' (tertembak lalu meledak)
   units.push({ obj, start, end, apex:0, t:0, dur:2.0, side, usd, mag, color, tier:2,
-               fly:pick.fly, rotor, defender: side==='buy'?sellCrowd:buyCrowd,
+               fly:pick.fly, rotor, wheels, heli:pick.key==='helicopter', dustT:.25,
+               defender: side==='buy'?sellCrowd:buyCrowd,
                phase:'approach', clock:0, fireT:.2,
                approachDur:1.2, holdDur:3.4+Math.random()*1.6, deathDur:.6, deathSpin:0 });
 }
@@ -955,7 +1038,7 @@ function enterDeath(u){
   const target = u.obj.position.clone();
   const foe = u.side==='buy' ? 'sell' : 'buy';                 // peluru datang DARI lawan
   for (let j=0;j<7;j++){
-    const from = crowdPoint(u.defender, 20);
+    const from = crowdPoint(u.defender, 20, true);
     const to = target.clone().add(new THREE.Vector3((Math.random()-.5)*7,(Math.random()-.5)*7,(Math.random()-.5)*7));
     fireBullet(foe, from, to, false, u.defender, true);       // tracer besar menghajar sang paus
   }
@@ -1030,6 +1113,19 @@ function makeSpark(pos, color, size, dur){
   scene.add(spr);
   sparks.push({ spr, t:0, dur, size });
 }
+/* debu baling-baling — helikopter meniupkan pusaran debu di tanah bawahnya */
+const dusts = [], DUST_MAX = 46;
+const dustBaseMat = new THREE.SpriteMaterial({ map:GLOW, color:0xb5a078, transparent:true, opacity:0, depthWrite:false });
+function spawnDust(x, z, spread, size){
+  if (dusts.length >= DUST_MAX){ const o = dusts.shift(); scene.remove(o.spr); o.spr.material.dispose(); }
+  const a = Math.random()*Math.PI*2, r0 = spread*(.25+Math.random()*.35);
+  const spr = new THREE.Sprite(dustBaseMat.clone());
+  spr.position.set(x+Math.cos(a)*r0, 1.6, z+Math.sin(a)*r0);
+  spr.scale.set(size*.5, size*.5, 1);
+  scene.add(spr);
+  dusts.push({ spr, t:0, dur:.8+Math.random()*.5, size,
+               vx:Math.cos(a)*(20+Math.random()*18), vz:Math.sin(a)*(20+Math.random()*18) });
+}
 function fireBullet(side, from, to, kills, defender, big){
   if (bullets.length >= MAXBULLETS){ const old = bullets.shift(); scene.remove(old.m); } // buang tertua, jangan berhenti menembak
   const m = new THREE.Mesh(bulletGeo, bulletMat[side]);
@@ -1038,20 +1134,22 @@ function fireBullet(side, from, to, kills, defender, big){
   lastFireT = performance.now();
   const vel = to.clone().sub(from); const dist = vel.length(); vel.normalize();
   const col = side==='buy'?C_LONG:C_SHORT;
+  const glowK = 1 + pumpW*.9;   // pump kencang → peluru pelacak lebih tebal & bercahaya
   bullets.push({ m, pos:from.clone(), vel, speed:(big?520:640)+Math.random()*180, kills, defender, side,
                  target:to.clone(), traveled:0, dist, color: col,
-                 len: big?46:16, w: big?2.1:.55, big:!!big });
-  if (big) makeSpark(from, col, 22, .18);                         // ledakan moncong unit besar
-  else if (Math.random() < .5) makeSpark(from, col, 9, .1);
+                 len: (big?46:16)*glowK, w: (big?2.1:.55)*glowK, big:!!big });
+  if (big) makeSpark(from, col, 22*glowK, .18);                   // ledakan moncong unit besar
+  else if (Math.random() < .5 + pumpW*.3) makeSpark(from, col, 9*glowK, .1);
 }
-/* titik di posisi pasukan saat ini — ikut garis depan yang bergerak */
-function crowdPoint(crowd, jitter){
+/* titik di posisi pasukan saat ini — ikut garis depan yang bergerak;
+   shooter=true → prajurit terpilih dianggap MENEMBAK dari sini & memainkan animasi recoil */
+function crowdPoint(crowd, jitter, shooter){
   const bias = crowd.pressBias || 0;
   const N = crowd.slots.length, start = Math.floor(Math.random()*N);
   let s = null;
   for (let k=0;k<N;k++){ const c = crowd.slots[(start+k)%N]; if (c.active && !c.dying){ s = c; break; } }
   let x, z;
-  if (s){ x = s.base.x + bias; z = s.base.z; }
+  if (s){ x = s.base.x + bias; z = s.base.z; if (shooter) s.recoil = 1; }
   else { x = crowd.sign*(40+Math.random()*80) + bias; z = (Math.random()-.5)*230; }
   // tetap di sisi pasukannya sendiri terhadap garis depan (sama seperti clamp prajurit)
   if (crowd.sign < 0) x = Math.min(x, frontX - 16); else x = Math.max(x, frontX + 16);
@@ -1070,7 +1168,7 @@ function fireVolley(side, tier, killed){
   const n = killed + (tier===2 ? 3 : 1);   // sebagian besar peluru mengenai prajurit; hanya sedikit yang meleset
   for (let i=0;i<n;i++){
     const kills = i < killed;
-    const from = crowdPoint(attacker, 8);                              // dari prajurit penyerang
+    const from = crowdPoint(attacker, 8, true);                        // dari prajurit penyerang (recoil)
     const to   = kills ? crowdPoint(defender, 10) : groundPoint(defender); // yang membunuh → prajurit, meleset → tanah
     fireBullet(side, from, to, kills, defender);
   }
@@ -1084,7 +1182,7 @@ function ambientFire(){
     const defender = side==='buy' ? sellCrowd : buyCrowd;
     if (attacker.count <= 0) continue;
     const n = 1 + (Math.random()<.4 ? 1 : 0);   // sedikit saja — cukup agar tak sepi, tidak boros peluru
-    for (let i=0;i<n;i++) fireBullet(side, crowdPoint(attacker,8), groundPoint(defender), false, defender);  // ke tanah, tidak kena prajurit
+    for (let i=0;i<n;i++) fireBullet(side, crowdPoint(attacker,8,true), groundPoint(defender), false, defender);  // ke tanah, tidak kena prajurit
   }
   playVolley(0);
 }
@@ -1164,6 +1262,59 @@ function triggerRout(loserSide, intensity){
   showEvent(loserSide==='buy' ? L.routBuyers : L.routSellers, loserSide==='buy' ? 'sell' : 'buy');
 }
 
+/* ═══════════ KAWAH & PUING — sisa ledakan yang bertahan lalu meredup ═══════════ */
+function craterTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(64,64,0,64,64,64);
+  r.addColorStop(0,  'rgba(8,6,4,.95)');
+  r.addColorStop(.45,'rgba(12,10,6,.8)');
+  r.addColorStop(.75,'rgba(20,16,10,.35)');
+  r.addColorStop(1,  'rgba(20,16,10,0)');
+  g.fillStyle = r; g.fillRect(0,0,128,128);
+  for (let i=0;i<26;i++){   // bercak gosong tak beraturan di tepi supaya tidak bulat sempurna
+    const a = Math.random()*Math.PI*2, d = 32 + Math.random()*24;
+    g.fillStyle = `rgba(10,8,5,${.12+Math.random()*.2})`;
+    g.beginPath(); g.arc(64+Math.cos(a)*d, 64+Math.sin(a)*d, 3+Math.random()*7, 0, 7); g.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+const craters = [], CRATER_MAX = 12;
+const CRATER_TEX = craterTexture();
+const craterGeo = new THREE.PlaneGeometry(1,1);
+let craterCycle = 0;
+function spawnCrater(pos, r){
+  if (craters.length >= CRATER_MAX){ const o = craters.shift(); scene.remove(o.m); o.m.material.dispose(); }
+  const m = new THREE.Mesh(craterGeo, new THREE.MeshBasicMaterial({ map:CRATER_TEX, transparent:true, opacity:.9, depthWrite:false }));
+  m.rotation.x = -Math.PI/2;
+  m.rotation.z = Math.random()*Math.PI*2;
+  // ketinggian sedikit diselang-seling supaya kawah yang bertumpuk tak saling z-fighting
+  m.position.set(pos.x, .5 + (craterCycle++ % 8)*.013, pos.z);
+  m.scale.set(r*2, r*2, 1);
+  m.renderOrder = 1;   // selalu di atas plane wilayah buy/sell yang juga transparan
+  scene.add(m);
+  craters.push({ m, t:0, hold:6+Math.random()*3, fade:3.5 });
+}
+const debris = [], DEBRIS_MAX = 70;
+const debrisGeo = new THREE.BoxGeometry(1,1,1);
+const debrisMat = new THREE.MeshLambertMaterial({ color:0x3b4048 });   // besi gelap hangus
+function spawnDebris(pos, n, power){
+  for (let k=0;k<n;k++){
+    if (debris.length >= DEBRIS_MAX){ const o = debris.shift(); scene.remove(o.m); }
+    const m = new THREE.Mesh(debrisGeo, debrisMat);
+    const s = .9 + Math.random()*1.8*Math.min(2, power);
+    m.scale.setScalar(s);
+    m.position.set(pos.x+(Math.random()-.5)*3, Math.max(2, pos.y)+2, pos.z+(Math.random()-.5)*3);
+    m.rotation.set(Math.random()*3, Math.random()*3, Math.random()*3);
+    scene.add(m);
+    const a = Math.random()*Math.PI*2, sp = (16+Math.random()*40)*(.8+power*.3);
+    // state 0 = terpental (fisika), 1 = tergeletak beberapa detik, 2 = mengecil & hilang
+    debris.push({ m, s, state:0, t:0, bounce:0,
+                  vx:Math.cos(a)*sp, vz:Math.sin(a)*sp, vy:45+Math.random()*70,
+                  rx:(Math.random()-.5)*9, rz:(Math.random()-.5)*9 });
+  }
+}
+
 /* ═══════════ LEDAKAN ═══════════ */
 const booms = [], rings = [];
 function explode(pos, color, mag, tier){
@@ -1193,6 +1344,9 @@ function explode(pos, color, mag, tier){
     scene.add(l);
     setTimeout(()=>scene.remove(l), tier===2?400:220);
   }
+  // sisa ledakan di tanah: kawah hitam gosong + serpihan puing besi yang terpental
+  spawnCrater(pos, (tier===2 ? 15 : 8) + mag*12);
+  spawnDebris(pos, tier===2 ? 7 + Math.round(mag*5) : 4, .8 + mag);
   lastImpact.copy(pos);
   playBoom(mag, tier);
 }
@@ -1537,6 +1691,9 @@ function onTrade(p, qty, isBuy){
   lastPrice = price; price = p;
   const usd = p*qty;
   flow.push({ t:performance.now(), usd, buy:isBuy });
+  // sampel harga (maks ~2×/detik) untuk mengukur volatilitas → sistem cuaca
+  const nowT = performance.now();
+  if (!priceHist.length || nowT - priceHist[priceHist.length-1].t > 400) priceHist.push({ t:nowT, p });
   priceEl.textContent = '$'+p.toLocaleString('en-US',{ maximumFractionDigits: p<10?4:2 });
   if (p > lastPrice) priceEl.className = 'up';        // harga naik → hijau
   else if (p < lastPrice) priceEl.className = 'down'; // harga turun → merah
@@ -1614,6 +1771,7 @@ function connectBinanceVision(){
         fireVolley(side, usd>=T_WHALE?2:1, n);
         const pos = new THREE.Vector3((side==='buy'?1:-1)*(20+Math.random()*80), 0, (Math.random()-.5)*200);
         explode(pos, isBuy?C_GOLD:C_GOLD2, Math.min(1, Math.log10(usd/1000+1)/2.5), usd>=T_WHALE?2:1);
+        if (usd >= T_HEAVY) liqStorm = Math.min(1, liqStorm + (usd>=T_WHALE ? .5 : .22));   // likuidasi massal memanggil badai
         logKill(side, qty, liqPrice, 'liq');
         bigMoment('liq', side, usd, liqPrice);
       } catch(e){}
@@ -1896,7 +2054,7 @@ function pushFront(pt){
   // mencerminkan porsi beli/jual (crowd.target). rally hanya mendorong garis depan sesaat
   // (cheerBias, meluruh sendiri) + salvo semangat, tanpa mengubah jumlah army.
   const defender = side==='buy' ? sellCrowd : buyCrowd;
-  for (let i=0;i<4;i++) fireBullet(side, crowdPoint(crowd,8), groundPoint(defender), false, defender);  // salvo semangat
+  for (let i=0;i<4;i++) fireBullet(side, crowdPoint(crowd,8,true), groundPoint(defender), false, defender);  // salvo semangat
   playVolley(1);
   spawnCheer(pt, side);
   floatNum(pt, '▲ RALLY', side==='buy'?'up':'dn');
@@ -1978,25 +2136,45 @@ function tick(){
   clashLine.material.color.setHex(buyShare>=0.5 ? C_LONG : C_SHORT);
   clashLine.material.opacity = (.3 + Math.abs(buyShare-0.5)*1.1 + Math.sin(t*4)*.05) * (1 - lull*0.7);
 
-  // langit & cuaca ikut mood
+  // ── CUACA VOLATILITAS — langit dikendalikan pergerakan harga (pump → aurora, dump → badai) ──
   mood += (moodTarget - mood)*Math.min(1, dt*0.5);
+  const nowWx = performance.now();
+  while (priceHist.length > 1 && nowWx - priceHist[0].t > 50000) priceHist.shift();
+  let volTarget = 0;
+  if (priceHist.length > 1 && nowWx - priceHist[0].t > 4000 && price === price){
+    const pctMove = (price - priceHist[0].p)/priceHist[0].p;
+    volTarget = Math.max(-1, Math.min(1, pctMove/0.003));   // ±0,3% dalam ≤50 dtk = cuaca penuh
+  }
+  if (nowWx < volForceUntil) volTarget = volForce;          // paksaan uji __testEvent('pump'/'dump')
+  vol += (volTarget - vol)*Math.min(1, dt*0.35);
+  liqStorm = Math.max(0, liqStorm - dt/14);                 // badai likuidasi mereda ±14 dtk
+  stormW = Math.min(1, Math.max(0, -vol)*1.15 + liqStorm + Math.max(0, -mood)*0.3);
+  pumpW  = Math.min(1, Math.max(0, vol)*1.15 + Math.max(0, mood)*0.3);
   _sky.copy(SKY_CALM);
-  if (mood < 0) _sky.lerp(SKY_STORM, -mood); else _sky.lerp(SKY_PUMP, mood);
+  if (stormW > pumpW) _sky.lerp(SKY_STORM, stormW); else _sky.lerp(SKY_PUMP, pumpW*0.9);
   // siklus siang–malam (independen dari pasar): malam bikin tracer & ledakan makin menonjol
   const daylight = 0.5 + 0.5*Math.cos((t % DAY_PERIOD)/DAY_PERIOD * Math.PI*2);   // 1=siang, 0=malam
   _sky.lerp(SKY_NIGHT, (1-daylight)*0.82);
   _sky.multiplyScalar(0.5 + 0.5*daylight);
   scene.background.copy(_sky); scene.fog.color.copy(_sky);
-  sun.intensity = (.7 + mood*.22) * (0.3 + 0.7*daylight);
-  sun.color.setHex(mood < 0 ? 0xa7bcd6 : 0xfff0cf);
+  // kabut menebal saat badai — medan tempur tenggelam dalam kelam
+  scene.fog.near = FOG_NEAR - 340*stormW;
+  scene.fog.far  = FOG_FAR - 1500*stormW;
+  sun.intensity = (.7 + (pumpW - stormW)*.22) * (0.3 + 0.7*daylight);
+  sun.color.setHex(stormW > .35 ? 0xa7bcd6 : 0xfff0cf);
   moonMat.opacity = (1-daylight)*0.85;
   updateShootingStar(dt, daylight);
+  // banner naratif saat cuaca berubah drastis
+  if (!stormActive && stormW > .6){ stormActive = true; showEvent(I18N[lang].stormIn, 'sell'); }
+  else if (stormActive && stormW < .3) stormActive = false;
+  if (!auroraActive && pumpW > .6){ auroraActive = true; showEvent(I18N[lang].auroraIn, 'buy'); }
+  else if (auroraActive && pumpW < .3) auroraActive = false;
 
-  // petir saat badai (dump keras) — kilat menyeluruh + guntur asli, dijarangkan agar tak melelahkan mata
-  if (mood < -0.32){
+  // petir saat badai (dump keras) — makin ganas badainya, makin rapat sambarannya
+  if (stormW > 0.4){
     lightningT -= dt;
     if (lightningT <= 0){
-      lightningT = 7 + Math.random()*4;
+      lightningT = 2.2 + Math.random()*(9 - 6*stormW);
       addFlash(.32 + Math.random()*.15, '#dfeaff');
       setTimeout(()=>addFlash(.2, '#dfeaff'), 90);   // kilat ganda, lebih redup
       const z0 = strikeBolt();
@@ -2007,12 +2185,12 @@ function tick(){
   // kilat layar meluruh
   if (flashV > .001){ flashEl.style.background = flashColor; flashEl.style.opacity = flashV; flashV = Math.max(0, flashV - dt*3.2); }
   else if (flashEl.style.opacity !== '0'){ flashEl.style.opacity = '0'; }
-  const rainOp = Math.max(0, -mood), embOp = Math.max(0, mood);
-  rain.m.material.opacity = rainOp*.55;
+  const rainOp = stormW, embOp = pumpW;
+  rain.m.material.opacity = rainOp*.7;
   if (rainOp > .02){
-    const a = rain.attr.array;
+    const a = rain.attr.array, fall = 1 + stormW*.8;   // badai penuh → hujan lebih deras & cepat
     for (let i=0;i<rain.n;i++){
-      a[i*3+1] -= (320+rain.v[i]*520)*dt;
+      a[i*3+1] -= (320+rain.v[i]*520)*fall*dt;
       if (a[i*3+1] < 0){ a[i*3+1]=320; a[i*3]=(Math.random()-.5)*900; a[i*3+2]=(Math.random()-.5)*700; }
     }
     rain.attr.needsUpdate = true;
@@ -2026,6 +2204,12 @@ function tick(){
       if (a[i*3+1] > 320){ a[i*3+1]=0; a[i*3]=(Math.random()-.5)*900; a[i*3+2]=(Math.random()-.5)*700; }
     }
     embers.attr.needsUpdate = true;
+  }
+  // aurora pump — tirai hijau berarak pelan, makin jelas saat langit gelap
+  const auOp = pumpW * (0.5 + 0.45*(1-daylight));
+  for (const A of auroras){
+    A.mat.opacity = auOp * A.op * (0.85 + Math.sin(t*.7 + A.ph)*0.15);
+    A.mat.map.offset.x += A.sp*dt;
   }
 
   // ROUT — haluskan derajat kabur tiap sisi (masuk cepat, pulih perlahan)
@@ -2109,6 +2293,12 @@ function tick(){
         u.obj.position.y = u.fly + (u.fly>0 ? Math.sin(t*1.8 + u.start.z)*amp : 0);
       }
       if (u.rotor) u.rotor.rotation.y += sdt*40;                 // baling-baling berputar
+      if (u.wheels && u.phase==='approach')                      // roda menggelinding selama melaju masuk
+        for (const w of u.wheels) w.rotation.z -= sdt*9;
+      if (u.heli && u.phase!=='death'){                          // rotor meniupkan debu di tanah bawahnya
+        u.dustT -= sdt;
+        if (u.dustT <= 0){ u.dustT = .1; spawnDust(u.obj.position.x, u.obj.position.z, 24, 7+Math.random()*6); }
+      }
       if (u.phase!=='death'){                                    // masih hidup → terus menyerang
         u.fireT -= sdt;
         if (u.fireT <= 0){
@@ -2211,6 +2401,55 @@ function tick(){
     const g = s.size*(1 + s.t*1.3);
     s.spr.scale.set(g,g,1);
     s.spr.material.opacity = 1-s.t;
+  }
+
+  // debu rotor helikopter — mengembang keluar lalu menipis
+  for (let i=dusts.length-1;i>=0;i--){
+    const d = dusts[i];
+    d.t += sdt/d.dur;
+    if (d.t>=1){ scene.remove(d.spr); d.spr.material.dispose(); dusts.splice(i,1); continue; }
+    d.spr.position.x += d.vx*sdt; d.spr.position.z += d.vz*sdt;
+    d.spr.position.y += 2.5*sdt;
+    const g = d.size*(.5 + d.t*1.6);
+    d.spr.scale.set(g,g,1);
+    d.spr.material.opacity = .38*(1-d.t);
+  }
+
+  // puing ledakan — terpental dengan gravitasi, memantul, tergeletak, lalu mengecil & hilang
+  for (let i=debris.length-1;i>=0;i--){
+    const d = debris[i];
+    if (d.state===2){                                     // meredup: mengecil sampai hilang
+      d.t += sdt;
+      const k = 1 - d.t/.7;
+      if (k<=0){ scene.remove(d.m); debris.splice(i,1); continue; }
+      d.m.scale.setScalar(d.s*k);
+      d.m.position.y = d.s*k*.5;
+      continue;
+    }
+    if (d.state===1){                                     // tergeletak beberapa detik
+      d.t -= sdt;
+      if (d.t<=0){ d.state=2; d.t=0; }
+      continue;
+    }
+    d.vy -= 220*sdt;                                      // terpental (fisika sederhana)
+    d.m.position.x += d.vx*sdt; d.m.position.y += d.vy*sdt; d.m.position.z += d.vz*sdt;
+    d.m.rotation.x += d.rx*sdt; d.m.rotation.z += d.rz*sdt;
+    if (d.m.position.y <= d.s*.5 && d.vy < 0){
+      d.m.position.y = d.s*.5;
+      if (++d.bounce > 1 || Math.abs(d.vy) < 30){ d.state=1; d.t=2.2+Math.random()*2; }
+      else { d.vy*=-.38; d.vx*=.55; d.vz*=.55; d.rx*=.5; d.rz*=.5; }
+    }
+  }
+
+  // kawah gosong — bertahan beberapa detik lalu memudar
+  for (let i=craters.length-1;i>=0;i--){
+    const c = craters[i];
+    c.t += dt;
+    if (c.t > c.hold){
+      const k = 1 - (c.t - c.hold)/c.fade;
+      if (k <= 0){ scene.remove(c.m); c.m.material.dispose(); craters.splice(i,1); continue; }
+      c.m.material.opacity = .9*k;
+    }
   }
 
   for (let i=booms.length-1;i>=0;i--){
@@ -2339,6 +2578,7 @@ const I18N = {
     airstrikeBuy:'Buy airstrike inbound', airstrikeSell:'Sell airstrike inbound',
     barrageBuy:'Buy artillery barrage', barrageSell:'Sell artillery barrage',
     lull:'Market quiet · ceasefire', lullEnd:'Battle resumes',
+    stormIn:'Storm rolls in · heavy selling', auroraIn:'Aurora blazes · strong pump',
     audioMute:'Mute sound', audioUnmute:'Turn sound on',
   },
   id: {
@@ -2367,6 +2607,7 @@ const I18N = {
     airstrikeBuy:'Serangan udara beli', airstrikeSell:'Serangan udara jual',
     barrageBuy:'Tembakan artileri beli', barrageSell:'Tembakan artileri jual',
     lull:'Pasar sunyi · gencatan', lullEnd:'Pertempuran berlanjut',
+    stormIn:'Badai menerjang · jual deras', auroraIn:'Aurora menyala · pump kencang',
     audioMute:'Bisukan suara', audioUnmute:'Nyalakan suara',
   },
 };
@@ -2493,14 +2734,19 @@ cardShareBtn.onclick=()=>{ if(!cardCanvas) return; cardCanvas.toBlob(async (blob
 applyLanguage();
 
 /* bantuan uji manual dari console (peristiwa langka sulit ditunggu secara alami di pasar nyata):
-   __testEvent('airstrike' | 'barrage' | 'streak' | 'star') */
+   __testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'pump' | 'dump' | 'crater') */
 window.__testEvent = (name)=>{
   const usd = T_BOSS*1.5, side = Math.random()<.5 ? 'buy' : 'sell';
   if (name==='airstrike') spawnAirstrike(side, usd);
   else if (name==='barrage') spawnBarrage(side, usd);
   else if (name==='streak'){ for (let i=0;i<20;i++) bumpStreak(side); }
   else if (name==='star') nextStarCheck = 0;
-  else return 'unknown — use: airstrike | barrage | streak | star';
+  else if (name==='pump'){ volForce = 1; volForceUntil = performance.now()+15000; }
+  else if (name==='dump'){ volForce = -1; volForceUntil = performance.now()+15000; liqStorm = 1; }
+  else if (name==='crater') explode(new THREE.Vector3((Math.random()-.5)*200, 1, (Math.random()-.5)*200), C_GOLD, .9, 2);
+  else if (name==='tank') spawnBigUnit(side, 100000);
+  else if (name==='heli') spawnBigUnit(side, 500000);
+  else return 'unknown — use: airstrike | barrage | streak | star | pump | dump | crater | tank | heli';
   return 'triggered: ' + name;
 };
 
