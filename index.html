@@ -1785,6 +1785,13 @@
 
       /* ═══════════ LANGIT & CUACA DINAMIS — ikut mood pasar ═══════════ */
       let mood = 0, moodTarget = 0, lull = 0, lullActive = false;
+      /* VOLATILITAS = penggerak utama cuaca: kecepatan gerak harga (pump/dump) & likuidasi massal,
+         bukan sekadar porsi buy/sell — pasar bergerak samping (konsolidasi) tetap cerah walau
+         order flow-nya berat sebelah */
+      const priceHist = [];          // {t, p} — riwayat harga ±45 dtk untuk menghitung momentum
+      let momentum = 0;              // −1 (dump tajam) … 1 (pump kencang)
+      let liqPulse = 0;              // sentakan cuaca sesaat dari likuidasi besar, meluruh sendiri
+      let moodForce = null, moodForceUntil = 0;   // bantuan uji manual — lihat __testWeather()
       const SKY_STORM = new THREE.Color(0x2b3542), SKY_CALM = new THREE.Color(SKY), SKY_PUMP = new THREE.Color(0xffd9a3);
       const SKY_NIGHT = new THREE.Color(0x0b1230);
       const _sky = new THREE.Color();
@@ -2304,13 +2311,14 @@
         lastFireT = performance.now();
         const vel = to.clone().sub(from); const dist = vel.length(); vel.normalize();
         const col = side === 'buy' ? C_LONG : C_SHORT;
+        const pumpK = Math.max(0, mood);   // saat pump: tracer lebih panjang, tebal & bercahaya
         bullets.push({
           m, pos: from.clone(), vel, speed: (big ? 520 : 640) + Math.random() * 180, kills, defender, side,
           target: to.clone(), traveled: 0, dist, color: col,
-          len: big ? 46 : 16, w: big ? 2.1 : .55, big: !!big
+          len: (big ? 46 : 16) * (1 + pumpK * .5), w: (big ? 2.1 : .55) * (1 + pumpK * .8), big: !!big
         });
-        if (big) makeSpark(from, col, 22, .18);                         // ledakan moncong unit besar
-        else if (Math.random() < .5) makeSpark(from, col, 9, .1);
+        if (big) makeSpark(from, col, 22 + pumpK * 8, .18);             // ledakan moncong unit besar
+        else if (Math.random() < .5 + pumpK * .3) makeSpark(from, col, 9 + pumpK * 4, .1);
       }
       /* titik di posisi pasukan saat ini — ikut garis depan yang bergerak */
       function crowdPoint(crowd, jitter) {
@@ -2582,10 +2590,25 @@
         const lp = Math.round(bu / tot * 100);
         if (tot > 1) {
           buyShare = bu / tot;
-          moodTarget = Math.max(-1, Math.min(1, (buyShare - 0.5) * 3));
           // jumlah prajurit tiap sisi mencerminkan persentase buy/sell
           buyCrowd.target = Math.max(8, Math.min(CROWD_MAX, Math.round(buyShare * 2 * CROWD_START)));
           sellCrowd.target = Math.max(8, Math.min(CROWD_MAX, Math.round((1 - buyShare) * 2 * CROWD_START)));
+        }
+        // CUACA ← VOLATILITAS: momentum = % perubahan harga selama ≤45 dtk terakhir.
+        // ±0.2% dalam jendela itu dianggap ekstrem penuh (aurora/badai maksimal); harga yang
+        // bergerak samping → momentum ≈ 0 → cuaca cerah, berapa pun porsi buy/sell-nya.
+        if (Number.isFinite(price)) {
+          priceHist.push({ t: now, p: price });
+          while (priceHist.length > 1 && now - priceHist[0].t > 45000) priceHist.shift();
+          const chg = (price - priceHist[0].p) / priceHist[0].p;
+          momentum = Math.max(-1, Math.min(1, chg / 0.002));
+        }
+        liqPulse *= 0.85;                                   // meluruh tiap detik (meterUpdate berjalan per 1 dtk)
+        if (Math.abs(liqPulse) < .02) liqPulse = 0;
+        // porsi buy/sell tinggal pewarna sekunder; likuidasi besar menyentak lewat liqPulse
+        moodTarget = Math.max(-1, Math.min(1, momentum * 1.4 + (buyShare - 0.5) * 0.9 + liqPulse));
+        if (moodForce !== null) {
+          if (now < moodForceUntil) moodTarget = moodForce; else moodForce = null;
         }
         document.getElementById('pp-long').style.width = lp + '%';
         document.getElementById('pp-long-pct').textContent = lp + '%';
@@ -2935,6 +2958,8 @@
               const usd = liqPrice * qty;
               const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
               const side = isBuy ? 'buy' : 'sell';
+              // likuidasi massal ikut menyentak cuaca: long terlikuidasi (dump) → badai, short terlikuidasi (pump) → aurora
+              liqPulse = Math.max(-1.2, Math.min(1.2, liqPulse + (isBuy ? 1 : -1) * Math.min(1, usd / 250000)));
               const n = usd >= T_WHALE ? 10 : 4;
               fireVolley(side, usd >= T_WHALE ? 2 : 1, n);
               const pos = new THREE.Vector3((side === 'buy' ? 1 : -1) * (20 + Math.random() * 80), 0, (Math.random() - .5) * 200);
@@ -3375,7 +3400,9 @@
         }
 
         // aurora tinggi di langit — sinyal utama pump, bergelombang pelan
-        const auroraOp = Math.pow(embOp, 1.3) * Math.max(0, 1 - daylight / 0.45);   // aurora nyata cuma kelihatan malam hari — pudar total begitu langit mulai terang
+        // paling terang di malam hari, tapi tak pernah hilang total di siang — aurora adalah sinyal utama pump, harus selalu tampak
+        const auroraDayK = .35 + .65 * Math.max(0, 1 - daylight / 0.45);
+        const auroraOp = Math.pow(embOp, 1.3) * auroraDayK;
         for (const rb of aurora) {
           rb.m.material.opacity = auroraOp * .4;
           if (auroraOp > .01) {
@@ -3926,6 +3953,13 @@
         else return 'unknown — use: airstrike | barrage | streak | star';
         return 'triggered: ' + name;
       };
+      /* paksa mood cuaca dari console selama 20 dtk: __testWeather(1)=pump/aurora, (-1)=badai petir, (0)=cerah */
+      window.__testWeather = (m) => {
+        moodForce = Math.max(-1, Math.min(1, +m || 0));
+        moodForceUntil = performance.now() + 20000;
+        return 'mood cuaca dipaksa ke ' + moodForce + ' selama 20 detik';
+      };
+      window.__weatherState = () => ({ mood, moodTarget, momentum, liqPulse });   // intip keadaan cuaca dari console
 
       loadAllModels().then(() => {
         buyCrowd = makeCrowd(C_LONG, -1, 'buy');
