@@ -2285,6 +2285,13 @@
         buy: new THREE.MeshBasicMaterial({ color: 0xd8fff1 }),
         sell: new THREE.MeshBasicMaterial({ color: 0xffdbe4 }),
       };
+      /* selubung cahaya aditif di sekeliling tracer — opasitasnya dinaikkan saat pump (material dibagi
+         semua peluru, jadi cukup dua set uniform per frame; anaknya ikut terbuang saat mesh induk dibuang) */
+      const bulletGlowMat = {
+        buy: new THREE.MeshBasicMaterial({ color: C_LONG, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+        sell: new THREE.MeshBasicMaterial({ color: C_SHORT, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+      };
+      let tracerWMul = 1;   // pelebar tracer saat pump — dihitung sekali per frame di blok cuaca
       const AXIS_X = new THREE.Vector3(1, 0, 0);
       const _bq = new THREE.Quaternion(), _bdir = new THREE.Vector3();
       const MAXBULLETS = 360, MAXSPARKS = 200;
@@ -2299,6 +2306,9 @@
       function fireBullet(side, from, to, kills, defender, big) {
         if (bullets.length >= MAXBULLETS) { const old = bullets.shift(); scene.remove(old.m); } // buang tertua, jangan berhenti menembak
         const m = new THREE.Mesh(bulletGeo, bulletMat[side]);
+        const halo = new THREE.Mesh(bulletGeo, bulletGlowMat[side]);   // halo memanjang searah terbang (skala relatif induk)
+        halo.scale.set(1.35, 2.3, 2.3);
+        m.add(halo);
         m.position.copy(from);
         scene.add(m);
         lastFireT = performance.now();
@@ -3354,6 +3364,11 @@
           rain.attr.needsUpdate = true;
         }
         embers.m.material.opacity = embOp * .75 * (1 - Math.min(1, embOp) * .4);   // aurora jadi sinyal utama pump, embers dikurangi bobotnya
+
+        // pump → peluru pelacak lebih bercahaya: halo aditif menyala & tracer sedikit melebar (makin terasa saat malam)
+        const tracerGlow = embOp * (.45 + (1 - daylight) * .35);
+        bulletGlowMat.buy.opacity = bulletGlowMat.sell.opacity = tracerGlow;
+        tracerWMul = 1 + embOp * .5;
         if (embOp > .02) {
           const a = embers.attr.array;
           for (let i = 0; i < embers.n; i++) {
@@ -3584,7 +3599,7 @@
           _bq.setFromUnitVectors(AXIS_X, _bdir);
           b.m.quaternion.copy(_bq);
           b.m.position.copy(b.pos);
-          b.m.scale.set(b.len, b.w, b.w);
+          b.m.scale.set(b.len, b.w * tracerWMul, b.w * tracerWMul);
           if (b.traveled >= b.dist) {
             const killN = b.big ? 3 : 1;                               // peluru besar = ledakan area
             if (b.kills || b.big || Math.random() < .22) makeSpark(b.target, b.color, b.big ? 28 : 12, b.big ? .32 : .18);
