@@ -7,6 +7,14 @@ trades trigger airstrikes/artillery barrages. Static site, no backend, no
 build step — deployed to GitHub Pages as-is on every push to `main`
 (`.github/workflows/static.yml` uploads the whole repo).
 
+**Cache-busting:** `index.html` references its entry-point resources
+(`styles/*.css`, `src/main.js`, `src/boot/boot-screen.js`) with a `?v=`
+query string. GitHub Pages doesn't fingerprint filenames, and without this a
+visitor's browser can end up with a stale cached `index.html` paired with
+fresh CSS/JS (or vice versa) right after a deploy, which manifests as a
+half-broken page (e.g. the scene renders but the HUD doesn't appear). Bump
+the `?v=` value on every change that touches `styles/` or `src/`.
+
 ## Running it locally
 
 No build step. Serve the repo root over HTTP (not `file://`, or textures and
@@ -18,8 +26,11 @@ python3 -m http.server 8000
 ```
 
 WebSocket connections to Binance/Gate.io won't work from network-sandboxed
-environments — the feed falls back to a dummy simulated trade generator in
-that case (`src/feed/market-feed.js`), so the app still renders and runs.
+environments. There's no dummy/simulated trade generator — when every feed
+in `src/feed/market-feed.js` fails to connect, the badge just shows
+"DISCONNECTED" and the scene sits idle (no trades, no whale spawns) until a
+real connection succeeds. The scene, HUD, and camera still render and are
+fully interactive in this state, which is enough to verify most changes.
 
 ## Structure
 
@@ -40,7 +51,7 @@ src/
 ├─ input/               camera.js (cinematic shots/orbit), interaction.js (raycast tap-to-select/rally)
 ├─ audio/audio.js       generative music + sfx, positional audio
 ├─ platform/wake-lock.js
-└─ feed/market-feed.js  Binance/Gate.io WebSocket + dummy fallback, trade → sim event routing
+└─ feed/market-feed.js  Binance/Gate.io WebSocket, failover/retry, trade → sim event routing
 ```
 
 `three.min.js` is loaded as a classic global `<script>` (UMD), not an ES

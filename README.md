@@ -23,13 +23,14 @@ python3 -m http.server 8000
 ```
 
 If your network can't reach Binance/Gate.io (e.g. a sandboxed or offline
-dev environment), the app falls back to a simulated dummy trade feed so it
-still renders and runs.
+dev environment), the badge just shows "DISCONNECTED" and the scene sits
+idle — the app still renders and is fully interactive, there just aren't
+any trades happening.
 
 ## Features
 
-- Live order-flow feed from Binance (falls back to Gate.io, then a local
-  dummy simulator) driving buy/sell army size, front-line position, and
+- Live order-flow feed from Binance (falls back to Gate.io on failure, with
+  automatic retry) driving buy/sell army size, front-line position, and
   market mood.
 - Procedurally built, high-poly soldiers and vehicles (tank, APC,
   helicopter, jet, bomber) — no external 3D model files.
