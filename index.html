@@ -1973,6 +1973,7 @@
 
       /* ═══════════ PASUKAN — prajurit high-poly yang saling menembak ═══════════ */
       const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
+      const slocal = new THREE.Matrix4(), sworld = new THREE.Matrix4(), srot = new THREE.Matrix4();   // scratch untuk matriks bagian tubuh beranimasi
       const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), recoilQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0, 0, 1);
       const faceQ = new THREE.Quaternion(), AXIS_Y = new THREE.Vector3(0, 1, 0);
 
@@ -2007,37 +2008,67 @@
         out.setAttribute('color', new THREE.BufferAttribute(col, 3));
         return out;
       }
-      const RIFLE = Math.PI / 2;   // rotasi silinder Y→X (lengan depan & laras menghadap +x)
-      function buildSoldierGeo(side) {
+      /* Prajurit dipecah jadi beberapa bagian supaya kaki & lengan bisa dianimasikan sendiri
+         (InstancedMesh tak bisa menganimasikan sub-bagian dari satu mesh — jadi tiap bagian
+         punya InstancedMesh sendiri, digerakkan per-instance di updateCrowd). "core" (torso+
+         kepala) dipakai sebagai mesh utama untuk raycast tap-soldier. Bagian yang berayun
+         (kaki/lengan) diautor dengan PIVOT sendinya di titik asal (pinggul/bahu) supaya rotasi
+         mengayun benar. */
+      const RIFLE = Math.PI / 2;   // rotasi silinder Y→X (laras menghadap +x)
+      const S_DARK = 0x2b303a, S_METAL = 0x3a3f4a, S_SKIN = 0xc79a72, S_STRAP = 0x1c1f26, S_BRIM = 0x1c1f26;
+      const SOLDIER = { hipY: 3.3, legZ: 0.6, shoulderY: 5.7, armBackX: 0.15, armBackZ: -0.9, armFrontX: 0.2, armFrontZ: 0.82 };
+      function buildSoldierCore(side) {   // batang tubuh statis (ruang prajurit, origin di kaki)
         const team = side === 'buy' ? C_LONG : C_SHORT;
-        const DARKC = 0x2b303a, METALC = 0x3a3f4a, SKINC = 0xc79a72, STRAPC = 0x1c1f26, BRIMC = 0x1c1f26;
-        const P = [
-          soldierPart(new THREE.CylinderGeometry(.45, .42, 3.3, 10), DARKC, 0, 1.65, -.6),     // tungkai kiri
-          soldierPart(new THREE.CylinderGeometry(.45, .42, 3.3, 10), DARKC, 0, 1.65, .6),      // tungkai kanan
-          soldierPart(new THREE.BoxGeometry(1.3, .5, .8), DARKC, .25, .25, -.6),               // sepatu kiri
-          soldierPart(new THREE.BoxGeometry(1.3, .5, .8), DARKC, .25, .25, .6),                // sepatu kanan
-          soldierPart(new THREE.CylinderGeometry(1.05, .95, 3.0, 12), team, 0, 4.7, 0),        // torso/rompi (tim)
-          soldierPart(new THREE.SphereGeometry(1.05, 12, 10), team, 0, 6.0, 0),                // bahu membulat (tim)
-          soldierPart(new THREE.CylinderGeometry(1.08, 1.08, .45, 12), STRAPC, 0, 3.35, 0),    // sabuk
-          soldierPart(new THREE.CylinderGeometry(.35, .35, .8, 8), SKINC, 0, 6.7, 0),          // leher
-          soldierPart(new THREE.SphereGeometry(.78, 14, 12), SKINC, .05, 7.5, 0),              // kepala
-          soldierPart(new THREE.SphereGeometry(.9, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), team, .05, 7.85, 0),  // kubah helm (tim)
-          soldierPart(new THREE.CylinderGeometry(.95, .95, .18, 14), BRIMC, .05, 7.9, 0),      // pinggir helm
-          soldierPart(new THREE.CylinderGeometry(.32, .3, 2.1, 8), SKINC, .35, 4.9, -.95, [0, 0, -.2]),   // lengan belakang
-          soldierPart(new THREE.CylinderGeometry(.3, .28, 2.0, 8), SKINC, 1.1, 4.75, .8, [0, 0, RIFLE]),  // lengan depan (memegang senapan)
-          soldierPart(new THREE.CylinderGeometry(.13, .13, 3.4, 8), DARKC, 2.2, 4.7, .55, [0, 0, RIFLE]), // laras senapan (+x)
-          soldierPart(new THREE.BoxGeometry(.5, .9, .35), METALC, .95, 4.2, .55),              // magasin
-        ];
-        return mergeSoldierGeos(P);
+        return mergeSoldierGeos([
+          soldierPart(new THREE.CylinderGeometry(1.05, .95, 3.0, 12), team, 0, 4.7, 0),        // torso/rompi
+          soldierPart(new THREE.SphereGeometry(1.05, 12, 10), team, 0, 6.0, 0),                // bahu membulat
+          soldierPart(new THREE.CylinderGeometry(1.08, 1.08, .45, 12), S_STRAP, 0, 3.35, 0),   // sabuk
+          soldierPart(new THREE.CylinderGeometry(.35, .35, .8, 8), S_SKIN, 0, 6.7, 0),         // leher
+          soldierPart(new THREE.SphereGeometry(.78, 14, 12), S_SKIN, .05, 7.5, 0),             // kepala
+          soldierPart(new THREE.SphereGeometry(.9, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), team, .05, 7.85, 0),  // kubah helm
+          soldierPart(new THREE.CylinderGeometry(.95, .95, .18, 14), S_BRIM, .05, 7.9, 0),     // pinggir helm
+        ]);
+      }
+      function buildSoldierLeg() {        // pivot di pinggul (origin), menjuntai ke bawah
+        return mergeSoldierGeos([
+          soldierPart(new THREE.CylinderGeometry(.45, .42, 3.3, 10), S_DARK, 0, -1.65, 0),     // tungkai
+          soldierPart(new THREE.BoxGeometry(1.3, .5, .8), S_DARK, .25, -3.05, 0),              // sepatu
+        ]);
+      }
+      function buildSoldierArmBack() {    // pivot di bahu (origin)
+        return mergeSoldierGeos([
+          soldierPart(new THREE.CylinderGeometry(.32, .3, 2.1, 8), S_SKIN, 0, -1.05, 0),
+        ]);
+      }
+      function buildSoldierArmFront() {   // pivot di bahu (origin) — memegang senapan ke +x
+        return mergeSoldierGeos([
+          soldierPart(new THREE.CylinderGeometry(.3, .28, 2.0, 8), S_SKIN, 0, -1.0, 0),        // lengan
+          soldierPart(new THREE.CylinderGeometry(.13, .13, 3.4, 8), S_DARK, 1.6, -1.0, 0, [0, 0, RIFLE]),  // laras
+          soldierPart(new THREE.BoxGeometry(.5, .9, .35), S_METAL, .4, -1.4, 0),               // magasin
+        ]);
       }
 
       function makeCrowd(color, sign, side) { // sign: -1 = beli (kiri), 1 = jual (kanan)
-        const geo = buildSoldierGeo(side);
         const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, emissive: color, emissiveIntensity: .28, metalness: .08, roughness: .82, envMapIntensity: .3, fog: false });
-        const mesh = new THREE.InstancedMesh(geo, mat, CROWD_MAX);
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        mesh.castShadow = true;   // prajurit ikut menjatuhkan bayangan → terasa 3D & menapak
-        scene.add(mesh);
+        function partMesh(geo) {
+          const m = new THREE.InstancedMesh(geo, mat, CROWD_MAX);
+          m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+          m.castShadow = true;   // tiap bagian ikut menjatuhkan bayangan
+          scene.add(m);
+          return m;
+        }
+        const mesh = partMesh(buildSoldierCore(side));   // core = mesh utama (dipakai raycast tap-soldier)
+        const legGeo = buildSoldierLeg();                 // kaki kiri & kanan berbagi geometri
+        const T = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
+        // bagian beranimasi — amp = pengali ayun (kaki kiri +, kaki kanan −; lengan kontralateral;
+        // lengan depan memegang senapan → ayun kecil)
+        const parts = [
+          { mesh: partMesh(legGeo), attach: T(0, SOLDIER.hipY, -SOLDIER.legZ), amp: 1.0 },
+          { mesh: partMesh(legGeo), attach: T(0, SOLDIER.hipY, SOLDIER.legZ), amp: -1.0 },
+          { mesh: partMesh(buildSoldierArmBack()), attach: T(SOLDIER.armBackX, SOLDIER.shoulderY, SOLDIER.armBackZ), amp: -0.9 },
+          { mesh: partMesh(buildSoldierArmFront()), attach: T(SOLDIER.armFrontX, SOLDIER.shoulderY, SOLDIER.armFrontZ), amp: 0.15 },
+        ];
+        const allMeshes = [mesh, ...parts.map(p => p.mesh)];
 
         // titik cahaya aditif di atas tiap prajurit — tanpa ini, saat kamera zoom out
         // prajurit jadi kecil & ke-antialias sampai warnanya (terutama merah) tenggelam di rumput hijau
@@ -2062,9 +2093,18 @@
             walking: i < CROWD_START, walkT: 0,
             phase: Math.random() * Math.PI * 2,
             recoilT: 0,   // kickback singkat saat prajurit ini yang baru saja menembak
+            size: 0.9 + Math.random() * 0.2,          // #5 variasi ukuran per prajurit
           });
         }
-        return { mesh, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, q, sign, routUntil: 0, flee: 0 };
+        // #5 variasi kecerahan per prajurit (instanceColor mengalikan vertex color → tiap prajurit sedikit beda)
+        const scol = new THREE.Color();
+        for (let i = 0; i < CROWD_MAX; i++) {
+          const b = 0.82 + Math.random() * 0.3;
+          scol.setRGB(b, b, b);
+          for (const m of allMeshes) m.setColorAt(i, scol);
+        }
+        for (const m of allMeshes) m.instanceColor.needsUpdate = true;
+        return { mesh, parts, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, q, sign, routUntil: 0, flee: 0 };
       }
       let buyCrowd, sellCrowd;   // dibuat setelah model voxel prajurit selesai dimuat — lihat bootstrap di akhir berkas
 
@@ -2144,24 +2184,41 @@
           if (crowd.sign < 0) x = Math.min(x, frontX - 16);
           else x = Math.max(x, frontX + 16);
 
-          if (sc <= .002 && !s.active && !s.dying) sscl.set(.0001, .0001, .0001);
-          else sscl.set(sc, sc, sc);
+          const hidden = sc <= .002 && !s.active && !s.dying;
+          if (hidden) sscl.set(.0001, .0001, .0001);
+          else { const ssz = sc * s.size; sscl.set(ssz, ssz, ssz); }   // #5 skala per prajurit sedikit acak
           sq.copy(crowd.q);
           if (facing) { faceQ.setFromAxisAngle(AXIS_Y, facing); sq.multiply(faceQ); }
           if (topple) { toppleQ.setFromAxisAngle(AXIS_Z, topple); sq.premultiply(toppleQ); }
           else if (kick > 0) { recoilQ.setFromAxisAngle(AXIS_Z, kick * .18 * crowd.sign); sq.premultiply(recoilQ); }
           spos.set(x, bob, z);
           smx.compose(spos, sq, sscl);
-          crowd.mesh.setMatrixAt(i, smx);
+          crowd.mesh.setMatrixAt(i, smx);   // core (mesh utama)
+
+          // GAIT — ayunan kaki/lengan; intensitas & irama ikut kondisi (jalan masuk / panik / diam)
+          let gaitAmp = 0, cyc = 0;
+          if (hidden || s.dying) { gaitAmp = 0; }
+          else if (flee > .02) { gaitAmp = 1.15 + flee * .3; cyc = t * 11 + s.phase; }   // lari panik
+          else if (s.walking) { gaitAmp = 1.0; cyc = t * 9 + s.phase; }                  // berjalan masuk
+          else if (s.active) { gaitAmp = 0.16; cyc = t * 2.4 + s.phase; }                // ayun ringan berdiri
+          const legSwing = Math.sin(cyc) * gaitAmp * 0.55;
+          for (let pi = 0; pi < crowd.parts.length; pi++) {
+            const part = crowd.parts[pi];
+            srot.makeRotationZ(legSwing * part.amp);       // ayun bagian di sekitar pivotnya (pinggul/bahu)
+            slocal.multiplyMatrices(part.attach, srot);    // tempatkan pivot lalu putar
+            sworld.multiplyMatrices(smx, slocal);          // ikut transform badan (posisi/hadap/tumbang/skala)
+            part.mesh.setMatrixAt(i, sworld);
+          }
 
           const gi = i * 3;
-          if (sc <= .002 && !s.active && !s.dying) {
+          if (hidden) {
             crowd.glowPos[gi + 1] = -500; // sembunyikan di bawah tanah saat tidak aktif
           } else {
             crowd.glowPos[gi] = x; crowd.glowPos[gi + 1] = bob + 5.5; crowd.glowPos[gi + 2] = z;
           }
         }
         crowd.mesh.instanceMatrix.needsUpdate = true;
+        for (const part of crowd.parts) part.mesh.instanceMatrix.needsUpdate = true;
         crowd.glow.geometry.attributes.position.needsUpdate = true;
       }
 
@@ -2203,6 +2260,12 @@
         if (pos) m.position.set(pos[0] || 0, pos[1] || 0, pos[2] || 0);
         m.castShadow = cast; m.receiveShadow = true;
         group.add(m); return m;
+      }
+      /* — nyala afterburner: sprite aditif panas di ujung nosel (selalu menyala saat unit terbang) — */
+      const AB_MAT = new THREE.SpriteMaterial({ map: GLOW, color: 0xffb060, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+      function addAfterburner(g, x, y, z, size) {
+        const s = new THREE.Sprite(AB_MAT); s.position.set(x, y, z); s.scale.set(size, size * .7, 1);
+        s.name = 'afterburner'; g.add(s); return s;
       }
       /* — helper geometri (konvensi: unit menghadap +x) — */
       function tubeX(rt, rb, len, seg = 18) { const g = new THREE.CylinderGeometry(rt, rb, len, seg); g.rotateZ(-Math.PI / 2); return g; }   // sumbu sepanjang X (fuselage/laras)
@@ -2306,6 +2369,7 @@
         part(g, wingGeo(1.2, 1.5, .35, 1.0, .14), M.wing, [-2.4, 0, 0]).scale.z = -1;          // ekor horizontal kiri
         const vfin = part(g, wingGeo(1.3, 1.4, .4, 1.0, .16), M.wing, [-2.5, .2, 0]); vfin.rotation.x = Math.PI / 2;  // sirip vertikal
         part(g, boxG(.3, .18, 1.5), M.accent, [.6, .0, 0], false);                             // garis aksen
+        addAfterburner(g, -3.95, 0, 0, 1.8);                                                   // nyala afterburner di nosel
         return g;
       }
 
@@ -2324,6 +2388,7 @@
         for (const zs of [-2.7, -1.4, 1.4, 2.7]) {                                             // 4 nacelle mesin di bawah sayap
           part(g, tubeX(.5, .5, 1.8, 14), M.metal, [-.2, -.7, zs]);
           part(g, tubeX(.42, .42, .3, 14), M.dark, [-1.2, -.7, zs], false);
+          addAfterburner(g, -1.35, -.7, zs, .95);                                              // nyala tiap mesin
         }
         part(g, boxG(.4, .2, 2.0), M.accent, [.8, 0, 0], false);
         return g;
@@ -2443,7 +2508,7 @@
           // parameter gerak lifelike — diacak per unit supaya tidak seragam
           bankAmp: pick.fly > 0 ? 0.5 + Math.random() * 0.35 : 0.12, bank: 0, pitch: 0,
           bobAmp: (pick.fly > 0 ? 2.4 : 0) * (0.8 + Math.random() * 0.5), bobFreq: 1.4 + Math.random() * 0.8,
-          bobPhase: Math.random() * Math.PI * 2, yawWander: (Math.random() - .5) * 0.12, prevY: pick.fly, prevZ: 0
+          bobPhase: Math.random() * Math.PI * 2, yawWander: (Math.random() - .5) * 0.12, prevY: pick.fly, prevZ: 0, trailT: 0
         });
       }
 
@@ -2513,10 +2578,25 @@
       /* ═══════════ TEMBAK-TEMBAKAN — peluru pelacak, kilatan moncong & percikan ═══════════ */
       const bullets = [], sparks = [], bigUnitObjs = [];
       let lastFireT = 0;   // waktu tembakan terakhir (ms) — agar tak pernah ada jeda kosong
-      const bulletGeo = new THREE.BoxGeometry(1, 1, 1);
+      // tekstur tracer: gradien memanjang — inti terang di kepala, memudar jadi ekor komet
+      const TRACER_TEX = (() => {
+        const c = document.createElement('canvas'); c.width = 8; c.height = 64;
+        const g = c.getContext('2d');
+        const grad = g.createLinearGradient(0, 0, 0, 64);   // v=0 (kepala/atas) → v=1 (ekor/bawah)
+        grad.addColorStop(0.00, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.12, 'rgba(255,255,255,0.95)');
+        grad.addColorStop(0.45, 'rgba(255,255,255,0.35)');
+        grad.addColorStop(1.00, 'rgba(255,255,255,0)');
+        g.fillStyle = grad; g.fillRect(0, 0, 8, 64);
+        const tex = new THREE.CanvasTexture(c);
+        return tex;
+      })();
+      // silinder ramping sepanjang +x (kepala di +x) — di-skala len×w×w saat terbang
+      const bulletGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 6, 1, true);
+      bulletGeo.rotateZ(-Math.PI / 2);   // sumbu Y→X: kepala tracer di +x (searah kecepatan)
       const bulletMat = {
-        buy: new THREE.MeshBasicMaterial({ color: 0xd8fff1 }),
-        sell: new THREE.MeshBasicMaterial({ color: 0xffdbe4 }),
+        buy: new THREE.MeshBasicMaterial({ map: TRACER_TEX, color: 0x9dffe0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }),
+        sell: new THREE.MeshBasicMaterial({ map: TRACER_TEX, color: 0xffb4c6, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }),
       };
       const AXIS_X = new THREE.Vector3(1, 0, 0);
       const _bq = new THREE.Quaternion(), _bdir = new THREE.Vector3();
@@ -2528,6 +2608,29 @@
         spr.position.copy(pos); spr.scale.set(size, size, 1);
         scene.add(spr);
         sparks.push({ spr, t: 0, dur, size });
+      }
+
+      /* ═══════════ KEPULAN — kontrail jet/bomber & asap saat unit jatuh ═══════════
+         satu kolam sprite dipakai bersama: kontrail (aditif, terang) & asap kematian (normal, gelap). */
+      const puffs = [];
+      const MAXPUFFS = 200;
+      function emitPuff(x, y, z, color, size, dur, rise, peak, additive) {
+        if (puffs.length >= MAXPUFFS) { const old = puffs.shift(); scene.remove(old.spr); old.spr.material.dispose(); }
+        const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, transparent: true, opacity: 0, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: false, fog: false }));
+        spr.position.set(x, y, z); spr.scale.set(size, size, 1);
+        scene.add(spr);
+        puffs.push({ spr, t: 0, dur, size, rise, peak, drift: (Math.random() - .5) * 6 });
+      }
+
+      /* ═══════════ KILATAN MONCONG — kolam kecil PointLight (jumlah tetap → tak memicu rekompilasi shader),
+         didenyutkan saat unit besar / salvo menembak supaya moncong benar-benar menyorot sekitarnya. ═══════════ */
+      const muzzleLights = [];
+      for (let i = 0; i < 3; i++) { const l = new THREE.PointLight(0xffffff, 0, 150, 2); scene.add(l); muzzleLights.push({ l, t: 0, dur: 1, peak: 0 }); }
+      let mlIdx = 0;
+      function flashLight(pos, color, peak, dur) {
+        const ml = muzzleLights[mlIdx = (mlIdx + 1) % muzzleLights.length];
+        ml.l.color.setHex(color); ml.l.position.set(pos.x, pos.y + 2, pos.z);
+        ml.l.intensity = peak; ml.t = dur; ml.dur = dur; ml.peak = peak;
       }
       function fireBullet(side, from, to, kills, defender, big) {
         if (bullets.length >= MAXBULLETS) { const old = bullets.shift(); scene.remove(old.m); } // buang tertua, jangan berhenti menembak
@@ -2542,8 +2645,8 @@
           target: to.clone(), traveled: 0, dist, color: col,
           len: big ? 46 : 16, w: big ? 2.1 : .55, big: !!big
         });
-        if (big) makeSpark(from, col, 22, .18);                         // ledakan moncong unit besar
-        else if (Math.random() < .5) makeSpark(from, col, 9, .1);
+        if (big) { makeSpark(from, col, 26, .2); flashLight(from, col, 6, .13); }   // ledakan moncong unit besar + sorotan
+        else { if (Math.random() < .6) makeSpark(from, col, 10, .1); if (Math.random() < .12) flashLight(from, col, 2.2, .08); }
       }
       /* titik di posisi pasukan saat ini — ikut garis depan yang bergerak */
       function crowdPoint(crowd, jitter) {
@@ -3700,6 +3803,14 @@
               u.obj.rotation.z += sdt * 2.6 * u.deathSpin;                 // oleng (pitch)
               u.obj.rotation.x += sdt * 1.9 * u.deathSpin;                 // gulung (roll) → tumbling multi-sumbu
               u.obj.position.y -= sdt * (u.fly > 0 ? 14 : 3);              // tersungkur / jatuh
+              // ASAP KEMATIAN — kepulan gelap membumbung dari bangkai yang jatuh
+              u.trailT -= sdt;
+              if (u.trailT <= 0) {
+                u.trailT = .045;
+                const sz = u.obj.scale.x * (5 + Math.random() * 3);
+                emitPuff(u.obj.position.x + (Math.random() - .5) * 4, u.obj.position.y, u.obj.position.z + (Math.random() - .5) * 4,
+                  0x2b2b30, sz, 1.1 + Math.random() * .5, 10 + Math.random() * 6, .55, false);
+              }
               if (u.clock >= u.deathDur) {
                 scene.remove(u.obj);
                 if (u.dust) scene.remove(u.dust.pts);
@@ -3723,6 +3834,16 @@
               u.pitch += (tgtPitch - u.pitch) * Math.min(1, sdt * 4);
               const baseYaw = u.side === 'buy' ? 0 : Math.PI;
               u.obj.rotation.set(u.bank * s, baseYaw + Math.sin(t * 0.5 + u.bobPhase) * u.yawWander, u.pitch * s);
+              // KONTRAIL — jejak tipis bercahaya di belakang jet & bomber
+              if (u.key === 'jet' || u.key === 'bomber') {
+                u.trailT -= sdt;
+                if (u.trailT <= 0) {
+                  u.trailT = .05;
+                  const back = u.obj.scale.x * 4.2;
+                  emitPuff(u.obj.position.x - s * back, u.obj.position.y, u.obj.position.z + (Math.random() - .5) * 2.5,
+                    0xdfeaff, u.obj.scale.x * 1.7, .7, 2.5, .22, true);
+                }
+              }
             }
             if (u.rotor) u.rotor.rotation.y += sdt * 40;                 // baling-baling berputar
             if (u.tailRotor) u.tailRotor.rotation.x += sdt * 55;         // rotor ekor berputar sumbu lain
@@ -3853,6 +3974,23 @@
           const g = s.size * (1 + s.t * 1.3);
           s.spr.scale.set(g, g, 1);
           s.spr.material.opacity = 1 - s.t;
+        }
+
+        // kepulan — kontrail & asap kematian (naik, melebar, memudar)
+        for (let i = puffs.length - 1; i >= 0; i--) {
+          const p = puffs[i];
+          p.t += sdt / p.dur;
+          if (p.t >= 1) { scene.remove(p.spr); p.spr.material.dispose(); puffs.splice(i, 1); continue; }
+          p.spr.position.y += p.rise * sdt;
+          p.spr.position.x += p.drift * sdt;
+          const g = p.size * (1 + p.t * 1.4);
+          p.spr.scale.set(g, g, 1);
+          p.spr.material.opacity = (p.t < .2 ? p.t / .2 : 1 - (p.t - .2) / .8) * p.peak;
+        }
+
+        // kilatan moncong — denyut PointLight meluruh cepat
+        for (const ml of muzzleLights) {
+          if (ml.t > 0) { ml.t -= sdt; ml.l.intensity = ml.peak * Math.max(0, ml.t / ml.dur); }
         }
 
         for (let i = booms.length - 1; i >= 0; i--) {
