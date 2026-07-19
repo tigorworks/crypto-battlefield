@@ -34,23 +34,97 @@
       font-weight: 700
     }
 
-    #boot .ring {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 3px solid rgba(255, 255, 255, .14);
-      border-top-color: var(--long);
-      animation: bootspin .8s linear infinite
+    /* ── iringan tank berjalan di tempat, ganti ring spinner lama ── */
+    #boot .boot-convoy {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      height: 22px;
     }
 
-    @keyframes bootspin {
+    #boot .boot-tank {
+      position: relative;
+      width: 30px;
+      height: 18px;
+      animation: bootTankBob .6s ease-in-out infinite;
+    }
+
+    #boot .boot-tank:nth-child(2) {
+      animation-delay: .12s;
+    }
+
+    #boot .boot-tank:nth-child(3) {
+      animation-delay: .24s;
+    }
+
+    #boot .boot-tank .hull {
+      position: absolute;
+      left: 2px;
+      bottom: 4px;
+      width: 26px;
+      height: 7px;
+      border-radius: 2px;
+      background: var(--long);
+    }
+
+    #boot .boot-tank .turret {
+      position: absolute;
+      left: 9px;
+      bottom: 9px;
+      width: 11px;
+      height: 6px;
+      border-radius: 2px 2px 1px 1px;
+      background: var(--long);
+    }
+
+    #boot .boot-tank .barrel {
+      position: absolute;
+      left: 18px;
+      bottom: 11px;
+      width: 11px;
+      height: 2px;
+      border-radius: 1px;
+      background: var(--long);
+    }
+
+    #boot .boot-tank .track {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 30px;
+      height: 5px;
+      border-radius: 2px;
+      background: repeating-linear-gradient(-45deg,
+          rgba(0, 0, 0, .55) 0,
+          rgba(0, 0, 0, .55) 2px,
+          rgba(255, 255, 255, .12) 2px,
+          rgba(255, 255, 255, .12) 4px);
+      background-size: 8px 8px;
+      animation: bootTrackRoll .35s linear infinite;
+    }
+
+    @keyframes bootTankBob {
+
+      0%,
+      100% {
+        transform: translateY(0)
+      }
+
+      50% {
+        transform: translateY(-2px)
+      }
+    }
+
+    @keyframes bootTrackRoll {
       to {
-        transform: rotate(360deg)
+        background-position: -8px 0
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      #boot .ring {
+
+      #boot .boot-tank,
+      #boot .boot-tank .track {
         animation: none
       }
     }
