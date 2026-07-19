@@ -2035,16 +2035,38 @@
           soldierPart(new THREE.BoxGeometry(1.3, .5, .8), S_DARK, .25, -3.05, 0),              // sepatu
         ]);
       }
-      function buildSoldierArmBack() {    // pivot di bahu (origin)
+      // warna senjata (gaya AK-47): kayu popor/handguard + logam gelap
+      const S_WOOD = 0x6b4a2b, S_GUN = 0x23252b, S_GUNMET = 0x55585f;
+      // helper "tulang": silinder yang membentang dari (p0)→(p1) — untuk lengan yang mengarah bebas di 3D
+      const _boneUp = new THREE.Vector3(0, 1, 0), _boneDir = new THREE.Vector3(), _boneQ = new THREE.Quaternion(), _boneM = new THREE.Matrix4();
+      function soldierBone(color, x0, y0, z0, x1, y1, z1, r) {
+        _boneDir.set(x1 - x0, y1 - y0, z1 - z0); const len = _boneDir.length(); _boneDir.normalize();
+        const g = new THREE.CylinderGeometry(r, r * .9, len, 8);
+        _boneQ.setFromUnitVectors(_boneUp, _boneDir); g.applyMatrix4(_boneM.makeRotationFromQuaternion(_boneQ));
+        g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+        return soldierPart(g, color, 0, 0, 0);   // tanpa transform tambahan → cuma bake warna
+      }
+      /* Pose SIAP-TEMBAK: senapan AK-47 diangkat setinggi bahu/dagu (bukan di pinggang), moncong ke +x.
+         Senapan menyatu di lengan DEPAN (tangan pemicu); lengan BELAKANG menopang handguard di depan. */
+      const RY = 0.72;   // ketinggian sumbu senapan pada ruang-bahu (world ≈ shoulderY + RY ≈ 6.4, area dada/dagu)
+      function buildSoldierArmBack() {    // lengan penopang — menjulur ke depan-atas ke handguard
         return mergeSoldierGeos([
-          soldierPart(new THREE.CylinderGeometry(.32, .3, 2.1, 8), S_SKIN, 0, -1.05, 0),
+          soldierBone(S_SKIN, 0, 0, 0, 1.85, RY - .1, 1.15, .26),     // lengan
+          soldierPart(new THREE.SphereGeometry(.24, 8, 6), S_SKIN, 1.9, RY - .1, 1.2),   // tangan menggenggam
         ]);
       }
-      function buildSoldierArmFront() {   // pivot di bahu (origin) — memegang senapan ke +x
+      function buildSoldierArmFront() {   // lengan pemicu + senapan AK-47 terangkat
         return mergeSoldierGeos([
-          soldierPart(new THREE.CylinderGeometry(.3, .28, 2.0, 8), S_SKIN, 0, -1.0, 0),        // lengan
-          soldierPart(new THREE.CylinderGeometry(.13, .13, 3.4, 8), S_DARK, 1.6, -1.0, 0, [0, 0, RIFLE]),  // laras
-          soldierPart(new THREE.BoxGeometry(.5, .9, .35), S_METAL, .4, -1.4, 0),               // magasin
+          soldierBone(S_SKIN, 0, 0, 0, .7, RY - .35, .05, .26),        // lengan pemicu menekuk ke pegangan
+          soldierPart(new THREE.SphereGeometry(.22, 8, 6), S_SKIN, .78, RY - .3, .05),   // tangan
+          // — senapan AK-47 (moncong +x) —
+          soldierPart(new THREE.BoxGeometry(1.5, .34, .3), S_GUN, 1.0, RY, 0),           // receiver
+          soldierPart(new THREE.BoxGeometry(1.15, .26, .24), S_WOOD, .1, RY, 0),         // popor kayu (ke arah bahu)
+          soldierPart(new THREE.BoxGeometry(1.0, .28, .26), S_WOOD, 2.2, RY, 0),         // handguard kayu
+          soldierPart(new THREE.CylinderGeometry(.07, .07, 1.5, 8), S_GUNMET, 3.15, RY + .02, 0, [0, 0, RIFLE]),  // laras
+          soldierPart(new THREE.BoxGeometry(.1, .3, .1), S_GUN, 2.75, RY + .22, 0),      // pisir depan
+          soldierPart(new THREE.BoxGeometry(.28, .82, .24), S_GUNMET, .95, RY - .5, 0, [0, 0, .5]),   // magasin melengkung (banana)
+          soldierPart(new THREE.BoxGeometry(.2, .5, .2), S_GUN, .78, RY - .32, 0, [0, 0, -.35]),      // pegangan pistol
         ]);
       }
 
@@ -2065,8 +2087,9 @@
         const parts = [
           { mesh: partMesh(legGeo), attach: T(0, SOLDIER.hipY, -SOLDIER.legZ), amp: 1.0 },
           { mesh: partMesh(legGeo), attach: T(0, SOLDIER.hipY, SOLDIER.legZ), amp: -1.0 },
-          { mesh: partMesh(buildSoldierArmBack()), attach: T(SOLDIER.armBackX, SOLDIER.shoulderY, SOLDIER.armBackZ), amp: -0.9 },
-          { mesh: partMesh(buildSoldierArmFront()), attach: T(SOLDIER.armFrontX, SOLDIER.shoulderY, SOLDIER.armFrontZ), amp: 0.15 },
+          // lengan memegang senapan terangkat → ayun sangat kecil supaya bidikan tetap mantap
+          { mesh: partMesh(buildSoldierArmBack()), attach: T(SOLDIER.armBackX, SOLDIER.shoulderY, SOLDIER.armBackZ), amp: 0.05 },
+          { mesh: partMesh(buildSoldierArmFront()), attach: T(SOLDIER.armFrontX, SOLDIER.shoulderY, SOLDIER.armFrontZ), amp: 0.05 },
         ];
         const allMeshes = [mesh, ...parts.map(p => p.mesh)];
 
@@ -2104,7 +2127,7 @@
           for (const m of allMeshes) m.setColorAt(i, scol);
         }
         for (const m of allMeshes) m.instanceColor.needsUpdate = true;
-        return { mesh, parts, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, q, sign, routUntil: 0, flee: 0 };
+        return { mesh, parts, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, q, sign };
       }
       let buyCrowd, sellCrowd;   // dibuat setelah model voxel prajurit selesai dimuat — lihat bootstrap di akhir berkas
 
@@ -2163,15 +2186,6 @@
             sc = 1;
           }
 
-          // ROUT — sisi yang kalah telak pecah formasi & lari panik ke belakang wilayah sendiri
-          let facing = 0;
-          const flee = crowd.flee;
-          if (flee > .02 && !s.dying && (s.active || s.walking)) {
-            x += crowd.sign * flee * (58 + (s.phase * 13 % 46));   // makin jauh dari musuh
-            bob = Math.abs(Math.sin(t * 11 + s.phase)) * (.9 + flee);   // langkah panik cepat
-            if (flee > .5) facing = Math.PI;                    // balik badan membelakangi musuh
-          }
-
           // recoil singkat — prajurit ini baru saja menembak, senapannya menyentak ke belakang
           let kick = 0;
           if (s.recoilT > 0) {
@@ -2188,7 +2202,6 @@
           if (hidden) sscl.set(.0001, .0001, .0001);
           else { const ssz = sc * s.size; sscl.set(ssz, ssz, ssz); }   // #5 skala per prajurit sedikit acak
           sq.copy(crowd.q);
-          if (facing) { faceQ.setFromAxisAngle(AXIS_Y, facing); sq.multiply(faceQ); }
           if (topple) { toppleQ.setFromAxisAngle(AXIS_Z, topple); sq.premultiply(toppleQ); }
           else if (kick > 0) { recoilQ.setFromAxisAngle(AXIS_Z, kick * .18 * crowd.sign); sq.premultiply(recoilQ); }
           spos.set(x, bob, z);
@@ -2198,7 +2211,6 @@
           // GAIT — ayunan kaki/lengan; intensitas & irama ikut kondisi (jalan masuk / panik / diam)
           let gaitAmp = 0, cyc = 0;
           if (hidden || s.dying) { gaitAmp = 0; }
-          else if (flee > .02) { gaitAmp = 1.15 + flee * .3; cyc = t * 11 + s.phase; }   // lari panik
           else if (s.walking) { gaitAmp = 1.0; cyc = t * 9 + s.phase; }                  // berjalan masuk
           else if (s.active) { gaitAmp = 0.16; cyc = t * 2.4 + s.phase; }                // ayun ringan berdiri
           const legSwing = Math.sin(cyc) * gaitAmp * 0.55;
@@ -2497,7 +2509,7 @@
         obj.userData = { pick: true, side, usd, price, ts: Date.now(), rotor, tailRotor, wheels, gun };
         scene.add(obj);
         bigUnitObjs.push(obj);
-        playChargeHorn();
+        playChargeHorn(start);
         const dust = pick.key === 'helicopter' ? makeRotorDust() : null;   // kepulan debu di bawah helikopter yang terbang rendah
         // fase: 'approach' (masuk) → 'hold' (menetap & menghujani lawan) → 'death' (tertembak lalu meledak)
         units.push({
@@ -2523,7 +2535,7 @@
           const to = target.clone().add(new THREE.Vector3((Math.random() - .5) * 7, (Math.random() - .5) * 7, (Math.random() - .5) * 7));
           fireBullet(foe, from, to, false, u.defender, true);       // tracer besar menghajar sang paus
         }
-        playVolley(2);
+        playVolley(2, target);
       }
 
       /* ═══════════ SERANGAN UDARA — peristiwa langka untuk order raksasa (≥ T_BOSS) ═══════════
@@ -2673,13 +2685,15 @@
         const attacker = side === 'buy' ? buyCrowd : sellCrowd;
         const defender = side === 'buy' ? sellCrowd : buyCrowd;
         const n = killed + (tier === 2 ? 3 : 1);   // sebagian besar peluru mengenai prajurit; hanya sedikit yang meleset
+        let firePos = null;
         for (let i = 0; i < n; i++) {
           const kills = i < killed;
           const from = crowdPoint(attacker, 8);                              // dari prajurit penyerang
           const to = kills ? crowdPoint(defender, 10) : groundPoint(defender); // yang membunuh → prajurit, meleset → tanah
           fireBullet(side, from, to, kills, defender);
+          firePos = from;
         }
-        playVolley(tier);
+        playVolley(tier, firePos);
       }
       /* tembakan latar saat pasar sepi — mengisi jeda supaya baku tembak tak pernah kosong.
          hanya visual (tidak membunuh) agar jumlah pasukan tetap mewakili persentase buy/sell. */
@@ -2735,10 +2749,6 @@
           addShake(.8 + Math.min(2, streakCount * .05));
           clearTimeout(streakHide);
           streakHide = setTimeout(() => { streakEl.className = ''; }, 2200);
-          // dominasi ekstrem → sisi yang kalah pecah formasi & lari
-          if (streakCount === 20 || (streakCount > 20 && streakCount % 15 === 0)) {
-            triggerRout(side === 'buy' ? 'sell' : 'buy', Math.min(1, (streakCount - 20) / 40));
-          }
         }
       }
 
@@ -2760,14 +2770,6 @@
       let flashV = 0, flashColor = '#ffffff', slowmo = 0;
       function addFlash(v, color) { flashV = Math.max(flashV, v); if (color) flashColor = color; }
       function addSlowmo(s) { slowmo = Math.max(slowmo, s); }
-
-      /* ═══════════ ROUT — pasukan yang kalah telak lari kocar-kacir ═══════════ */
-      function triggerRout(loserSide, intensity) {
-        const loser = loserSide === 'buy' ? buyCrowd : sellCrowd;
-        loser.routUntil = performance.now() + 2400 + intensity * 1500;
-        const L = I18N[lang];
-        showEvent(loserSide === 'buy' ? L.routBuyers : L.routSellers, loserSide === 'buy' ? 'sell' : 'buy');
-      }
 
       /* ═══════════ LEDAKAN ═══════════ */
       const booms = [], rings = [];
@@ -2853,7 +2855,7 @@
         }
         if (tier === 2) { spawnCrater(pos, mag); spawnDebris(pos, mag); }   // kawah & puing hanya untuk tank/pesawat/bom, bukan tiap tembakan kecil
         lastImpact.copy(pos);
-        playBoom(mag, tier);
+        playBoom(mag, tier, pos);
       }
 
       /* ═══════════ KILLFEED — gabungan order flow & sorotan ═══════════ */
@@ -3094,8 +3096,22 @@
       RESUME_EVENTS.forEach(ev => addEventListener(ev, resumeAudioOnce, { passive: true }));
       if (AC) AC.resume().catch(() => { });   // sebagian browser mengizinkan langsung
 
-      function playBoom(mag, tier) {
+      /* ═══════════ AUDIO POSISIONAL — pan kiri/kanan mengikuti posisi kejadian di layar ═══════════
+         Node tujuan SFX: StereoPanner (jika ada posisi & didukung) → sfxG, atau sfxG langsung.
+         Pan dihitung dari proyeksi posisi dunia ke NDC-x kamera, jadi ikut arah pandang/zoom saat ini. */
+      const _sfxV = new THREE.Vector3();
+      function sfxOut(pos) {
+        if (!pos || !AC.createStereoPanner) return sfxG;
+        const p = AC.createStereoPanner();
+        _sfxV.copy(pos).project(camera);
+        p.pan.value = Math.max(-1, Math.min(1, (isFinite(_sfxV.x) ? _sfxV.x : 0) * 0.9));
+        p.connect(sfxG);
+        return p;
+      }
+
+      function playBoom(mag, tier, pos) {
         if (!sfxOn || !AC) return;
+        const out = sfxOut(pos);
         const t = AC.currentTime;
         // sub thump
         const o = AC.createOscillator(), g = AC.createGain();
@@ -3105,7 +3121,7 @@
         g.gain.setValueAtTime(.001, t);
         g.gain.exponentialRampToValueAtTime(.14 + mag * .25, t + .015);
         g.gain.exponentialRampToValueAtTime(.001, t + .6 + mag * .5);
-        o.connect(g).connect(sfxG); o.start(t); o.stop(t + 1.3);
+        o.connect(g).connect(out); o.start(t); o.stop(t + 1.3);
         // debris noise
         const dur = .3 + mag * .5;
         const buf = AC.createBuffer(1, AC.sampleRate * dur, AC.sampleRate);
@@ -3114,10 +3130,11 @@
         const src = AC.createBufferSource(); src.buffer = buf;
         const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1200 + mag * 2500;
         const ng = AC.createGain(); ng.gain.value = .1 + mag * .2;
-        src.connect(f).connect(ng).connect(sfxG); src.start(t);
+        src.connect(f).connect(ng).connect(out); src.start(t);
       }
-      function playChargeHorn() {
+      function playChargeHorn(pos) {
         if (!sfxOn || !AC) return;
+        const out = sfxOut(pos);
         const t = AC.currentTime;
         const o = AC.createOscillator(), g = AC.createGain();
         o.type = 'square';
@@ -3128,16 +3145,16 @@
         g.gain.setValueAtTime(.001, t);
         g.gain.exponentialRampToValueAtTime(.16, t + .3);
         g.gain.exponentialRampToValueAtTime(.001, t + 2.4);
-        o.connect(f).connect(g).connect(sfxG);
+        o.connect(f).connect(g).connect(out);
         o.start(t); o.stop(t + 2.5);
       }
-      function playCannon() {                      // tembakan unit paus (tank/heli/jet) — berat & dalam, beda dari rentetan prajurit biasa
+      function playCannon(pos) {                   // tembakan unit paus (tank/heli/jet) — berat & dalam, beda dari rentetan prajurit biasa
         if (!sfxOn || !AC || !sfxBufCannon) return;
         const t = AC.currentTime;
         const src = AC.createBufferSource(); src.buffer = sfxBufCannon;
         src.playbackRate.value = .95 + Math.random() * .1;
         const g = AC.createGain(); g.gain.value = .9;
-        src.connect(g).connect(sfxG); src.start(t);
+        src.connect(g).connect(sfxOut(pos)); src.start(t);
         duckMusic(.7, .03, .1, .5);
       }
       function playThunder(z0) {                   // guntur saat badai (dump keras) — z0 sambaran menentukan jarak & kesan redam
@@ -3151,8 +3168,9 @@
         src.connect(f).connect(g).connect(sfxG); src.start(t);
         duckMusic(.35, .05, .3, 1.1);
       }
-      function playVolley(tier) {
+      function playVolley(tier, pos) {
         if (!sfxOn || !AC || !sfxBufGunshot) return;
+        const out = sfxOut(pos);
         const t0 = AC.currentTime;
         const shots = tier === 2 ? 5 : tier === 1 ? 3 : 1;
         for (let i = 0; i < shots; i++) {
@@ -3160,7 +3178,7 @@
           const src = AC.createBufferSource(); src.buffer = sfxBufGunshot;
           src.playbackRate.value = .92 + Math.random() * .22;
           const g = AC.createGain(); g.gain.value = .85 + Math.random() * .25;
-          src.connect(g).connect(sfxG); src.start(t);
+          src.connect(g).connect(out); src.start(t);
         }
         duckMusic(.45, .02, .06, .35);
       }
@@ -3732,12 +3750,7 @@
           if (cs.m.position.x > 560) cs.m.position.x = -560;
         }
 
-        // ROUT — haluskan derajat kabur tiap sisi (masuk cepat, pulih perlahan)
         const nowMs = performance.now();
-        for (const c of [buyCrowd, sellCrowd]) {
-          const routing = c.routUntil > nowMs ? 1 : 0;
-          c.flee += (routing - c.flee) * Math.min(1, dt * (routing ? 3 : 1.4));
-        }
 
         // JEDA TENANG — dinilai relatif terhadap rerata laju transaksi sesi berjalan (bukan angka mutlak),
         // supaya tetap peka baik di pasangan cepat (BTC, puluhan transaksi/detik) maupun lambat: dianggap
@@ -3878,7 +3891,7 @@
                 if (!u.gun) from.y += u.fly > 0 ? 2 : 16;   // unit tanpa node 'gun' eksplisit (heli/jet/bomber) — perkiraan tinggi moncong
                 fireBullet(u.side, from, crowdPoint(u.defender, 14), true, u.defender, true); // peluru besar, jangkauan jauh
                 if (u.gun) u.gun.userData.recoilT = .16;
-                playCannon();
+                playCannon(from);
               }
             }
           } else {
@@ -3911,13 +3924,12 @@
             killSoldier(a.defender, 5);
             spawnSkull(gp);
             addShake(1.6); addFlash(.26, '#ffd9a3');
-            playBoom(.9, 2);
+            playBoom(.9, 2, gp);
           }
           if (a.t >= 1) {
             scene.remove(a.obj);
             const bi = bigUnitObjs.indexOf(a.obj); if (bi >= 0) bigUnitObjs.splice(bi, 1);
             airstrikes.splice(i, 1);
-            triggerRout(a.side === 'buy' ? 'sell' : 'buy', 1);   // korban lari kocar-kacir
           }
         }
 
@@ -3933,11 +3945,10 @@
             killSoldier(b.defender, 4);
             spawnSkull(s.pos);
             addShake(1.3); addFlash(.2, '#ffcf8c');
-            playBoom(.85, 2);
+            playBoom(.85, 2, s.pos);
           }
           if (b.t >= b.dur) {
             barrages.splice(i, 1);
-            triggerRout(b.side === 'buy' ? 'sell' : 'buy', .8);
           }
         }
 
