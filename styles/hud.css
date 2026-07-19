@@ -1,0 +1,1037 @@
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, .4)
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 10px;
+      padding: 5px 11px;
+      border-radius: 9px;
+      cursor: pointer;
+      letter-spacing: .09em;
+      transition: border-color .15s, color .15s, background .15s
+    }
+
+    .btn:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, .07)
+    }
+
+    .btn.active {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5);
+      background: rgba(45, 214, 165, .1)
+    }
+
+    .btn.warn {
+      color: var(--short);
+      border-color: rgba(255, 101, 132, .5)
+    }
+
+    /* ── top-left: status live sederhana, tiru referensi ── */
+    #feed-badge {
+      top: max(16px, env(safe-area-inset-top) + 12px);
+      left: max(16px, env(safe-area-inset-left) + 12px);
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(10, 16, 10, .5);
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 11px;
+      letter-spacing: .12em;
+      font-weight: 700;
+      color: var(--muted);
+      font-family: var(--rounded)
+    }
+
+    #feed-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted)
+    }
+
+    #feed-badge.live {
+      color: var(--long)
+    }
+
+    #feed-badge.live #feed-dot {
+      background: var(--long);
+      box-shadow: 0 0 8px var(--long);
+      animation: pulse 1.6s ease-in-out infinite
+    }
+
+    #feed-badge.dead {
+      color: var(--short)
+    }
+
+    #feed-badge.dead #feed-dot {
+      background: var(--short)
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .3
+      }
+    }
+
+    #retry {
+      display: none;
+      margin-left: 6px;
+      padding: 3px 9px;
+      font-size: 9px
+    }
+
+    /* saat fullscreen, tombol X exit browser (mis. iPad/Safari) menutup badge di kiri-atas → pindahkan ke
+     tengah-atas. (Dulu dipindah ke kanan-atas, tapi itu sekarang tabrakan dengan tombol chat/EN/fullscreen
+     dan panel obrolan yang juga di kanan-atas.) */
+    body.is-fs #feed-badge {
+      left: 50%;
+      right: auto;
+      top: max(16px, env(safe-area-inset-top) + 12px);
+      transform: translateX(-50%);
+    }
+
+
+    /* ── tengah atas: harga besar mengambang di atas lapangan, kontras tinggi ── */
+    #center-price {
+      top: 14%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 9
+    }
+
+    #cp-value {
+      font-size: clamp(36px, 6vw, 72px);
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -.01em;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 3px 0 rgba(0, 0, 0, .18), 0 2px 4px rgba(0, 0, 0, .5), 0 12px 30px rgba(0, 0, 0, .55), 0 0 44px rgba(0, 0, 0, .35);
+      transition: color .15s
+    }
+
+    #cp-value.up {
+      color: var(--long);
+      text-shadow: 0 3px 0 rgba(0, 0, 0, .2), 0 2px 4px rgba(0, 0, 0, .5), 0 0 34px rgba(45, 214, 165, .5), 0 12px 30px rgba(0, 0, 0, .5)
+    }
+
+    #cp-value.down {
+      color: var(--short);
+      text-shadow: 0 3px 0 rgba(0, 0, 0, .2), 0 2px 4px rgba(0, 0, 0, .5), 0 0 34px rgba(255, 101, 132, .5), 0 12px 30px rgba(0, 0, 0, .5)
+    }
+
+    #cp-sub {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      margin-top: 2px;
+      color: #fff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, .55)
+    }
+
+    #cp-pct.up {
+      color: var(--long)
+    }
+
+    #cp-pct.down {
+      color: var(--short)
+    }
+
+    /* ── bawah tengah: tekanan pasar (panjang vs pendek), widget sendiri ── */
+    #pressure {
+      bottom: max(16px, env(safe-area-inset-bottom) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 320px;
+      max-width: calc(100vw - 32px);
+      padding: 11px 15px;
+      text-align: center
+    }
+
+    #pp-head {
+      font-size: 9px;
+      letter-spacing: .14em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 8px;
+      font-family: var(--rounded);
+      white-space: nowrap
+    }
+
+    #pp-head .l {
+      color: var(--long);
+      font-weight: 800
+    }
+
+    #pp-head .s {
+      color: var(--short);
+      font-weight: 800
+    }
+
+    #pp-bar {
+      height: 7px;
+      display: flex;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .28);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .3)
+    }
+
+    #pp-long {
+      background: var(--long);
+      transition: width .4s
+    }
+
+    #pp-short {
+      background: var(--short);
+      transition: width .4s;
+      flex: 1
+    }
+
+    #pp-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .pp-col.pp-s {
+      text-align: right
+    }
+
+    .pp-main {
+      font-weight: 800
+    }
+
+    .pp-l .pp-main {
+      color: var(--long)
+    }
+
+    .pp-s .pp-main {
+      color: var(--short)
+    }
+
+    .pp-sub {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 2px;
+      letter-spacing: .03em
+    }
+
+    /* ── bawah kanan: killfeed ringkas ── */
+    #killfeed {
+      bottom: max(16px, env(safe-area-inset-bottom) + 12px);
+      right: max(16px, env(safe-area-inset-right) + 12px);
+      width: 300px;
+      max-width: calc(100vw - 32px);
+      padding: 9px 11px;
+      text-align: left
+    }
+
+    #killfeed h4 {
+      font-size: 9px;
+      letter-spacing: .24em;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 600;
+      font-family: var(--rounded)
+    }
+
+    /* rekor order terbesar sepanjang sesi — dipatri di atas killfeed */
+    #kill-records {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 7px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .krec {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 7px;
+      border-left: 2px solid;
+      background: rgba(255, 255, 255, .07);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden
+    }
+
+    .krec.buy {
+      border-color: var(--long);
+      color: var(--long)
+    }
+
+    .krec.sell {
+      border-color: var(--short);
+      color: var(--short)
+    }
+
+    .krec .krec-label {
+      opacity: .7;
+      font-weight: 700;
+      font-size: 9px;
+      letter-spacing: .08em;
+      font-family: var(--rounded);
+      flex-shrink: 0
+    }
+
+    .krec .krec-val {
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    #kills {
+      overflow: hidden;
+      max-height: 112px
+    }
+
+    .kill {
+      font-size: 10px;
+      padding: 4px 8px;
+      margin-bottom: 3px;
+      background: rgba(255, 255, 255, .04);
+      border-radius: 7px;
+      border-left: 2px solid;
+      animation: slidein .25s ease-out;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .kill .kt {
+      opacity: .55;
+      margin-right: 4px
+    }
+
+    .kill.buy {
+      border-color: var(--long);
+      color: var(--long)
+    }
+
+    .kill.sell {
+      border-color: var(--short);
+      color: var(--short)
+    }
+
+    .kill.liq {
+      border-color: var(--gold);
+      color: var(--gold)
+    }
+
+    .kill .tag {
+      color: var(--gold);
+      font-weight: 700
+    }
+
+    @keyframes slidein {
+      from {
+        opacity: 0;
+        transform: translateY(-6px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    /* ── bawah kiri: controls, ringkas ── */
+    #controls {
+      bottom: max(16px, env(safe-area-inset-bottom) + 12px);
+      left: max(16px, env(safe-area-inset-left) + 12px);
+      font-size: 9.5px;
+      line-height: 1.7;
+      letter-spacing: .04em;
+      padding: 10px 13px;
+      max-width: 290px
+    }
+
+    #controls b {
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    #cam-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 7px
+    }
+
+    #cam-row .btn {
+      padding: 4px 8px;
+      font-size: 9px;
+      white-space: nowrap
+    }
+
+    #audio-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px
+    }
+
+    .vol-row {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .vol-label {
+      flex: none;
+      width: 32px;
+      font-size: 9px;
+      letter-spacing: .08em;
+      font-weight: 700;
+      color: var(--long);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: var(--rounded);
+      transition: color .15s
+    }
+
+    .vol-label.muted {
+      color: var(--muted);
+      text-decoration: line-through
+    }
+
+    .vol-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14);
+      outline: none;
+      cursor: pointer
+    }
+
+    .vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--long);
+      box-shadow: 0 0 6px rgba(45, 214, 165, .55);
+      cursor: pointer;
+      margin-top: -3.5px
+    }
+
+    .vol-slider::-moz-range-thumb {
+      width: 11px;
+      height: 11px;
+      border: none;
+      border-radius: 50%;
+      background: var(--long);
+      box-shadow: 0 0 6px rgba(45, 214, 165, .55);
+      cursor: pointer
+    }
+
+    .vol-slider::-moz-range-track {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14)
+    }
+
+    .vol-slider::-moz-range-progress {
+      height: 4px;
+      border-radius: 999px;
+      background: var(--long)
+    }
+
+    .vol-slider.muted::-webkit-slider-thumb {
+      background: var(--muted);
+      box-shadow: none
+    }
+
+    .vol-slider.muted::-moz-range-thumb {
+      background: var(--muted);
+      box-shadow: none
+    }
+
+    .vol-slider.muted::-moz-range-progress {
+      background: var(--muted)
+    }
+
+    /* ── kanan atas: baris tombol (obrolan, widget, bahasa, layar penuh) ──
+     dikelompokkan dalam satu flex row supaya kalau salah satu tombol disembunyikan
+     (mis. tombol layar penuh di iPhone), yang lain rapat mengisi — tak ada "lubang" */
+    #hud-topright {
+      top: max(16px, env(safe-area-inset-top) + 12px);
+      right: max(16px, env(safe-area-inset-right) + 12px);
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    #hud-topright>.hud {
+      position: relative;
+      top: auto;
+      right: auto;
+      flex: none
+    }
+
+    #lang-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      background: rgba(10, 16, 12, .6);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      font-family: var(--rounded);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em
+    }
+
+    #lang-btn:hover {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    #fs-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      background: rgba(10, 16, 12, .6);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      cursor: pointer;
+      backdrop-filter: blur(6px)
+    }
+
+    #fs-btn svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round
+    }
+
+    #fs-btn:hover {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    /* ── toggle audio master: satu ketukan bisukan/nyalakan musik + efek (penting di ponsel) ── */
+    #audio-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      background: rgba(10, 16, 12, .6);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      cursor: pointer;
+      backdrop-filter: blur(6px)
+    }
+
+    #audio-btn svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round
+    }
+
+    @media (hover:hover) {
+      #audio-btn:hover {
+        color: var(--long);
+        border-color: rgba(45, 214, 165, .5)
+      }
+    }
+
+    #audio-btn.muted {
+      color: var(--short);
+      border-color: rgba(255, 101, 132, .5)
+    }
+
+    #online-pill {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 8px;
+      padding: 3px 9px 3px 8px;
+      border-radius: 999px;
+      background: rgba(45, 214, 165, .16);
+      border: 1px solid rgba(45, 214, 165, .4);
+      color: var(--long);
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: .04em
+    }
+
+    #widgets-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      background: rgba(10, 16, 12, .6);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      cursor: pointer;
+      backdrop-filter: blur(6px)
+    }
+
+    #widgets-btn.active {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    @media (hover:hover) {
+      #widgets-btn:hover {
+        color: var(--long);
+        border-color: rgba(45, 214, 165, .5)
+      }
+    }
+
+    #widgets-btn svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round
+    }
+
+        width: calc(100vw - 24px)
+      }
+    }
+
+    #flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8;
+      background: #fff;
+      opacity: 0
+    }
+
+    /* ── lapisan efek: angka damage melayang & streak ── */
+    #fx-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 11;
+      overflow: hidden
+    }
+
+    .fnum {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-family: var(--rounded);
+      font-weight: 800;
+      font-size: 15px;
+      opacity: 1;
+      transition: transform .9s ease-out, opacity .9s ease-out;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, .65);
+      will-change: transform, opacity
+    }
+
+    .fnum.up {
+      color: var(--long)
+    }
+
+    .fnum.dn {
+      color: var(--short)
+    }
+
+    #unit-tip {
+      position: fixed;
+      z-index: 12;
+      pointer-events: none;
+      background: rgba(10, 16, 12, .82);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-family: var(--rounded);
+      font-size: 11px;
+      line-height: 1.5;
+      display: none;
+      flex-direction: column;
+      gap: 1px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .42)
+    }
+
+    #unit-tip.show {
+      display: flex
+    }
+
+    #unit-tip b {
+      font-size: 11px;
+      letter-spacing: .05em
+    }
+
+    #unit-tip b.buy {
+      color: var(--long)
+    }
+
+    #unit-tip b.sell {
+      color: var(--short)
+    }
+
+    #unit-tip span {
+      color: var(--ink);
+      opacity: .92;
+      font-variant-numeric: tabular-nums
+    }
+
+    #unit-tip .tt {
+      opacity: .5;
+      font-size: 10px
+    }
+
+    /* ── lencana kunci: mengikuti unit yang di-follow, klik untuk lepas ── */
+    #lock-badge {
+      position: fixed;
+      z-index: 12;
+      transform: translate(-50%, -150%);
+      background: rgba(10, 16, 12, .85);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-family: var(--rounded);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
+      cursor: pointer;
+      white-space: nowrap;
+      pointer-events: auto
+    }
+
+    #lock-badge.show {
+      display: inline-flex
+    }
+
+    #lock-badge.buy {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    #lock-badge.sell {
+      color: var(--short);
+      border-color: rgba(255, 101, 132, .5)
+    }
+
+    #lock-badge .lx {
+      opacity: .55;
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 1
+    }
+
+    #streak {
+      position: fixed;
+      top: calc(14% + 118px);
+      left: 50%;
+      transform: translateX(-50%) scale(.7);
+      z-index: 11;
+      pointer-events: none;
+      font-family: var(--rounded);
+      font-weight: 800;
+      font-size: clamp(16px, 2.4vw, 22px);
+      letter-spacing: .05em;
+      opacity: 0;
+      transition: opacity .18s, transform .18s;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, .6);
+      white-space: nowrap
+    }
+
+    #streak.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1);
+      animation: streakPulse .5s ease-out
+    }
+
+    #streak.buy {
+      color: var(--long)
+    }
+
+    #streak.sell {
+      color: var(--short)
+    }
+
+    #streak.t2 {
+      font-size: clamp(19px, 2.9vw, 27px);
+      text-shadow: 0 2px 16px rgba(0, 0, 0, .65), 0 0 18px currentColor
+    }
+
+    #streak.t3 {
+      font-size: clamp(22px, 3.4vw, 32px);
+      text-shadow: 0 2px 20px rgba(0, 0, 0, .7), 0 0 26px currentColor;
+      letter-spacing: .07em
+    }
+
+    @keyframes streakPulse {
+      0% {
+        transform: translateX(-50%) scale(1.45)
+      }
+
+      100% {
+        transform: translateX(-50%) scale(1)
+      }
+    }
+
+    /* ── kabar peristiwa: rout, serangan udara, jeda pasar ── */
+    #event-ticker {
+      position: fixed;
+      top: calc(14% + 156px);
+      left: 50%;
+      transform: translateX(-50%) translateY(7px);
+      z-index: 11;
+      pointer-events: none;
+      font-family: var(--rounded);
+      font-weight: 800;
+      font-size: clamp(12px, 1.8vw, 16px);
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity .3s, transform .3s;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, .72);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 9px
+    }
+
+    #event-ticker.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0)
+    }
+
+    #event-ticker .et-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 11px currentColor;
+      animation: etPulse 1s ease-in-out infinite
+    }
+
+    #event-ticker.buy {
+      color: var(--long)
+    }
+
+    #event-ticker.sell {
+      color: var(--short)
+    }
+
+    #event-ticker.neutral {
+      color: #dfe6ff
+    }
+
+    @keyframes etPulse {
+
+      0%,
+      100% {
+        opacity: .35
+      }
+
+      50% {
+        opacity: 1
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .kill {
+        animation: none
+      }
+    }
+
+    /* ── tombol bagikan momen di panel kontrol ── */
+    #share-btn {
+      margin-top: 8px;
+      width: 100%;
+      padding: 7px 0;
+      font-size: 9.5px;
+      letter-spacing: .09em
+    }
+
+    /* ── kartu momen: pratinjau + tombol simpan/bagikan ── */
+    #card-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(6, 8, 16, .74);
+      backdrop-filter: blur(6px);
+      padding: 20px
+    }
+
+    #card-modal.show {
+      display: flex
+    }
+
+    #card-box {
+      max-width: min(680px, 92vw);
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    #card-img {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+      display: block
+    }
+
+    #card-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap
+    }
+
+    #card-actions .btn {
+      font-size: 11px;
+      padding: 9px 16px
+    }
+
+    /* ── toast tawaran simpan momen besar ── */
+    #moment-toast {
+      top: calc(max(16px, env(safe-area-inset-top) + 12px) + 42px);
+      left: max(16px, env(safe-area-inset-left) + 12px);
+      z-index: 20;
+      display: none;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 11px;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity .3s, transform .3s
+    }
+
+    #moment-toast.show {
+      display: inline-flex;
+      opacity: 1;
+      transform: none
+    }
+
+    #moment-toast .mt-txt {
+      font-size: 11px;
+      color: var(--ink);
+      font-weight: 700;
+      letter-spacing: .02em
+    }
+
+    #moment-toast .mt-txt b {
+      color: var(--gold);
+      font-weight: 800
+    }
+
+    #moment-toast .btn {
+      padding: 5px 10px;
+      font-size: 9.5px
+    }
+
+    @media (max-width:760px) {
+      #moment-toast {
+        max-width: calc(100vw - 32px)
+      }
+
+      /* di ponsel: sembunyikan Killfeed, dan ringkas Controls jadi hanya tombol kamera
+       (petunjuk tombol, slider audio & tombol bagikan disembunyikan) — agar mode kamera
+       tetap bisa diganti, tidak terkunci di cinematic */
+      #killfeed {
+        display: none
+      }
+
+      #keys-hint,
+      #audio-row,
+      #share-btn {
+        display: none
+      }
+
+      #controls {
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: calc(100vw - 24px);
+        width: auto;
+        padding: 6px 8px;
+        bottom: calc(max(16px, env(safe-area-inset-bottom) + 12px) + 84px)
+      }
+
+      /* di atas widget Tekanan Pasar */
+      #cam-row {
+        margin: 0;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 5px
+      }
+
+      #cam-row .btn {
+        padding: 5px 9px;
+        font-size: 9px
+      }
+
+      #center-price {
+        top: 13%
+      }
+
+      #pressure {
+        bottom: max(16px, env(safe-area-inset-bottom) + 12px);
+        width: min(320px, 90vw);
+        padding: 9px 12px
+      }
+
+      #pp-head {
+        font-size: 8px
+      }
+
+      #pp-stats {
+        font-size: 9.5px
+      }
+    }
+  </style>

@@ -1,0 +1,47 @@
+  <style>
+    :root {
+      --bg-1: #0a0c18;
+      --bg-2: #1b2050;
+      --ink: #eef1fb;
+      --muted: #8891b8;
+      --panel: rgba(19, 22, 42, .82);
+      --line: rgba(255, 255, 255, .08);
+      --long: #2dd6a5;
+      --short: #ff6584;
+      --gold: #ffc857;
+      --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+      --rounded: 'SF Pro Rounded', 'SFRounded', ui-rounded, system-ui, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #bfe3f7 0%, #9dc077 55%, #7fa85f 100%);
+      font-family: var(--mono);
+      color: var(--muted)
+    }
+
+    canvas {
+      display: block;
+      touch-action: none
+    }
+
+    /* biar drag 1-jari & cubit ditangani app, bukan di-scroll browser */
+    .hud {
+      position: fixed;
+      z-index: 10;
+      user-select: none;
+      -webkit-user-select: none
+    }
+
+    button {
+      font-family: var(--rounded)
+    }
+
