@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /*
  * One-off asset-authoring script (NOT part of the page's runtime).
- * Generates the voxel SOLDIER model as a real, spec-compliant binary glTF
- * (.glb) file into ../models/. The soldier is a single merged mesh (it's
- * rendered via THREE.InstancedMesh in the page, which has no room for a
- * sub-node hierarchy).
  *
- * NOTE: the big whale units (tank/apc/helicopter/jet/bomber) are NO LONGER
- * voxel .glb — they are built high-poly & procedurally at runtime from
- * Three.js curved primitives inside index.html (see BIG_BUILDERS). The old
- * voxel vehicle builders were retired from this script; their leftover .glb
- * files in ../models/ are unused by the page.
+ * FULLY RETIRED / UNUSED: the page no longer loads ANY .glb asset. Every
+ * character — the soldiers AND the big whale units (tank/apc/helicopter/
+ * jet/bomber) — is now built high-poly & procedurally at runtime from
+ * Three.js curved primitives inside index.html (see buildSoldierGeo and
+ * BIG_BUILDERS). This script and the leftover ../models/*.glb files are kept
+ * only for historical reference and are not referenced by the page.
+ *
+ * Historically it generated the voxel SOLDIER model as a spec-compliant
+ * binary glTF (.glb) into ../models/.
  *
  * Run manually with: node tools/build-voxel-models.mjs
  */

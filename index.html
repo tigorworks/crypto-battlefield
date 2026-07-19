@@ -1670,7 +1670,6 @@
   </div>
 
   <script src="three.min.js"></script>
-  <script src="GLTFLoader.js"></script>
   <script>
     (() => {
       'use strict';
@@ -1967,36 +1966,77 @@
         skulls.push({ spr, t: 0, dur: .7 });
       }
 
-      /* ═══════════ MODEL VOXEL — dimuat dari .glb hasil tools/build-voxel-models.mjs, lihat bootstrap di akhir berkas ═══════════ */
-      const MODELS = {};   // "tank_buy" dst → THREE.Group hasil parse GLTFLoader (belum di-clone)
-      const gltfLoader = new THREE.GLTFLoader();
-      function loadModel(key, side) {
-        return new Promise((resolve) => {
-          gltfLoader.load(`models/${key}_${side}.glb`,
-            (gltf) => { MODELS[key + '_' + side] = gltf.scene; resolve(); },
-            undefined,
-            (err) => { console.warn('gagal memuat model voxel', key, side, err); resolve(); });   // gagal → lanjut tanpa model itu (jaring pengaman)
-        });
-      }
-      function loadAllModels() {
-        // hanya prajurit yang masih dimuat dari .glb; unit besar (tank/apc/heli/jet/bomber)
-        // kini dibangun high-poly secara prosedural di runtime (lihat BIG_BUILDERS)
-        const jobs = [];
-        for (const side of ['buy', 'sell']) jobs.push(loadModel('soldier', side));
-        return Promise.all(jobs);
-      }
+      /* ═══════════ MODEL — semua karakter (prajurit & unit whale) kini dibangun high-poly
+         secara prosedural di runtime; tak ada lagi aset .glb yang perlu dimuat.
+         loadAllModels dipertahankan hanya agar alur bootstrap (di akhir berkas) tak berubah. ═══════════ */
+      function loadAllModels() { return Promise.resolve(); }
 
-      /* ═══════════ PASUKAN — prajurit voxel yang saling menembak ═══════════ */
+      /* ═══════════ PASUKAN — prajurit high-poly yang saling menembak ═══════════ */
       const smx = new THREE.Matrix4(), spos = new THREE.Vector3(), sscl = new THREE.Vector3();
       const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), recoilQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0, 0, 1);
       const faceQ = new THREE.Quaternion(), AXIS_Y = new THREE.Vector3(0, 1, 0);
 
+      /* ═══════════ PRAJURIT HIGH-POLY — geometri prosedural digabung jadi satu BufferGeometry
+         (dengan vertex color di-bake) supaya tetap kompatibel dengan InstancedMesh. Menghadap +x,
+         origin di kaki (tinggi ≈ 8.5) agar rotasi hadap, tumbang (pivot kaki) & recoil tetap benar.
+         Warna tim (hijau=buy / merah=sell) di-bake ke rompi/helm → dibangun terpisah per sisi. */
+      function soldierPart(geo, hex, tx, ty, tz, rot) {
+        if (rot) { if (rot[0]) geo.rotateX(rot[0]); if (rot[1]) geo.rotateY(rot[1]); if (rot[2]) geo.rotateZ(rot[2]); }
+        geo.translate(tx || 0, ty || 0, tz || 0);
+        const g = geo.index ? geo.toNonIndexed() : geo;   // seragamkan agar bisa dikonkat
+        const n = g.attributes.position.count;
+        const r = ((hex >> 16) & 255) / 255, gg = ((hex >> 8) & 255) / 255, b = (hex & 255) / 255;
+        const col = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) { col[i * 3] = r; col[i * 3 + 1] = gg; col[i * 3 + 2] = b; }
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        return g;
+      }
+      function mergeSoldierGeos(list) {   // konkat position/normal/color — tak bergantung BufferGeometryUtils
+        let pc = 0; for (const g of list) pc += g.attributes.position.count;
+        const pos = new Float32Array(pc * 3), nor = new Float32Array(pc * 3), col = new Float32Array(pc * 3);
+        let o = 0;
+        for (const g of list) {
+          pos.set(g.attributes.position.array, o * 3);
+          nor.set(g.attributes.normal.array, o * 3);
+          col.set(g.attributes.color.array, o * 3);
+          o += g.attributes.position.count;
+        }
+        const out = new THREE.BufferGeometry();
+        out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+        out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        return out;
+      }
+      const RIFLE = Math.PI / 2;   // rotasi silinder Y→X (lengan depan & laras menghadap +x)
+      function buildSoldierGeo(side) {
+        const team = side === 'buy' ? C_LONG : C_SHORT;
+        const DARKC = 0x2b303a, METALC = 0x3a3f4a, SKINC = 0xc79a72, STRAPC = 0x1c1f26, BRIMC = 0x1c1f26;
+        const P = [
+          soldierPart(new THREE.CylinderGeometry(.45, .42, 3.3, 10), DARKC, 0, 1.65, -.6),     // tungkai kiri
+          soldierPart(new THREE.CylinderGeometry(.45, .42, 3.3, 10), DARKC, 0, 1.65, .6),      // tungkai kanan
+          soldierPart(new THREE.BoxGeometry(1.3, .5, .8), DARKC, .25, .25, -.6),               // sepatu kiri
+          soldierPart(new THREE.BoxGeometry(1.3, .5, .8), DARKC, .25, .25, .6),                // sepatu kanan
+          soldierPart(new THREE.CylinderGeometry(1.05, .95, 3.0, 12), team, 0, 4.7, 0),        // torso/rompi (tim)
+          soldierPart(new THREE.SphereGeometry(1.05, 12, 10), team, 0, 6.0, 0),                // bahu membulat (tim)
+          soldierPart(new THREE.CylinderGeometry(1.08, 1.08, .45, 12), STRAPC, 0, 3.35, 0),    // sabuk
+          soldierPart(new THREE.CylinderGeometry(.35, .35, .8, 8), SKINC, 0, 6.7, 0),          // leher
+          soldierPart(new THREE.SphereGeometry(.78, 14, 12), SKINC, .05, 7.5, 0),              // kepala
+          soldierPart(new THREE.SphereGeometry(.9, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), team, .05, 7.85, 0),  // kubah helm (tim)
+          soldierPart(new THREE.CylinderGeometry(.95, .95, .18, 14), BRIMC, .05, 7.9, 0),      // pinggir helm
+          soldierPart(new THREE.CylinderGeometry(.32, .3, 2.1, 8), SKINC, .35, 4.9, -.95, [0, 0, -.2]),   // lengan belakang
+          soldierPart(new THREE.CylinderGeometry(.3, .28, 2.0, 8), SKINC, 1.1, 4.75, .8, [0, 0, RIFLE]),  // lengan depan (memegang senapan)
+          soldierPart(new THREE.CylinderGeometry(.13, .13, 3.4, 8), DARKC, 2.2, 4.7, .55, [0, 0, RIFLE]), // laras senapan (+x)
+          soldierPart(new THREE.BoxGeometry(.5, .9, .35), METALC, .95, 4.2, .55),              // magasin
+        ];
+        return mergeSoldierGeos(P);
+      }
+
       function makeCrowd(color, sign, side) { // sign: -1 = beli (kiri), 1 = jual (kanan)
-        const src = MODELS['soldier_' + side];
-        const geo = src ? src.getObjectByName('body').geometry : new THREE.BoxGeometry(1.5, 8, 1.5);   // jaring pengaman kalau model gagal dimuat
-        const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true, emissive: color, emissiveIntensity: .42, fog: false });
+        const geo = buildSoldierGeo(side);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, emissive: color, emissiveIntensity: .28, metalness: .08, roughness: .82, envMapIntensity: .3, fog: false });
         const mesh = new THREE.InstancedMesh(geo, mat, CROWD_MAX);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.castShadow = true;   // prajurit ikut menjatuhkan bayangan → terasa 3D & menapak
         scene.add(mesh);
 
         // titik cahaya aditif di atas tiap prajurit — tanpa ini, saat kamera zoom out
