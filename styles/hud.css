@@ -635,10 +635,6 @@
       stroke-linejoin: round
     }
 
-        width: calc(100vw - 24px)
-      }
-    }
-
     #flash {
       position: fixed;
       inset: 0;
@@ -1034,4 +1030,3 @@
         font-size: 9.5px
       }
     }
-  </style>
