@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /*
  * One-off asset-authoring script (NOT part of the page's runtime).
- * Generates voxel-block unit models as real, spec-compliant binary glTF
- * (.glb) files into ../models/. Each vehicle is a small node tree: one
- * static merged "body" mesh plus separate named nodes for parts the page
- * animates at runtime (wheel_L/wheel_R, rotor/tailRotor, gun). The soldier
- * is a single merged mesh (it's rendered via THREE.InstancedMesh in the
- * page, which has no room for a sub-node hierarchy).
+ * Generates the voxel SOLDIER model as a real, spec-compliant binary glTF
+ * (.glb) file into ../models/. The soldier is a single merged mesh (it's
+ * rendered via THREE.InstancedMesh in the page, which has no room for a
+ * sub-node hierarchy).
+ *
+ * NOTE: the big whale units (tank/apc/helicopter/jet/bomber) are NO LONGER
+ * voxel .glb — they are built high-poly & procedurally at runtime from
+ * Three.js curved primitives inside index.html (see BIG_BUILDERS). The old
+ * voxel vehicle builders were retired from this script; their leftover .glb
+ * files in ../models/ are unused by the page.
  *
  * Run manually with: node tools/build-voxel-models.mjs
  */
@@ -149,114 +153,11 @@ function soldierModel(team) {
   return packModel([{ name: 'body', parts: merge(parts), translation: [0, 0, 0] }]);
 }
 
-function tankModel(team) {
-  const body = merge([
-    box(0, 1.3, 0, 5, 1.4, 3, team),               // hull
-    box(0, .6, -1.45, 5.4, 1, .95, DARK),          // fender/tread kiri (statis)
-    box(0, .6, 1.45, 5.4, 1, .95, DARK),           // fender/tread kanan (statis)
-    box(-.3, 2.35, 0, 2.6, 1.1, 2.1, team),        // turret
-    box(-1.1, 2.9, 0, .8, .3, .8, DARK),           // hatch komandan
-    box(1.3, 2.35, .95, .3, .3, .3, GLASS),        // lampu/sensor kanan
-    box(1.3, 2.35, -.95, .3, .3, .3, GLASS),       // lampu/sensor kiri
-  ]);
-  const wheel = (side) => merge([
-    box(0, 0, 0, .5, .9, .9, METAL),
-    box(0, .45, side * .1, .5, .18, .5, DARK),
-    box(0, -.45, side * .1, .5, .18, .5, DARK),
-  ]);
-  const gun = merge([
-    box(1.4, 0, 0, 2.8, .42, .42, DARK),
-    box(2.9, 0, 0, .5, .6, .6, METAL),             // muzzle brake
-  ]);
-  return packModel([
-    { name: 'body', parts: body },
-    { name: 'wheel_L', parts: wheel(-1), translation: [0, .55, -1.45] },
-    { name: 'wheel_R', parts: wheel(1), translation: [0, .55, 1.45] },
-    { name: 'gun', parts: gun, translation: [.6, 2.4, 0] },
-  ]);
-}
-
-function apcModel(team) {
-  const body = merge([
-    box(-.3, 1.0, 0, 3.6, 1.1, 2.2, team),         // hull
-    box(2, .9, 0, 1.3, 1.1, 1.8, team),            // nose
-    box(2.5, 1.15, 0, .4, .4, 1.6, GLASS),         // kaca depan
-  ]);
-  const wheel = () => merge([
-    box(0, 0, 0, .9, .45, .9, METAL),
-    box(0, 0, .18, .9, .12, .55, DARK),
-  ]);
-  const gun = merge([
-    box(0, 0, 0, .7, .8, .6, team),                // dudukan turret
-    box(1.3, .05, 0, 1.8, .18, .18, DARK),         // laras
-  ]);
-  return packModel([
-    { name: 'body', parts: body },
-    { name: 'wheel_L', parts: wheel(), translation: [0, .4, -1.2] },
-    { name: 'wheel_R', parts: wheel(), translation: [0, .4, 1.2] },
-    { name: 'gun', parts: gun, translation: [0, 1.8, 0] },
-  ]);
-}
-
-function helicopterModel(team) {
-  const body = merge([
-    box(0, 0, 0, 3.6, 1.5, 1.6, team),             // badan
-    box(1.9, -.1, 0, 1.8, 1.35, 1.35, GLASS),      // kokpit kaca
-    box(-3, .3, 0, 3.2, .4, .4, team),             // boom ekor
-    box(-4.4, .7, 0, .4, 1.2, .15, team),          // sirip ekor
-    box(0, -1.2, -.8, 2.8, .16, .16, DARK),        // skid kiri
-    box(0, -1.2, .8, 2.8, .16, .16, DARK),         // skid kanan
-    box(0, -.5, -.8, .16, 1.1, .16, DARK),         // penyangga kiri
-    box(0, -.5, .8, .16, 1.1, .16, DARK),          // penyangga kanan
-  ]);
-  const rotor = merge([
-    box(0, 0, 0, .5, .18, .5, METAL),
-    box(1.7, 0, .08, 3.4, .08, .3, DARK),
-    box(-1.7, 0, -.08, 3.4, .08, .3, DARK),
-  ]);
-  const tailRotor = merge([
-    box(0, 0, 0, .18, .18, .5, METAL),
-    box(0, .55, 0, .12, .9, .16, DARK),
-    box(0, -.55, 0, .12, .9, .16, DARK),
-  ]);
-  return packModel([
-    { name: 'body', parts: body },
-    { name: 'rotor', parts: rotor, translation: [0, 1.2, 0] },
-    { name: 'tailRotor', parts: tailRotor, translation: [-4.5, .7, .35] },
-  ]);
-}
-
-function jetModel(team) {
-  const body = merge([
-    box(0, 0, 0, 5, 1.2, 1, team),                 // badan (silinder disederhanakan jadi kotak)
-    box(3, 0, 0, 1.6, 1.0, .9, team),              // hidung
-    box(3.7, -.05, 0, .3, .5, .5, GLASS),          // kokpit
-    box(-.2, 0, 0, 4.6, .15, 1.8, team),           // sayap
-    box(-2.2, 0, 0, 2.2, .12, 1, team),            // sayap ekor
-    box(-2.3, .55, 0, 1, 1.1, .12, team),          // sirip
-    box(-2.4, -.4, -.9, .8, .5, .5, METAL),        // mesin kiri
-    box(-2.4, -.4, .9, .8, .5, .5, METAL),         // mesin kanan
-  ]);
-  return packModel([{ name: 'body', parts: body }]);
-}
-
-function bomberModel(team) {
-  const body = merge([
-    box(0, 0, 0, 7.2, 1.8, 1.8, team),             // badan
-    box(4.2, 0, 0, 2, 1.6, 1.6, team),             // hidung
-    box(5, 0, 0, .4, .7, .7, GLASS),               // kokpit
-    box(-.4, 0, 0, 8.4, .2, 2.4, team),            // sayap
-    box(-3.2, 0, 0, 3.2, .16, 1.4, team),          // sayap ekor
-    box(-3.3, .9, 0, 1.3, 1.6, .16, team),         // sirip
-    box(-.2, -.5, -2.6, 1.8, 1, 1, METAL),         // mesin kiri
-    box(-.2, -.5, 2.6, 1.8, 1, 1, METAL),          // mesin kanan
-  ]);
-  return packModel([{ name: 'body', parts: body }]);
-}
-
+/* Hanya prajurit yang masih diautor sebagai voxel .glb. Unit whale besar
+   (tank/apc/helicopter/jet/bomber) kini dibangun high-poly prosedural di
+   runtime di dalam index.html (BIG_BUILDERS), jadi builder voxel-nya dipensiunkan. */
 const UNITS = {
-  soldier: soldierModel, tank: tankModel, apc: apcModel,
-  helicopter: helicopterModel, jet: jetModel, bomber: bomberModel,
+  soldier: soldierModel,
 };
 
 for (const [key, builder] of Object.entries(UNITS)) {
