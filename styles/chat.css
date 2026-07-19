@@ -1,0 +1,314 @@
+    #chat-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      background: rgba(10, 16, 12, .6);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      cursor: pointer;
+      backdrop-filter: blur(6px)
+    }
+
+    #chat-btn:hover,
+    #chat-btn.active {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    #chat-btn svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round
+    }
+
+    #chat-btn .badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: var(--short);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 16px;
+      font-family: var(--rounded);
+      display: none
+    }
+
+    #chat-btn .badge.show {
+      display: block
+    }
+
+    #chat-panel {
+      top: calc(max(16px, env(safe-area-inset-top) + 12px) + 50px);
+      right: max(16px, env(safe-area-inset-right) + 12px);
+      width: 340px;
+      max-height: min(640px, calc(100vh - 110px));
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 15
+    }
+
+    #chat-panel.open {
+      display: flex
+    }
+
+    #chat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      flex: none
+    }
+
+    #chat-head-l {
+      display: flex;
+      align-items: baseline;
+      gap: 8px
+    }
+
+    #chat-head h4 {
+      font-size: 10px;
+      letter-spacing: .22em;
+      color: var(--ink);
+      font-weight: 700;
+      font-family: var(--rounded)
+    }
+
+    #chat-online-label {
+      font-size: 10px;
+      color: var(--long);
+      font-weight: 700
+    }
+
+    #chat-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 4px
+    }
+
+    #chat-close:hover {
+      color: var(--ink)
+    }
+
+    #chat-msgs {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      font-size: 12.5px;
+      min-height: 260px
+    }
+
+    #chat-msgs .cm {
+      align-self: flex-start;
+      max-width: 86%;
+      padding: 7px 11px;
+      border-radius: 14px 14px 14px 3px;
+      background: rgba(255, 255, 255, .055);
+      line-height: 1.45;
+      word-wrap: break-word
+    }
+
+    #chat-msgs .cm.me {
+      align-self: flex-end;
+      background: rgba(45, 214, 165, .14);
+      border-radius: 14px 14px 3px 14px
+    }
+
+    #chat-msgs .cm .cn {
+      font-weight: 700;
+      color: var(--long)
+    }
+
+    #chat-msgs .cm .cx {
+      color: var(--ink)
+    }
+
+    #chat-msgs .cm.me .cn {
+      color: var(--gold)
+    }
+
+    #chat-msgs .cm .ct {
+      margin-left: 6px;
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: .02em
+    }
+
+    #chat-empty {
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+      margin: auto;
+      line-height: 1.6
+    }
+
+    #chat-namerow {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 13px 0;
+      flex: none;
+      color: var(--muted);
+      border-top: 1px solid var(--line)
+    }
+
+    #chat-namerow svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: none
+    }
+
+    #chat-form {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 11px 11px;
+      flex: none
+    }
+
+    #chat-name {
+      flex: 1;
+      min-width: 0;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      font-size: 11.5px;
+      padding: 7px 10px;
+      font-family: var(--rounded)
+    }
+
+    #chat-text {
+      flex: 1;
+      min-width: 0;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      color: var(--ink);
+      font-size: 12px;
+      padding: 9px 13px;
+      font-family: var(--rounded)
+    }
+
+    #chat-name:focus,
+    #chat-text:focus {
+      outline: none;
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    #chat-send {
+      width: 36px;
+      height: 36px;
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--long);
+      border: none;
+      color: #08281f;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform .12s, background .12s
+    }
+
+    #chat-send svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round
+    }
+
+    #chat-send:hover {
+      background: #3ef0bd;
+      transform: scale(1.06)
+    }
+
+    #chat-emoji-btn {
+      width: 34px;
+      height: 34px;
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: color .12s, border-color .12s
+    }
+
+    #chat-emoji-btn svg {
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round
+    }
+
+    #chat-emoji-btn:hover,
+    #chat-emoji-btn.active {
+      color: var(--long);
+      border-color: rgba(45, 214, 165, .5)
+    }
+
+    #emoji-picker {
+      display: none;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 10px;
+      border-top: 1px solid var(--line);
+      max-height: 150px;
+      overflow-y: auto;
+      flex: none
+    }
+
+    #emoji-picker.open {
+      display: flex
+    }
+
+    #emoji-picker button {
+      width: 32px;
+      height: 32px;
+      flex: none;
+      background: none;
+      border: none;
+      font-size: 18px;
+      line-height: 1;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    #emoji-picker button:hover {
+      background: rgba(255, 255, 255, .08)
+    }
+
+    @media (max-width:640px) {
+      #chat-panel {
