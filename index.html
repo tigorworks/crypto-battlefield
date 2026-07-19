@@ -3015,6 +3015,7 @@
       /* dua lapis musik diputar bersamaan terus-menerus; hanya gain-nya yang di-crossfade,
          supaya perpindahan mulus tanpa jeda decode/restart saat keramaian pasar berubah */
       let musicBusyG = null, musicCalmG = null, musicLayer = 'busy';
+      let busySrc = null, calmSrc = null, musicBuffers = null, musicSourcesAlive = false;   // sumber loop bisa dibangun ulang (iOS mematikannya saat context di-interupsi)
 
       function initAudio() {
         AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -3042,15 +3043,37 @@
          Keduanya berjalan bersamaan sejak awal — hanya gain masing-masing yang di-crossfade. */
       async function startMusic() {
         try {
-          const [busyBuf, calmBuf] = await Promise.all([
-            fetch(MUSIC_SRC_BUSY, { cache: 'force-cache' }).then(r => r.arrayBuffer()).then(b => AC.decodeAudioData(b)),
-            fetch(MUSIC_SRC_CALM, { cache: 'force-cache' }).then(r => r.arrayBuffer()).then(b => AC.decodeAudioData(b)),
-          ]);
-          musicBusyG = AC.createGain(); musicBusyG.gain.value = 1; musicBusyG.connect(musicG);
-          musicCalmG = AC.createGain(); musicCalmG.gain.value = 0; musicCalmG.connect(musicG);
-          const busySrc = AC.createBufferSource(); busySrc.buffer = busyBuf; busySrc.loop = true; busySrc.connect(musicBusyG); busySrc.start();
-          const calmSrc = AC.createBufferSource(); calmSrc.buffer = calmBuf; calmSrc.loop = true; calmSrc.connect(musicCalmG); calmSrc.start();
+          if (!musicBuffers) {
+            const [busyBuf, calmBuf] = await Promise.all([
+              fetch(MUSIC_SRC_BUSY, { cache: 'force-cache' }).then(r => r.arrayBuffer()).then(b => AC.decodeAudioData(b)),
+              fetch(MUSIC_SRC_CALM, { cache: 'force-cache' }).then(r => r.arrayBuffer()).then(b => AC.decodeAudioData(b)),
+            ]);
+            musicBuffers = { busy: busyBuf, calm: calmBuf };
+          }
+          if (!musicBusyG) { musicBusyG = AC.createGain(); musicBusyG.gain.value = 1; musicBusyG.connect(musicG); }
+          if (!musicCalmG) { musicCalmG = AC.createGain(); musicCalmG.gain.value = 0; musicCalmG.connect(musicG); }
+          spawnMusicSources();
         } catch (e) { console.warn('musik latar gagal dimuat:', e); }
+      }
+      /* (Re)buat node sumber loop musik & sambungkan ke gain crossfade yang sudah ada.
+         Dipakai saat mulai DAN saat memulihkan audio setelah iOS mematikan sumber (interupsi). */
+      function spawnMusicSources() {
+        if (!musicBuffers || !musicBusyG || !AC) return;
+        if (busySrc) { busySrc.onended = null; try { busySrc.stop(); } catch (e) { } }
+        if (calmSrc) { calmSrc.onended = null; try { calmSrc.stop(); } catch (e) { } }
+        busySrc = AC.createBufferSource(); busySrc.buffer = musicBuffers.busy; busySrc.loop = true; busySrc.connect(musicBusyG);
+        calmSrc = AC.createBufferSource(); calmSrc.buffer = musicBuffers.calm; calmSrc.loop = true; calmSrc.connect(musicCalmG);
+        const onEnd = () => { musicSourcesAlive = false; };   // iOS memanggil ini saat context di-interupsi → tandai perlu dibangun ulang
+        busySrc.onended = onEnd; calmSrc.onended = onEnd;
+        busySrc.start(); calmSrc.start();
+        musicSourcesAlive = true;
+      }
+      /* Pulihkan audio setelah kembali dari background / interupsi (iOS): resume context,
+         lalu bangun ulang loop musik bila iOS sudah mematikannya (kalau tidak → tetap senyap). */
+      async function resumeAudio() {
+        if (!AC) return;
+        try { await AC.resume(); } catch (e) { }
+        if (musicBuffers && !musicSourcesAlive) spawnMusicSources();
       }
       /* pindah lapis musik ('busy'/'calm') dengan crossfade mulus, dipicu oleh gencatan (lull) saat pasar sepi */
       function setMusicLayer(layer) {
@@ -3121,11 +3144,11 @@
       }
       audioBtn.onclick = () => {
         if (!AC) initAudio();
+        resumeAudio();   // klik = gestur pengguna → resume context + bangun ulang loop musik bila mati (mis. balik dari app lain di iOS)
         if (audioAllMuted()) {
           // nyalakan kembali kedua kanal ke volume terakhir sebelum dibisukan
           musicVolEl.value = musicLastVol;
           sfxVolEl.value = sfxLastVol;
-          if (AC && AC.state === 'suspended') AC.resume().catch(() => { });   // ketukan ini adalah gestur pengguna
         } else {
           // simpan volume saat ini supaya unmute kembali ke posisi semula
           if (+musicVolEl.value > 0) musicLastVol = +musicVolEl.value;
@@ -3158,6 +3181,10 @@
       };
       RESUME_EVENTS.forEach(ev => addEventListener(ev, resumeAudioOnce, { passive: true }));
       if (AC) AC.resume().catch(() => { });   // sebagian browser mengizinkan langsung
+      // Pendengar gestur PERMANEN (tak melepas diri) — memulihkan audio & MENGUNCI layar (wake lock)
+      // pada tiap gestur. Safari mensyaratkan wake lock diminta di dalam gestur, dan iOS men-suspend
+      // audio context saat pindah app; ketukan berikutnya membangunkan keduanya lagi.
+      ['pointerdown', 'touchstart', 'keydown'].forEach(ev => addEventListener(ev, () => { resumeAudio(); requestWakeLock(); }, { passive: true }));
 
       /* ═══════════ AUDIO POSISIONAL — pan kiri/kanan mengikuti posisi kejadian di layar ═══════════
          Node tujuan SFX: StereoPanner (jika ada posisi & didukung) → sfxG, atau sfxG langsung.
@@ -3510,18 +3537,47 @@
       }
       widgetsBtn.onclick = () => { widgetsOn = !widgetsOn; syncWidgetsBtn(); };
 
-      /* ═══════════ WAKE LOCK — layar tak tidur/terkunci selama tab ini aktif ═══════════ */
-      let wakeLock = null;
+      /* ═══════════ WAKE LOCK — layar tak tidur/terkunci selama tab ini aktif (seperti nonton video) ═══════════
+         Safari (iPad/macOS) MENSYARATKAN wake lock diminta di dalam gestur pengguna & saat tab terlihat,
+         lalu melepasnya otomatis tiap tab disembunyikan — jadi kita minta ulang pada tiap gestur & saat
+         kembali terlihat. Untuk browser tanpa Wake Lock API (mis. iOS < 16.4) disediakan cadangan berupa
+         pemutaran video kecil tak terlihat (trik "no-sleep"). */
+      let wakeLock = null, noSleepVideo = null;
       async function requestWakeLock() {
-        if (!('wakeLock' in navigator)) return;   // browser lama / konteks tak aman (bukan https) — biarkan layar tidur seperti biasa
+        if (document.visibilityState !== 'visible') return;
+        if ('wakeLock' in navigator) {
+          if (wakeLock) return;                                   // sudah dipegang
+          try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => { wakeLock = null; });
+            return;
+          } catch (e) { /* ditolak (butuh gestur / hemat baterai) — jatuh ke cadangan video */ }
+        }
+        playNoSleepVideo();
+      }
+      function playNoSleepVideo() {
         try {
-          wakeLock = await navigator.wakeLock.request('screen');
-          wakeLock.addEventListener('release', () => { wakeLock = null; });
-        } catch (e) { }   // mis. ditolak karena mode hemat baterai — abaikan saja
+          if (!noSleepVideo) {
+            const v = document.createElement('video');
+            v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true;
+            v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('title', '');
+            v.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1;';
+            // sumber video "hidup" dari canvas kecil yang terus di-refresh supaya track tak berhenti
+            const c = document.createElement('canvas'); c.width = c.height = 2;
+            const cx = c.getContext('2d');
+            const draw = () => { cx.fillStyle = (Date.now() >> 9) & 1 ? '#000' : '#010101'; cx.fillRect(0, 0, 2, 2); };
+            draw();
+            if (c.captureStream) { v.srcObject = c.captureStream(2); setInterval(draw, 500); }
+            document.body.appendChild(v);
+            noSleepVideo = v;
+          }
+          const p = noSleepVideo.play();
+          if (p && p.catch) p.catch(() => { });
+        } catch (e) { }
       }
       requestWakeLock();
       addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') requestWakeLock();   // wake lock lepas otomatis saat tab disembunyikan — minta lagi saat kembali
+        if (document.visibilityState === 'visible') { requestWakeLock(); resumeAudio(); }   // balik terlihat → kunci layar lagi & bangunkan audio
       });
 
       addEventListener('keydown', e => {
