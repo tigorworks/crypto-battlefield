@@ -312,3 +312,6 @@
 
     @media (max-width:640px) {
       #chat-panel {
+        width: calc(100vw - 24px)
+      }
+    }
