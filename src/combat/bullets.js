@@ -86,7 +86,8 @@ import { fieldState } from '../world/field.js';
         for (let k = 0; k < N; k++) { const c = crowd.slots[(start + k) % N]; if (c.active && !c.dying) { s = c; break; } }
         if (s) s.recoilT = .15;   // prajurit ini yang menembak → picu animasi recoil singkat
         let x, z;
-        if (s) { x = s.base.x + bias; z = s.base.z; }
+        // pakai posisi nyata prajurit (ikut pergeseran jelajahnya), bukan titik jangkarnya
+        if (s) { x = s.px; z = s.pz; }
         else { x = crowd.sign * (40 + Math.random() * 80) + bias; z = (Math.random() - .5) * 230; }
         // tetap di sisi pasukannya sendiri terhadap garis depan (sama seperti clamp prajurit)
         if (crowd.sign < 0) x = Math.min(x, fieldState.frontX - 16); else x = Math.max(x, fieldState.frontX + 16);

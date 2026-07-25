@@ -14,6 +14,8 @@ import { fieldState } from '../world/field.js';
       const slocal = new THREE.Matrix4(), sworld = new THREE.Matrix4(), srot = new THREE.Matrix4();   // scratch untuk matriks bagian tubuh beranimasi
       const sq = new THREE.Quaternion(), toppleQ = new THREE.Quaternion(), recoilQ = new THREE.Quaternion(), AXIS_Z = new THREE.Vector3(0, 0, 1);
       const faceQ = new THREE.Quaternion(), AXIS_Y = new THREE.Vector3(0, 1, 0);
+      const gaitQ = new THREE.Quaternion(), gaitE = new THREE.Euler();
+      const _skullPos = new THREE.Vector3();
 
       /* ═══════════ PRAJURIT HIGH-POLY — geometri prosedural digabung jadi satu BufferGeometry
          (dengan vertex color di-bake) supaya tetap kompatibel dengan InstancedMesh. Menghadap +x,
@@ -140,8 +142,7 @@ import { fieldState } from '../world/field.js';
         const glow = new THREE.Points(glowGeo, glowMat);
         scene.add(glow);
 
-        const q = new THREE.Quaternion();
-        if (sign > 0) q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // sisi kanan menghadap kiri
+        const baseYaw = sign < 0 ? 0 : Math.PI;   // arah hadap dasar: sisi kanan menghadap kiri
         const slots = [];
         for (let i = 0; i < CROWD_MAX; i++) {
           const x = sign * (40 + Math.random() * 120);
@@ -155,6 +156,17 @@ import { fieldState } from '../world/field.js';
             phase: Math.random() * Math.PI * 2,
             recoilT: 0,   // kickback singkat saat prajurit ini yang baru saja menembak
             size: 0.9 + Math.random() * 0.2,          // #5 variasi ukuran per prajurit
+            // ── JELAJAH: prajurit tak mematung di satu titik — ia bergeser maju/mundur/menyamping
+            //    di sekitar titik jangkarnya (base), lalu berhenti sejenak sebelum pindah lagi
+            ox: 0, oz: 0,                             // pergeseran sekarang terhadap jangkar
+            tox: 0, toz: 0,                           // tujuan pergeseran berikutnya
+            moving: false,
+            roamT: Math.random() * 5,                 // hitung mundur ke keputusan gerak berikutnya
+            speed: 0,
+            idleYaw: (Math.random() - .5) * .5,       // arah pandang saat berhenti (tak semua lurus ke depan)
+            yaw: baseYaw,                             // hadap sekarang (dihaluskan tiap frame)
+            stride: Math.random() * Math.PI * 2,      // fase langkah — maju mengikuti kecepatan sebenarnya
+            px: x, pz: z,                             // posisi dunia terakhir (dibaca modul lain: peluru, tengkorak)
           });
         }
         // #5 variasi kecerahan per prajurit (instanceColor mengalikan vertex color → tiap prajurit sedikit beda)
@@ -165,7 +177,7 @@ import { fieldState } from '../world/field.js';
           for (const m of allMeshes) m.setColorAt(i, scol);
         }
         for (const m of allMeshes) m.instanceColor.needsUpdate = true;
-        return { mesh, parts, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, q, sign };
+        return { mesh, parts, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, sign };
       }
       export let buyCrowd, sellCrowd;   // dibuat setelah model voxel prajurit selesai dimuat — lihat bootstrap di akhir berkas
       export function initCrowds() {
@@ -180,10 +192,15 @@ import { fieldState } from '../world/field.js';
           for (let i = 0; i < crowd.slots.length; i++) { if (crowd.slots[i].active && !crowd.slots[i].dying) { idx = i; if (Math.random() < .4) break; } }
           if (idx < 0) break;
           const s = crowd.slots[idx];
-          s.dying = true; s.dieT = 0;
+          s.dying = true; s.dieT = 0; s.moving = false;
           crowd.count = Math.max(0, crowd.count - 1);
-          spawnSkull(s.base);
+          spawnSkull(_skullPos.set(s.px, 0, s.pz));   // tengkorak muncul di tempat ia benar-benar berdiri, bukan di jangkarnya
         }
+      }
+      /* keadaan jelajah dikembalikan ke nol — dipakai saat prajurit baru masuk lapangan */
+      function resetRoam(s) {
+        s.ox = 0; s.oz = 0; s.tox = 0; s.toz = 0;
+        s.moving = false; s.roamT = .5 + Math.random() * 3; s.speed = 0;
       }
       /* bala bantuan masuk (order baru di sisi ini) */
       export function reviveSoldier(crowd) {
@@ -193,6 +210,9 @@ import { fieldState } from '../world/field.js';
         if (idx < 0) return;
         const s = crowd.slots[idx];
         s.active = true; s.walking = true; s.walkT = 0;
+        // titik masuk diacak ulang tiap kali → bala bantuan tak selalu datang dari jalur yang sama
+        s.spawnFrom.set(s.base.x + crowd.sign * (140 + Math.random() * 70), 0, s.base.z + (Math.random() - .5) * 50);
+        resetRoam(s);
         crowd.count++;
       }
       function resetCrowd(crowd) {
@@ -201,13 +221,45 @@ import { fieldState } from '../world/field.js';
           s.active = i < CROWD_START;
           s.dying = false; s.dieT = 0;
           s.walking = i < CROWD_START; s.walkT = 0;
+          resetRoam(s);
         });
       }
+
+      /* ── JELAJAH PASUKAN ──────────────────────────────────────────────────────────
+         Tiap prajurit punya titik jangkar (base) dan bergeser bebas di sekitarnya:
+         maju menekan garis depan, mundur mengambil jarak, atau bergeser menyamping.
+         Yang bergerak selalu cuma sebagian pasukan (sisanya menahan posisi & menembak),
+         jadi barisan terlihat hidup tanpa pernah bergerak serentak seperti satu blok. */
+      const ROAM_X = 30, ROAM_Z = 22;      // batas jelajah dari jangkar (searah & melintang garis depan)
+      const MAX_TURN = 1.15;               // batas belok dari arah hadap lawan — senapan tetap mengarah ke musuh
+      const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+      const angWrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+      function pickRoam(s, sign) {
+        if (Math.random() < .42) {   // sebagian besar keputusan = tetap menahan posisi
+          s.moving = false; s.roamT = 1.4 + Math.random() * 4.5;
+          s.idleYaw = (Math.random() - .5) * .5;   // sesekali menoleh menyapu medan
+          return;
+        }
+        const fwd = -sign;                                                        // arah menuju musuh
+        const winning = sign < 0 ? fieldState.frontX > 0 : fieldState.frontX < 0; // sisinya sedang mendesak?
+        const lateral = Math.random() < .38;                                      // geser menyamping (menyebar barisan)
+        const goFwd = Math.random() < (winning ? .68 : .34);                      // menang → lebih berani maju
+        const dx = lateral ? (Math.random() - .5) * 14 : fwd * (goFwd ? 1 : -1) * (8 + Math.random() * 20);
+        const dz = lateral ? (Math.random() < .5 ? -1 : 1) * (8 + Math.random() * 16) : (Math.random() - .5) * 12;
+        s.tox = clamp(s.ox + dx, -ROAM_X, ROAM_X);
+        s.toz = clamp(s.oz + dz, -ROAM_Z, ROAM_Z);
+        s.speed = (9 + Math.random() * 9) * (!lateral && goFwd ? 1.3 : 1);        // maju lebih tegas daripada mundur/geser
+        s.moving = true;
+        s.roamT = 6;   // batas waktu — kalau tersendat (mis. tertahan garis depan) tetap ambil keputusan baru
+      }
+
       export function updateCrowd(crowd, dt, t) {
         const bias = crowd.pressBias || 0;
+        const baseYaw = crowd.sign < 0 ? 0 : Math.PI;
         for (let i = 0; i < crowd.slots.length; i++) {
           const s = crowd.slots[i];
-          let x = s.base.x + bias, z = s.base.z, sc = 0, bob = 0, topple = 0;
+          let x = s.base.x + bias + s.ox, z = s.base.z + s.oz, sc = 0, bob = 0, topple = 0;
+          let mvx = 0, mvz = 0, spd = 0;   // arah & laju jalan frame ini (0 = sedang diam)
 
           if (s.dying) {
             s.dieT = Math.min(1, s.dieT + dt * 2.6);
@@ -218,13 +270,26 @@ import { fieldState } from '../world/field.js';
           } else if (s.walking) {
             s.walkT = Math.min(1, s.walkT + dt * .75);
             const e = 1 - (1 - s.walkT) * (1 - s.walkT);
-            x = s.spawnFrom.x + (s.base.x + bias - s.spawnFrom.x) * e;
-            z = s.spawnFrom.z + (s.base.z - s.spawnFrom.z) * e;
-            bob = Math.abs(Math.sin(t * 9 + s.phase)) * .9;
+            const tx = s.base.x + bias + s.ox, tz = s.base.z + s.oz;
+            x = s.spawnFrom.x + (tx - s.spawnFrom.x) * e;
+            z = s.spawnFrom.z + (tz - s.spawnFrom.z) * e;
+            mvx = tx - s.spawnFrom.x; mvz = tz - s.spawnFrom.z;
+            spd = 16 * (1 - s.walkT * .5);   // melambat menjelang sampai
             sc = 1;
-            if (s.walkT >= 1) s.walking = false;
+            if (s.walkT >= 1) { s.walking = false; s.roamT = .8 + Math.random() * 3; }
           } else if (s.active) {
-            bob = Math.abs(Math.sin(t * 2.4 + s.phase)) * .45;   // ayun ringan berdiri
+            // langkah jelajah: bergerak ke tujuan, sampai, jeda, lalu pilih tujuan baru
+            s.roamT -= dt;
+            if (s.moving) {
+              const dx = s.tox - s.ox, dz = s.toz - s.oz, d = Math.hypot(dx, dz);
+              if (d < .5 || s.roamT <= 0) { s.moving = false; s.roamT = 1.2 + Math.random() * 4; }
+              else {
+                const step = Math.min(d, s.speed * dt);
+                s.ox += dx / d * step; s.oz += dz / d * step;
+                mvx = dx / d; mvz = dz / d; spd = s.speed;
+                x = s.base.x + bias + s.ox; z = s.base.z + s.oz;
+              }
+            } else if (s.roamT <= 0) pickRoam(s, crowd.sign);
             sc = 1;
           }
 
@@ -237,25 +302,53 @@ import { fieldState } from '../world/field.js';
           }
 
           // jangan biarkan prajurit melewati garis depan ke wilayah lawan
+          const wantX = x;
           if (crowd.sign < 0) x = Math.min(x, fieldState.frontX - 16);
           else x = Math.max(x, fieldState.frontX + 16);
+          if (x !== wantX && !s.dying && !s.walking) {
+            // tertahan garis depan → pergeseran ikut dipangkas (pasukan menumpuk rapat di depan)
+            // dan langkah maju dihentikan supaya tak terus mendorong tembok tak kasat mata
+            s.ox = clamp(s.ox + (x - wantX), -ROAM_X, ROAM_X);
+            if (s.moving) { s.moving = false; s.roamT = .8 + Math.random() * 2.5; spd = 0; mvx = mvz = 0; }
+          }
+          s.px = x; s.pz = z;   // posisi nyata — dipakai peluru & tengkorak agar ikut prajurit yang berpindah
 
           const hidden = sc <= .002 && !s.active && !s.dying;
           if (hidden) sscl.set(.0001, .0001, .0001);
           else { const ssz = sc * s.size; sscl.set(ssz, ssz, ssz); }   // #5 skala per prajurit sedikit acak
-          sq.copy(crowd.q);
+
+          // HADAP — mengikuti arah jalan, tapi dibatasi ±MAX_TURN dari arah lawan: prajurit
+          // menyerong/mundur sambil tetap membidik musuh, bukan membalikkan badan
+          let tgtYaw = baseYaw + s.idleYaw + Math.sin(t * .6 + s.phase) * .06;
+          if (spd > 0.01 && (mvx || mvz)) {
+            const rel = clamp(angWrap(Math.atan2(-mvz, mvx) - baseYaw), -MAX_TURN, MAX_TURN);
+            tgtYaw = baseYaw + rel;
+          }
+          if (s.dying) tgtYaw = s.yaw;
+          s.yaw += angWrap(tgtYaw - s.yaw) * Math.min(1, dt * 5);
+
+          // GAIT — fase langkah maju mengikuti laju sebenarnya (diam = ayun napas pelan)
+          const speedK = Math.min(1, spd / 16);
+          s.stride += dt * (spd > 0.01 ? 3.4 + spd * .42 : 2.4);
+          let gaitAmp = 0;   // (bob prajurit yang sedang tumbang sudah dihitung di blok dying — jangan ditimpa)
+          if (hidden || s.dying) gaitAmp = 0;
+          else if (spd > 0.01) { gaitAmp = .35 + speedK * .75; bob = Math.abs(Math.sin(s.stride)) * (.35 + speedK * .55); }
+          else { gaitAmp = .16; bob = Math.abs(Math.sin(s.stride)) * .45; }   // ayun ringan berdiri
+
+          faceQ.setFromAxisAngle(AXIS_Y, s.yaw);
+          sq.copy(faceQ);
+          if (!s.dying && gaitAmp > 0) {
+            // condong ke depan + guling badan mengikuti langkah — berjalan jadi berbobot, tak kaku
+            gaitE.set(Math.sin(s.stride) * .05 * speedK, 0, -.12 * speedK);
+            sq.multiply(gaitQ.setFromEuler(gaitE));
+          }
           if (topple) { toppleQ.setFromAxisAngle(AXIS_Z, topple); sq.premultiply(toppleQ); }
           else if (kick > 0) { recoilQ.setFromAxisAngle(AXIS_Z, kick * .18 * crowd.sign); sq.premultiply(recoilQ); }
           spos.set(x, bob, z);
           smx.compose(spos, sq, sscl);
           crowd.mesh.setMatrixAt(i, smx);   // core (mesh utama)
 
-          // GAIT — ayunan kaki/lengan; intensitas & irama ikut kondisi (jalan masuk / panik / diam)
-          let gaitAmp = 0, cyc = 0;
-          if (hidden || s.dying) { gaitAmp = 0; }
-          else if (s.walking) { gaitAmp = 1.0; cyc = t * 9 + s.phase; }                  // berjalan masuk
-          else if (s.active) { gaitAmp = 0.16; cyc = t * 2.4 + s.phase; }                // ayun ringan berdiri
-          const legSwing = Math.sin(cyc) * gaitAmp * 0.55;
+          const legSwing = Math.sin(s.stride) * gaitAmp * 0.55;
           for (let pi = 0; pi < crowd.parts.length; pi++) {
             const part = crowd.parts[pi];
             srot.makeRotationZ(legSwing * part.amp);       // ayun bagian di sekitar pivotnya (pinggul/bahu)
