@@ -163,6 +163,8 @@ import { fieldState } from '../world/field.js';
             moving: false,
             roamT: Math.random() * 5,                 // hitung mundur ke keputusan gerak berikutnya
             speed: 0,
+            vx: 0, vz: 0,                             // kecepatan sekarang — dipercepat/diperlambat, tak pernah patah
+            wander: Math.random() * Math.PI * 2,      // fase belokan halus → lintasan melengkung, bukan garis lurus
             idleYaw: (Math.random() - .5) * .5,       // arah pandang saat berhenti (tak semua lurus ke depan)
             yaw: baseYaw,                             // hadap sekarang (dihaluskan tiap frame)
             stride: Math.random() * Math.PI * 2,      // fase langkah — maju mengikuti kecepatan sebenarnya
@@ -177,7 +179,9 @@ import { fieldState } from '../world/field.js';
           for (const m of allMeshes) m.setColorAt(i, scol);
         }
         for (const m of allMeshes) m.instanceColor.needsUpdate = true;
-        return { mesh, parts, glow, glowPos, slots, count: CROWD_START, target: CROWD_START, sign };
+        // gaya saling hindar antar prajurit, dihitung sekali per frame (lihat separate())
+        const sepX = new Float32Array(CROWD_MAX), sepZ = new Float32Array(CROWD_MAX);
+        return { mesh, parts, glow, glowPos, slots, sepX, sepZ, count: CROWD_START, target: CROWD_START, sign };
       }
       export let buyCrowd, sellCrowd;   // dibuat setelah model voxel prajurit selesai dimuat — lihat bootstrap di akhir berkas
       export function initCrowds() {
@@ -201,6 +205,7 @@ import { fieldState } from '../world/field.js';
       function resetRoam(s) {
         s.ox = 0; s.oz = 0; s.tox = 0; s.toz = 0;
         s.moving = false; s.roamT = .5 + Math.random() * 3; s.speed = 0;
+        s.vx = 0; s.vz = 0;
       }
       /* bala bantuan masuk (order baru di sisi ini) */
       export function reviveSoldier(crowd) {
@@ -230,32 +235,71 @@ import { fieldState } from '../world/field.js';
          maju menekan garis depan, mundur mengambil jarak, atau bergeser menyamping.
          Yang bergerak selalu cuma sebagian pasukan (sisanya menahan posisi & menembak),
          jadi barisan terlihat hidup tanpa pernah bergerak serentak seperti satu blok. */
-      const ROAM_X = 30, ROAM_Z = 22;      // batas jelajah dari jangkar (searah & melintang garis depan)
+      const ROAM_X = 34, ROAM_Z = 26;      // batas jelajah dari jangkar (searah & melintang garis depan)
       const MAX_TURN = 1.15;               // batas belok dari arah hadap lawan — senapan tetap mengarah ke musuh
+      const ROAM_ACCEL = 26;               // percepatan/perlambatan (unit/detik²) — mulai & berhenti melandai
+      const ROAM_VMAX = 26;                // batas laju gabungan (langkah + dorongan saling hindar)
+      const SEP_R = 8, SEP_PUSH = 12;      // radius & kuat dorongan agar prajurit tak berdiri saling tumpuk
+      const ANCHOR_X0 = 34, ANCHOR_X1 = 168, ANCHOR_Z = 118;   // batas geser jangkar (band pasukan)
       const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
       const angWrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+      /* jangkar ikut hanyut pelan ke arah prajurit berada sekarang → formasi perlahan berubah bentuk,
+         jadi ia tak selalu tertarik pulang ke petak yang sama seumur hidupnya. Posisi dunia tak
+         berubah saat ini juga (pergeseran ox/oz dikurangi sebesar hanyutnya). */
+      function driftAnchor(s, sign) {
+        const lo = sign < 0 ? -ANCHOR_X1 : ANCHOR_X0, hi = sign < 0 ? -ANCHOR_X0 : ANCHOR_X1;
+        const dx = clamp(s.ox * .4, -6, 6), dz = clamp(s.oz * .4, -6, 6);   // hanyut sedikit demi sedikit
+        const bx = clamp(s.base.x + dx, lo, hi), bz = clamp(s.base.z + dz, -ANCHOR_Z, ANCHOR_Z);
+        s.ox = clamp(s.ox - (bx - s.base.x), -ROAM_X, ROAM_X);
+        s.oz = clamp(s.oz - (bz - s.base.z), -ROAM_Z, ROAM_Z);
+        s.base.x = bx; s.base.z = bz;
+      }
       function pickRoam(s, sign) {
-        if (Math.random() < .42) {   // sebagian besar keputusan = tetap menahan posisi
-          s.moving = false; s.roamT = 1.4 + Math.random() * 4.5;
+        if (Math.random() < .22) {   // menahan posisi — hanya sebagian kecil keputusan, dan tak lama
+          s.moving = false; s.roamT = 1.0 + Math.random() * 2.4;
           s.idleYaw = (Math.random() - .5) * .5;   // sesekali menoleh menyapu medan
           return;
         }
+        if (Math.random() < .2) driftAnchor(s, sign);
         const fwd = -sign;                                                        // arah menuju musuh
         const winning = sign < 0 ? fieldState.frontX > 0 : fieldState.frontX < 0; // sisinya sedang mendesak?
-        const lateral = Math.random() < .38;                                      // geser menyamping (menyebar barisan)
-        const goFwd = Math.random() < (winning ? .68 : .34);                      // menang → lebih berani maju
-        const dx = lateral ? (Math.random() - .5) * 14 : fwd * (goFwd ? 1 : -1) * (8 + Math.random() * 20);
-        const dz = lateral ? (Math.random() < .5 ? -1 : 1) * (8 + Math.random() * 16) : (Math.random() - .5) * 12;
+        const lateral = Math.random() < .4;                                       // geser menyamping (menyebar barisan)
+        const goFwd = Math.random() < (winning ? .72 : .38);                      // menang → lebih berani maju
+        const dx = lateral ? (Math.random() - .5) * 16 : fwd * (goFwd ? 1 : -1) * (10 + Math.random() * 22);
+        const dz = lateral ? (Math.random() < .5 ? -1 : 1) * (9 + Math.random() * 18) : (Math.random() - .5) * 14;
         s.tox = clamp(s.ox + dx, -ROAM_X, ROAM_X);
         s.toz = clamp(s.oz + dz, -ROAM_Z, ROAM_Z);
-        s.speed = (9 + Math.random() * 9) * (!lateral && goFwd ? 1.3 : 1);        // maju lebih tegas daripada mundur/geser
+        // maju menyerbu paling tegas; menyamping sedang; mundur pelan sambil tetap membidik
+        s.speed = lateral ? 9 + Math.random() * 6 : goFwd ? 14 + Math.random() * 10 : 7 + Math.random() * 5;
         s.moving = true;
         s.roamT = 6;   // batas waktu — kalau tersendat (mis. tertahan garis depan) tetap ambil keputusan baru
+      }
+      /* dorongan saling hindar: tiap pasang prajurit yang terlalu rapat saling menolak.
+         Efeknya barisan padat terus bergeser-geser sendiri — tak ada yang membeku di satu titik,
+         dan dua prajurit tak pernah berdiri menempel di posisi yang sama. */
+      function separate(crowd) {
+        const slots = crowd.slots, sx = crowd.sepX, sz = crowd.sepZ, n = slots.length;
+        sx.fill(0); sz.fill(0);
+        for (let i = 0; i < n; i++) {
+          const a = slots[i];
+          if (!a.active || a.dying || a.walking) continue;
+          for (let j = i + 1; j < n; j++) {
+            const b = slots[j];
+            if (!b.active || b.dying || b.walking) continue;
+            let dx = a.px - b.px, dz = a.pz - b.pz, d2 = dx * dx + dz * dz;
+            if (d2 > SEP_R * SEP_R) continue;
+            if (d2 < 1e-4) { dx = (i % 3) - 1 || 1; dz = (j % 3) - 1; d2 = dx * dx + dz * dz; }   // tepat menumpuk → dorong ke arah tetap
+            const w = (1 - Math.sqrt(d2) / SEP_R) / Math.sqrt(d2);   // makin rapat makin kuat, sekalian normalisasi arah
+            const ux = dx * w, uz = dz * w;
+            sx[i] += ux; sz[i] += uz; sx[j] -= ux; sz[j] -= uz;
+          }
+        }
       }
 
       export function updateCrowd(crowd, dt, t) {
         const bias = crowd.pressBias || 0;
         const baseYaw = crowd.sign < 0 ? 0 : Math.PI;
+        separate(crowd);
         for (let i = 0; i < crowd.slots.length; i++) {
           const s = crowd.slots[i];
           let x = s.base.x + bias + s.ox, z = s.base.z + s.oz, sc = 0, bob = 0, topple = 0;
@@ -278,18 +322,32 @@ import { fieldState } from '../world/field.js';
             sc = 1;
             if (s.walkT >= 1) { s.walking = false; s.roamT = .8 + Math.random() * 3; }
           } else if (s.active) {
-            // langkah jelajah: bergerak ke tujuan, sampai, jeda, lalu pilih tujuan baru
+            // langkah jelajah: bergerak ke tujuan, sampai, jeda, lalu pilih tujuan baru.
+            // Kecepatan tak dipasang langsung — ia dikejar lewat percepatan, jadi prajurit
+            // mulai melangkah & berhenti secara melandai, bukan hidup-mati seperti robot.
             s.roamT -= dt;
+            let dvx = 0, dvz = 0;   // kecepatan yang DIINGINKAN frame ini
             if (s.moving) {
               const dx = s.tox - s.ox, dz = s.toz - s.oz, d = Math.hypot(dx, dz);
-              if (d < .5 || s.roamT <= 0) { s.moving = false; s.roamT = 1.2 + Math.random() * 4; }
+              if (d < 1.2 || s.roamT <= 0) { s.moving = false; s.roamT = .6 + Math.random() * 2.6; }
               else {
-                const step = Math.min(d, s.speed * dt);
-                s.ox += dx / d * step; s.oz += dz / d * step;
-                mvx = dx / d; mvz = dz / d; spd = s.speed;
-                x = s.base.x + bias + s.ox; z = s.base.z + s.oz;
+                s.wander += dt * 1.1;
+                const w = Math.sin(s.wander + s.phase) * .35;     // menyerong halus → lintasan melengkung
+                const ux = dx / d, uz = dz / d, v = s.speed * Math.min(1, d / 6);   // melandai saat hampir sampai
+                dvx = (ux - uz * w) * v; dvz = (uz + ux * w) * v;
               }
             } else if (s.roamT <= 0) pickRoam(s, crowd.sign);
+            dvx += crowd.sepX[i] * SEP_PUSH; dvz += crowd.sepZ[i] * SEP_PUSH;   // menghindar dari yang terlalu rapat
+            const dv = Math.hypot(dvx, dvz);
+            if (dv > ROAM_VMAX) { dvx = dvx / dv * ROAM_VMAX; dvz = dvz / dv * ROAM_VMAX; }
+            const ax = dvx - s.vx, az = dvz - s.vz, am = Math.hypot(ax, az);
+            if (am > 1e-4) { const st = Math.min(am, ROAM_ACCEL * dt); s.vx += ax / am * st; s.vz += az / am * st; }
+            const nx = s.ox + s.vx * dt, nz = s.oz + s.vz * dt;
+            const cx = clamp(nx, -ROAM_X, ROAM_X), cz = clamp(nz, -ROAM_Z, ROAM_Z);
+            if (cx !== nx) s.vx = 0;   // mentok batas jelajah → berhenti mendorong, bukan menggesek terus
+            if (cz !== nz) s.vz = 0;
+            s.ox = cx; s.oz = cz;
+            x = s.base.x + bias + s.ox; z = s.base.z + s.oz;
             sc = 1;
           }
 
@@ -309,7 +367,14 @@ import { fieldState } from '../world/field.js';
             // tertahan garis depan → pergeseran ikut dipangkas (pasukan menumpuk rapat di depan)
             // dan langkah maju dihentikan supaya tak terus mendorong tembok tak kasat mata
             s.ox = clamp(s.ox + (x - wantX), -ROAM_X, ROAM_X);
-            if (s.moving) { s.moving = false; s.roamT = .8 + Math.random() * 2.5; spd = 0; mvx = mvz = 0; }
+            s.vx = 0;   // laju searah garis depan padam; geser menyamping masih boleh jalan
+            if (s.moving) { s.moving = false; s.roamT = .8 + Math.random() * 2.5; }
+          }
+          // arah & laju jalan diturunkan dari kecepatan sebenarnya → dorongan saling hindar pun
+          // ikut menganimasikan langkah, bukan cuma menggeser prajurit tanpa kaki bergerak
+          if (s.active && !s.dying && !s.walking) {
+            spd = Math.hypot(s.vx, s.vz);
+            if (spd > .2) { mvx = s.vx / spd; mvz = s.vz / spd; } else spd = 0;
           }
           s.px = x; s.pz = z;   // posisi nyata — dipakai peluru & tengkorak agar ikut prajurit yang berpindah
 
@@ -327,19 +392,28 @@ import { fieldState } from '../world/field.js';
           if (s.dying) tgtYaw = s.yaw;
           s.yaw += angWrap(tgtYaw - s.yaw) * Math.min(1, dt * 5);
 
-          // GAIT — fase langkah maju mengikuti laju sebenarnya (diam = ayun napas pelan)
+          // GAIT — fase langkah maju mengikuti laju sebenarnya (diam = ayun napas pelan).
+          // Karena hadap dibatasi ±MAX_TURN, prajurit sering bergerak menyerong/mundur sambil tetap
+          // membidik: langkah mundur mengayun terbalik, langkah menyamping mengayun lebih pendek.
+          let gaitDir = 1, strafe = 0;
+          if (spd > 0.01) {
+            const dot = mvx * Math.cos(s.yaw) - mvz * Math.sin(s.yaw);   // searah hadap? (hadap = +x lokal)
+            gaitDir = dot < 0 ? -1 : 1;
+            strafe = 1 - Math.min(1, Math.abs(dot));
+          }
           const speedK = Math.min(1, spd / 16);
-          s.stride += dt * (spd > 0.01 ? 3.4 + spd * .42 : 2.4);
+          s.stride += dt * (spd > 0.01 ? (3.4 + spd * .42) * gaitDir : 2.4);
           let gaitAmp = 0;   // (bob prajurit yang sedang tumbang sudah dihitung di blok dying — jangan ditimpa)
           if (hidden || s.dying) gaitAmp = 0;
-          else if (spd > 0.01) { gaitAmp = .35 + speedK * .75; bob = Math.abs(Math.sin(s.stride)) * (.35 + speedK * .55); }
+          else if (spd > 0.01) { gaitAmp = (.35 + speedK * .75) * (1 - strafe * .45); bob = Math.abs(Math.sin(s.stride)) * (.35 + speedK * .55) * (1 - strafe * .35); }
           else { gaitAmp = .16; bob = Math.abs(Math.sin(s.stride)) * .45; }   // ayun ringan berdiri
 
           faceQ.setFromAxisAngle(AXIS_Y, s.yaw);
           sq.copy(faceQ);
           if (!s.dying && gaitAmp > 0) {
             // condong ke depan + guling badan mengikuti langkah — berjalan jadi berbobot, tak kaku
-            gaitE.set(Math.sin(s.stride) * .05 * speedK, 0, -.12 * speedK);
+            // condong ke depan saat maju, sedikit ke belakang saat mundur; menyamping → badan miring
+            gaitE.set(Math.sin(s.stride) * .05 * speedK, 0, -.12 * speedK * gaitDir * (1 - strafe * .6));
             sq.multiply(gaitQ.setFromEuler(gaitE));
           }
           if (topple) { toppleQ.setFromAxisAngle(AXIS_Z, topple); sq.premultiply(toppleQ); }
