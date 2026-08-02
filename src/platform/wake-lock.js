@@ -1,6 +1,6 @@
 import { resumeAudio } from '../audio/audio.js';
 import { renderer } from '../core/renderer.js';
-import { camMode, keys, orbit, setCamMode } from '../input/camera.js';
+import { camMode, clampRadius, keys, orbit, setCamMode } from '../input/camera.js';
 import { hoverUnit, onTap } from '../input/interaction.js';
 
       /* ═══════════ WAKE LOCK — layar tak tidur/terkunci selama tab ini aktif (seperti nonton video) ═══════════
@@ -77,13 +77,13 @@ import { hoverUnit, onTap } from '../input/interaction.js';
       });
       cv.addEventListener('wheel', e => {
         e.preventDefault();
-        orbit.radius = Math.min(1400, Math.max(140, orbit.radius * (1 + Math.sign(e.deltaY) * .08)));
+        orbit.radius = clampRadius(orbit.radius * (1 + Math.sign(e.deltaY) * .08));
         if (camMode !== 2) setCamMode(2);
       }, { passive: false });
       cv.addEventListener('touchmove', e => {
         if (e.touches.length === 2) {
           const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-          if (pinchD) orbit.radius = Math.min(1400, Math.max(140, orbit.radius * pinchD / d));
+          if (pinchD) orbit.radius = clampRadius(orbit.radius * pinchD / d);
           pinchD = d;
           if (camMode !== 2) setCamMode(2);
         }
