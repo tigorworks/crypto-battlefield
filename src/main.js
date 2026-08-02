@@ -6,6 +6,7 @@ import { bloom } from './core/postfx/bloom.js';
 import { camera, renderer, scene, sun } from './core/renderer.js';
 import { airstrikes, barrages, spawnAirstrike, spawnBarrage } from './entities/airstrike.js';
 import { enterDeath, lastImpact, units } from './entities/big-units.js';
+import { spawnLiquidation } from './entities/liquidation.js';
 import { buyCrowd, initCrowds, killSoldier, loadAllModels, reviveSoldier, sellCrowd, updateCrowd } from './entities/soldiers.js';
 import { _pv, addFlash, addShake, bumpStreak, flashColor, flashEl, floatNum, juiceState } from './fx/juice.js';
 import { I18N, applyLanguage, lang } from './i18n.js';
@@ -15,7 +16,7 @@ import { showEvent } from './ui/event-ticker.js';
 import { flow, pressureState } from './ui/market-pressure.js';
 import { TERR_HALF, buyTerr, clashLine, fieldState, sellTerr } from './world/field.js';
 import { DAY_PERIOD, SKY_CALM, SKY_NIGHT, SKY_PUMP, SKY_STORM, _sky, aurora, bolt, boltMat, cloudShadows, embers, moonMat, rain, skulls, skyState, spawnSkull, stormFog, strikeBolt, updateShootingStar } from './world/sky.js';
-import { connect } from './feed/market-feed.js';
+import { connect, price } from './feed/market-feed.js';
       /* ═══════════ MAIN LOOP ═══════════ */
       const clock = new THREE.Clock();
       let regenTimer = 1;
@@ -512,14 +513,19 @@ import { connect } from './feed/market-feed.js';
       applyLanguage();
 
       /* bantuan uji manual dari console (peristiwa langka sulit ditunggu secara alami di pasar nyata):
-         __testEvent('airstrike' | 'barrage' | 'streak' | 'star') */
+         __testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' | 'liq-big' | 'liq-mega') */
       window.__testEvent = (name) => {
         const usd = T_BOSS * 1.5, side = Math.random() < .5 ? 'buy' : 'sell';
         if (name === 'airstrike') spawnAirstrike(side, usd);
         else if (name === 'barrage') spawnBarrage(side, usd);
         else if (name === 'streak') { for (let i = 0; i < 20; i++) bumpStreak(side); }
         else if (name === 'star') skyState.nextStarCheck = 0;
-        else return 'unknown — use: airstrike | barrage | streak | star';
+        else if (name === 'liq' || name === 'liq-big' || name === 'liq-mega') {
+          const p = price || 60000;
+          const lusd = name === 'liq-mega' ? 2100000 : name === 'liq-big' ? 180000 : 12000;
+          spawnLiquidation(side, lusd, p);
+        }
+        else return 'unknown — use: airstrike | barrage | streak | star | liq | liq-big | liq-mega';
         return 'triggered: ' + name;
       };
 

@@ -31,6 +31,22 @@ import { fmtUsd } from './market-pressure.js';
       }
 
 
+      /* baris likuidasi — nilai posisi yang hangus dipajang di depan, bukan sekadar tag,
+         karena justru angka itulah yang bikin peristiwanya terasa besar (mis. "LIQUIDATED $2.1M") */
+      export function logLiquidation(wipedSide, usd, price, tier) {
+        const d = document.createElement('div');
+        const time = new Date().toLocaleTimeString('en-GB');
+        const L = I18N[lang];
+        d.className = 'kill liq' + (tier === 2 ? ' mega' : '');
+        // tanpa jumlah koin: baris ini sudah lebih panjang dari baris order biasa, dan yang
+        // penting justru nilai posisi yang hangus + harga saat ia dieksekusi
+        d.innerHTML = `<span class="kt">[${time}]</span>` +
+          `<span class="tag">${L.liqTag} ${fmtUsd(usd)}</span> ` +
+          `<span class="liq-side ${wipedSide}">${wipedSide === 'buy' ? L.liqLongs : L.liqShorts}</span> ` +
+          `@ ${fmtPrice(price)}`;
+        pushKill(d);
+      }
+
       export function logKill(side, qty, price, tag) {
         const d = document.createElement('div');
         const time = new Date().toLocaleTimeString('en-GB');
@@ -41,6 +57,10 @@ import { fmtUsd } from './market-pressure.js';
           (tagText ? `<span class="tag">${tagText} </span>` : '') +
           (side === 'buy' ? L.long + ' ' : L.short + ' ') + fmtQty(qty) +
           ` @ $${price.toLocaleString('en-US', { maximumFractionDigits: price < 10 ? 4 : 2 })}`;
+        pushKill(d);
+      }
+
+      function pushKill(d) {
         killsEl.prepend(d);
         while (killsEl.children.length > 4) killsEl.lastChild.remove();
         setTimeout(() => { if (d.parentNode) { d.style.opacity = '0'; d.style.transition = 'opacity .5s'; setTimeout(() => d.remove(), 550); } }, 7000);

@@ -1,8 +1,8 @@
-import { C_GOLD, C_GOLD2, STREAM, T_BOSS, T_HEAVY, T_SHELL, T_WHALE } from '../config.js';
+import { STREAM, T_BOSS, T_HEAVY, T_SHELL, T_WHALE } from '../config.js';
 import { fireVolley } from '../combat/bullets.js';
-import { explode } from '../combat/explosions.js';
 import { spawnAirstrike, spawnBarrage } from '../entities/airstrike.js';
 import { spawnBigUnit } from '../entities/big-units.js';
+import { spawnLiquidation } from '../entities/liquidation.js';
 import { buyCrowd, sellCrowd } from '../entities/soldiers.js';
 import { addHitstop, addShake, bumpStreak } from '../fx/juice.js';
 import { I18N, lang } from '../i18n.js';
@@ -101,15 +101,10 @@ import { bigMoment } from '../ui/moments.js';
               const o = JSON.parse(ev.data).o;
               const qty = parseFloat(o.q);
               const liqPrice = parseFloat(o.ap);
-              const usd = liqPrice * qty;
-              const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi */
-              const side = isBuy ? 'buy' : 'sell';
-              const n = usd >= T_WHALE ? 10 : 4;
-              fireVolley(side, usd >= T_WHALE ? 2 : 1, n);
-              const pos = new THREE.Vector3((side === 'buy' ? 1 : -1) * (20 + Math.random() * 80), 0, (Math.random() - .5) * 200);
-              explode(pos, isBuy ? C_GOLD : C_GOLD2, Math.min(1, Math.log10(usd / 1000 + 1) / 2.5), usd >= T_WHALE ? 2 : 1);
-              logKill(side, qty, liqPrice, 'liq');
-              bigMoment('liq', side, usd, liqPrice);
+              /* harga rata-rata isi (ap) kosong bila order likuidasi belum terisi → pakai harga order (p) */
+              const p = liqPrice || parseFloat(o.p);
+              const isBuy = o.S === 'BUY'; /* BUY = short terlikuidasi (dibeli paksa) */
+              spawnLiquidation(isBuy ? 'buy' : 'sell', p * qty, p);
             } catch (e) { }
           };
         } catch (e) { }

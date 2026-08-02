@@ -349,6 +349,35 @@
       font-weight: 700
     }
 
+    /* likuidasi: nilai posisi yang hangus dipajang di depan; sisi yang tersapu tetap
+       diwarnai warna pasukannya supaya sekilas terlihat siapa yang kalah */
+    .kill.liq .liq-side.buy {
+      color: var(--long)
+    }
+
+    .kill.liq .liq-side.sell {
+      color: var(--short)
+    }
+
+    /* likuidasi raksasa — barisnya sendiri ikut "menyala" sebentar */
+    .kill.liq.mega {
+      background: rgba(255, 200, 87, .16);
+      box-shadow: 0 0 0 1px rgba(255, 200, 87, .35), 0 0 14px rgba(255, 200, 87, .28);
+      animation: slidein .25s ease-out, liqflare 1.1s ease-out
+    }
+
+    @keyframes liqflare {
+
+      0%,
+      55% {
+        box-shadow: 0 0 0 1px rgba(255, 200, 87, .8), 0 0 22px rgba(255, 200, 87, .6)
+      }
+
+      100% {
+        box-shadow: 0 0 0 1px rgba(255, 200, 87, .35), 0 0 14px rgba(255, 200, 87, .28)
+      }
+    }
+
     @keyframes slidein {
       from {
         opacity: 0;
@@ -671,6 +700,12 @@
 
     .fnum.dn {
       color: var(--short)
+    }
+
+    .fnum.liq {
+      color: var(--gold);
+      font-size: 18px;
+      letter-spacing: .02em
     }
 
     #unit-tip {
