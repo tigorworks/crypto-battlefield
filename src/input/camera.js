@@ -42,6 +42,30 @@ import { fieldState } from '../world/field.js';
         { run: cineAerial, dur: 16 },
       ];
 export const camState = { cineIdx: 0, cineShotStart: 0 };
+
+      /* ═══════════ BATAS ZOOM & GESER (mode BEBAS) ═══════════
+         Arena hanya selebar ±TERR_HALF (300) + sedikit margin, jadi menjauh melewati itu cuma
+         membuat pasukan jadi titik-titik tak terbaca. Batas atas dihitung dari frustum kamera:
+         jarak saat lebar arena persis memenuhi layar, dikali sedikit margin. Layar sempit/portrait
+         butuh jarak lebih jauh untuk melihat lebar yang sama, jadi batasnya ikut aspek rasio. */
+      export const CAM_MIN_RADIUS = 120;
+      const ARENA_HALF = 330;                    // setengah lebar arena + margin
+      const TAN_HALF_FOV = Math.tan(50 * Math.PI / 360);   // fov vertikal kamera = 50°
+      export function maxOrbitRadius() {
+        const aspect = Math.max(.4, innerWidth / innerHeight);
+        const fit = ARENA_HALF / (TAN_HALF_FOV * aspect);  // jarak agar lebar arena pas selebar layar
+        return Math.min(1000, Math.max(600, fit * 1.25));
+      }
+      export function clampRadius(r) {
+        return Math.min(maxOrbitRadius(), Math.max(CAM_MIN_RADIUS, r));
+      }
+      /* geser (WASD/drag) juga dibatasi — kalau target kamera lepas dari arena, layar cuma berisi rumput */
+      const PAN_HALF_X = 430, PAN_HALF_Z = 380, PAN_MAX_Y = 240;
+      export function clampOrbitTarget() {
+        orbit.target.x = Math.min(PAN_HALF_X, Math.max(-PAN_HALF_X, orbit.target.x));
+        orbit.target.z = Math.min(PAN_HALF_Z, Math.max(-PAN_HALF_Z, orbit.target.z));
+        orbit.target.y = Math.min(PAN_MAX_Y, Math.max(5, orbit.target.y));
+      }
       export const followPos = new THREE.Vector3(0, 10, 0);
       export const keys = {};
       export function setCamMode(m) {
