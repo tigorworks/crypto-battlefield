@@ -10,7 +10,7 @@ import { spawnLiquidation } from './entities/liquidation.js';
 import { buyCrowd, initCrowds, killSoldier, loadAllModels, reviveSoldier, sellCrowd, updateCrowd } from './entities/soldiers.js';
 import { _pv, addFlash, addShake, bumpStreak, flashColor, flashEl, floatNum, juiceState } from './fx/juice.js';
 import { I18N, applyLanguage, lang } from './i18n.js';
-import { CINE_SHOTS, _camTgt, camMode, camState, clampOrbitTarget, clampRadius, followPos, keys, orbit } from './input/camera.js';
+import { CINE_SHOTS, _camTgt, camMode, camState, clampOrbitTarget, clampRadius, followPos, keys, maxOrbitRadius, orbit } from './input/camera.js';
 import { _lockPos, lockBadge, lockColor, lockPosNow, lockRing, lockUnit } from './input/interaction.js';
 import { showEvent } from './ui/event-ticker.js';
 import { flow, pressureState } from './ui/market-pressure.js';
@@ -464,7 +464,12 @@ import { connect, price } from './feed/market-feed.js';
           if (keys['q']) orbit.target.y = Math.max(5, orbit.target.y - sp);
           if (keys['e']) orbit.target.y += sp;
           clampOrbitTarget();                    // geser bebas tetap di sekitar arena
-          orbit.radius = clampRadius(orbit.radius);   // jaga batas zoom (mis. setelah layar diputar)
+          /* jaga batas zoom (mis. setelah layar diputar, atau baru pindah dari shot sinematik yang lebar).
+             Kalau masih di luar batas, tarik masuk perlahan — biar terasa kamera melayang mendekat,
+             bukan potongan mendadak begitu tombol BEBAS ditekan. */
+          const maxR = maxOrbitRadius();
+          if (orbit.radius > maxR) orbit.radius += (maxR - orbit.radius) * Math.min(1, dt * 2.5);
+          else orbit.radius = clampRadius(orbit.radius);
         }
         camera.position.set(
           orbit.target.x + orbit.radius * Math.cos(orbit.phi) * Math.sin(orbit.theta),
