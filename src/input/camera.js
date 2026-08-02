@@ -44,23 +44,27 @@ import { fieldState } from '../world/field.js';
 export const camState = { cineIdx: 0, cineShotStart: 0 };
 
       /* ═══════════ BATAS ZOOM & GESER (mode BEBAS) ═══════════
-         Arena hanya selebar ±TERR_HALF (300) + sedikit margin, jadi menjauh melewati itu cuma
-         membuat pasukan jadi titik-titik tak terbaca. Batas atas dihitung dari frustum kamera:
-         jarak saat lebar arena persis memenuhi layar, dikali sedikit margin. Layar sempit/portrait
-         butuh jarak lebih jauh untuk melihat lebar yang sama, jadi batasnya ikut aspek rasio. */
-      export const CAM_MIN_RADIUS = 120;
-      const ARENA_HALF = 330;                    // setengah lebar arena + margin
+         Arena cuma seluas ±300 (x) × ±220 (z). Menjauh melewati itu tidak menambah informasi apa pun —
+         pasukan jadi titik dan layar terisi rumput kosong. Batas atas dihitung dari frustum kamera:
+         jarak saat arena persis memenuhi layar, diambil yang paling ketat antara sumbu lebar & tinggi
+         (jadi arena selalu "menyentuh" salah satu tepi layar), plus margin tipis supaya tak mepet.
+         Pakai min() — bukan max() — supaya layar portrait tidak dibiarkan mundur sangat jauh hanya
+         demi memuat lebar arena; di portrait arena wajar terpotong sedikit di kiri-kanan. */
+      export const CAM_MIN_RADIUS = 100;
+      const ARENA_HALF_X = 320, ARENA_HALF_Z = 250;        // setengah lebar/kedalaman arena + margin
       const TAN_HALF_FOV = Math.tan(50 * Math.PI / 360);   // fov vertikal kamera = 50°
+      const CAM_MAX_RADIUS_CAP = 560;                      // langit-langit keras, seketat apa pun aspeknya
       export function maxOrbitRadius() {
-        const aspect = Math.max(.4, innerWidth / innerHeight);
-        const fit = ARENA_HALF / (TAN_HALF_FOV * aspect);  // jarak agar lebar arena pas selebar layar
-        return Math.min(1000, Math.max(600, fit * 1.25));
+        const aspect = Math.max(.45, innerWidth / innerHeight);
+        const fitH = ARENA_HALF_X / (TAN_HALF_FOV * aspect);   // jarak agar arena pas selebar layar
+        const fitV = ARENA_HALF_Z / TAN_HALF_FOV;              // jarak agar arena pas setinggi layar
+        return Math.max(260, Math.min(CAM_MAX_RADIUS_CAP, Math.min(fitH, fitV) * 1.15));
       }
       export function clampRadius(r) {
         return Math.min(maxOrbitRadius(), Math.max(CAM_MIN_RADIUS, r));
       }
       /* geser (WASD/drag) juga dibatasi — kalau target kamera lepas dari arena, layar cuma berisi rumput */
-      const PAN_HALF_X = 430, PAN_HALF_Z = 380, PAN_MAX_Y = 240;
+      const PAN_HALF_X = 380, PAN_HALF_Z = 320, PAN_MAX_Y = 200;
       export function clampOrbitTarget() {
         orbit.target.x = Math.min(PAN_HALF_X, Math.max(-PAN_HALF_X, orbit.target.x));
         orbit.target.z = Math.min(PAN_HALF_Z, Math.max(-PAN_HALF_Z, orbit.target.z));
