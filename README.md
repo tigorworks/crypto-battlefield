@@ -38,6 +38,9 @@ any trades happening.
   tied to market conditions.
 - Killfeed, 60-second market-pressure meter, event ticker for rare events
   (airstrikes, artillery barrages).
+- Futures liquidations (`@forceOrder`) staged as executions: the wiped side's
+  ranks are blown apart in gold, with a `LIQUIDATED $2.1M` killfeed line and,
+  for the biggest ones, an artillery sweep in slow motion.
 - Cinematic/follow/free camera modes, tap-to-select and tap-to-follow.
   Input is view-only — nothing a viewer taps can influence the battle,
   which always mirrors the real order flow.

@@ -44,7 +44,8 @@ src/
 ├─ boot/boot-screen.js  boot-screen title/quote (loads before three.min.js)
 ├─ core/                renderer.js (scene/camera/renderer/lights), postfx/bloom.js, assets.js (shared textures/geometry)
 ├─ world/               field.js (ground/front-line/territory), sky.js (weather/aurora/moon/lightning/shooting star)
-├─ entities/            soldiers.js, big-units.js (tank/apc/heli/jet/bomber), airstrike.js
+├─ entities/            soldiers.js, big-units.js (tank/apc/heli/jet/bomber), airstrike.js,
+│                       liquidation.js (forceOrder → execution spectacle, tiered by size)
 ├─ combat/              bullets.js (tracers/muzzle flash/puffs), explosions.js (craters/debris)
 ├─ fx/juice.js          screen shake, hitstop, floating damage numbers, streaks, flash/slowmo
 ├─ ui/                  killfeed.js, market-pressure.js, event-ticker.js, moments.js (share card), controls.js
@@ -116,7 +117,8 @@ a headless-browser smoke pass instead:
    the CINEMATIC/FOLLOW/FREE buttons) switch, language toggle (EN/ID)
    updates text, audio mute toggles.
 4. Force rare events from the console instead of waiting for real trades:
-   `window.__testEvent('airstrike' | 'barrage' | 'streak' | 'star')`.
+   `window.__testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' |
+   'liq-big' | 'liq-mega')`.
 
 ## Files kept for historical reference
 
