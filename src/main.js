@@ -10,7 +10,7 @@ import { buyCrowd, initCrowds, killSoldier, loadAllModels, reviveSoldier, sellCr
 import { _pv, addFlash, addShake, bumpStreak, flashColor, flashEl, floatNum, juiceState } from './fx/juice.js';
 import { I18N, applyLanguage, lang } from './i18n.js';
 import { CINE_SHOTS, _camTgt, camMode, camState, clampOrbitTarget, clampRadius, followPos, keys, orbit } from './input/camera.js';
-import { _lockPos, interactState, lockBadge, lockColor, lockPosNow, lockRing, lockUnit } from './input/interaction.js';
+import { _lockPos, lockBadge, lockColor, lockPosNow, lockRing, lockUnit } from './input/interaction.js';
 import { showEvent } from './ui/event-ticker.js';
 import { flow, pressureState } from './ui/market-pressure.js';
 import { TERR_HALF, buyTerr, clashLine, fieldState, sellTerr } from './world/field.js';
@@ -29,10 +29,8 @@ import { connect } from './feed/market-feed.js';
         const sdt = juiceState.hitstop > 0 ? dt * 0.12 : (juiceState.slowmo > 0 ? dt * 0.4 : dt);
 
         // garis depan bergerak mengikuti tekanan; pasukan maju/mundur
-        // sorak penonton (interactState.cheerBias) mendorong sesaat lalu meluruh kembali ke tekanan pasar sebenarnya
-        interactState.cheerBias *= Math.pow(0.5, dt / 1.6);              // paruh-waktu ~1.6 dtk
-        if (Math.abs(interactState.cheerBias) < 0.5) interactState.cheerBias = 0;
-        const targetFront = (fieldState.buyShare - 0.5) * 2 * 180 + interactState.cheerBias;
+        // posisinya murni dari porsi beli/jual — tak ada dorongan dari ketukan penonton
+        const targetFront = (fieldState.buyShare - 0.5) * 2 * 180;
         fieldState.frontX += (targetFront - fieldState.frontX) * Math.min(1, dt * 0.8);
         buyCrowd.pressBias = fieldState.frontX * 0.55;
         sellCrowd.pressBias = fieldState.frontX * 0.55;

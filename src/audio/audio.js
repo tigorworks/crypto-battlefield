@@ -278,16 +278,4 @@ import { skyState } from '../world/sky.js';
         }
         duckMusic(.45, .02, .06, .35);
       }
-      export function playCheer() {
-        if (!sfxOn || !AC) return;
-        const t = AC.currentTime;
-        const o = AC.createOscillator(), g = AC.createGain();
-        o.type = 'triangle';
-        o.frequency.setValueAtTime(520, t);
-        o.frequency.exponentialRampToValueAtTime(880, t + .14);
-        g.gain.setValueAtTime(.0001, t);
-        g.gain.exponentialRampToValueAtTime(.12, t + .03);
-        g.gain.exponentialRampToValueAtTime(.0001, t + .3);
-        o.connect(g).connect(sfxG); o.start(t); o.stop(t + .32);
-      }
 

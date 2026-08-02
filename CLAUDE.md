@@ -48,7 +48,7 @@ src/
 ├─ combat/              bullets.js (tracers/muzzle flash/puffs), explosions.js (craters/debris)
 ├─ fx/juice.js          screen shake, hitstop, floating damage numbers, streaks, flash/slowmo
 ├─ ui/                  killfeed.js, market-pressure.js, event-ticker.js, moments.js (share card), controls.js
-├─ input/               camera.js (cinematic shots/orbit), interaction.js (raycast tap-to-select/rally)
+├─ input/               camera.js (cinematic shots/orbit), interaction.js (raycast tap-to-select/follow)
 ├─ audio/audio.js       generative music + sfx, positional audio
 ├─ platform/wake-lock.js
 └─ feed/market-feed.js  Binance/Gate.io WebSocket, failover/retry, trade → sim event routing
@@ -84,7 +84,6 @@ the owner) accesses it through that object:
 - `fieldState` (`world/field.js`) — `frontX`, `buyShare`
 - `juiceState` (`fx/juice.js`) — `shake`, `hitstop`, `flashV`, `slowmo`
 - `camState` (`input/camera.js`) — `cineIdx`, `cineShotStart`
-- `interactState` (`input/interaction.js`) — `cheerBias`
 - `pressureState` (`ui/market-pressure.js`) — `flowRateEMA`
 
 `buyCrowd`/`sellCrowd` (`entities/soldiers.js`) follow the same idea but as a
