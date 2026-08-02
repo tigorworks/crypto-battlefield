@@ -1,28 +1,22 @@
-import { C_GOLD, C_LONG, C_SHORT } from '../config.js';
-import { playCheer, playVolley } from '../audio/audio.js';
-import { bigUnitObjs, crowdPoint, fireBullet, groundPoint } from '../combat/bullets.js';
-import { rings } from '../combat/explosions.js';
+import { C_LONG, C_SHORT } from '../config.js';
+import { bigUnitObjs } from '../combat/bullets.js';
 import { ringGeo } from '../core/assets.js';
 import { camera, scene } from '../core/renderer.js';
 import { buyCrowd, sellCrowd } from '../entities/soldiers.js';
-import { addShake, floatNum } from '../fx/juice.js';
 import { I18N, lang } from '../i18n.js';
 import { cv } from '../platform/wake-lock.js';
 import { fmtUsd } from '../ui/market-pressure.js';
-import { fieldState } from '../world/field.js';
 
-      /* ═══════════ INTERAKSI — periksa unit paus & sorak di lapangan ═══════════ */
+      /* ═══════════ INTERAKSI — periksa unit paus & ikuti prajurit ═══════════
+         Ketukan hanya untuk melihat, tak pernah mengubah jalannya pertempuran: garis depan
+         murni cerminan tekanan pasar sesungguhnya (dulu ada "rally" yang mendorong garis depan
+         saat penonton mengetuk tanah — dihapus supaya tampilan tetap jujur pada data). */
       const raycaster = new THREE.Raycaster();
       const ndc = new THREE.Vector2();
       const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       const _hitPt = new THREE.Vector3();
       const tip = document.getElementById('unit-tip');
       let pinnedT = 0;
-
-      /* ── A1: dorongan garis depan dari ketukan penonton (sorak "rally") — sementara, meluruh ── */
-// pergeseran garis depan dari sorak; kembali ke 0 sendiri
-export const interactState = { cheerBias: 0 };
-      const CHEER_MAX = 90, CHEER_STEP = 20;
 
       /* ── A2: kunci kamera ke satu unit (prajurit biasa atau unit paus) sampai gugur ── */
       export let lockUnit = null;             // { type:'soldier', crowd, idx } | { type:'big', obj }
@@ -80,23 +74,6 @@ export const interactState = { cheerBias: 0 };
         return best;
       }
 
-      /* A1: dorong garis depan ke arah sisi yang di-sorak + bala bantuan & tembakan semangat */
-      function pushFront(pt) {
-        const side = pt.x < fieldState.frontX ? 'buy' : 'sell';
-        const dir = side === 'buy' ? 1 : -1;                      // beli (kiri) mendorong garis ke kanan
-        interactState.cheerBias = Math.max(-CHEER_MAX, Math.min(CHEER_MAX, interactState.cheerBias + dir * CHEER_STEP));
-        const crowd = side === 'buy' ? buyCrowd : sellCrowd;
-        // catatan: JANGAN menambah prajurit di sini — jumlah pasukan tiap sisi harus tetap
-        // mencerminkan porsi beli/jual (crowd.target). rally hanya mendorong garis depan sesaat
-        // (interactState.cheerBias, meluruh sendiri) + salvo semangat, tanpa mengubah jumlah army.
-        const defender = side === 'buy' ? sellCrowd : buyCrowd;
-        for (let i = 0; i < 4; i++) fireBullet(side, crowdPoint(crowd, 8), groundPoint(defender), false, defender);  // salvo semangat
-        playVolley(1);
-        spawnCheer(pt, side);
-        floatNum(pt, '▲ RALLY', side === 'buy' ? 'up' : 'dn');
-        addShake(.5);
-      }
-
       function setRay(e) { ndc.x = (e.clientX / innerWidth) * 2 - 1; ndc.y = -(e.clientY / innerHeight) * 2 + 1; raycaster.setFromCamera(ndc, camera); }
       function pickUnit(e) {
         if (!bigUnitObjs.length) return null;
@@ -124,23 +101,13 @@ export const interactState = { cheerBias: 0 };
         if (u) { showTip(u, e.clientX, e.clientY); cv.style.cursor = 'pointer'; }
         else { cv.style.cursor = ''; if (performance.now() > pinnedT) hideTip(); }
       }
-      function spawnCheer(pos, side) {
-        const col = side === 'buy' ? C_LONG : side === 'sell' ? C_SHORT : C_GOLD;
-        const rm = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .75, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-        rm.rotation.x = -Math.PI / 2; rm.position.copy(pos); rm.position.y = 1.5;
-        scene.add(rm);
-        rings.push({ rm, t: 0, dur: .7, max: 20 });
-        playCheer();
-      }
       export function onTap(e) {
         const u = pickUnit(e);
         if (u) { lockOnBig(u); showTip(u, e.clientX, e.clientY); pinnedT = performance.now() + 1800; return; }  // klik unit paus → tooltip + kunci kamera
         const sol = pickSoldier(e);
         if (sol) { lockOnSoldier(sol.crowd, sol.idx); return; }                    // klik prajurit → kunci kamera ke dia
         setRay(e);
-        if (raycaster.ray.intersectPlane(groundPlane, _hitPt)) {
-          if (lockUnit) releaseLock();                                            // ketuk tanah kosong saat terkunci → lepas kunci dulu
-          else pushFront(_hitPt);                                                 // kalau tidak, sorak & dorong garis depan
-        }
+        // ketuk tanah kosong → cuma lepas kunci kamera; pertempuran tetap murni ikut pasar
+        if (lockUnit && raycaster.ray.intersectPlane(groundPlane, _hitPt)) releaseLock();
       }
 

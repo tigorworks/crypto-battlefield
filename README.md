@@ -38,7 +38,9 @@ any trades happening.
   tied to market conditions.
 - Killfeed, 60-second market-pressure meter, event ticker for rare events
   (airstrikes, artillery barrages).
-- Cinematic/follow/free camera modes, tap-to-select and tap-to-rally.
+- Cinematic/follow/free camera modes, tap-to-select and tap-to-follow.
+  Input is view-only — nothing a viewer taps can influence the battle,
+  which always mirrors the real order flow.
 - Generative background music + sound effects, positional audio.
 - Shareable "moment" cards (canvas-rendered snapshot + stats) for big
   trades.
