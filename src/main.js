@@ -5,7 +5,7 @@ import { booms, craters, debris, explode, rings } from './combat/explosions.js';
 import { bloom } from './core/postfx/bloom.js';
 import { camera, renderer, scene, sun } from './core/renderer.js';
 import { airstrikes, barrages, spawnAirstrike, spawnBarrage } from './entities/airstrike.js';
-import { enterDeath, lastImpact, units } from './entities/big-units.js';
+import { BIG_UNIT_KEYS, enterDeath, lastImpact, spawnBigUnit, units } from './entities/big-units.js';
 import { spawnLiquidation } from './entities/liquidation.js';
 import { buyCrowd, initCrowds, killSoldier, loadAllModels, reviveSoldier, sellCrowd, updateCrowd } from './entities/soldiers.js';
 import { _pv, addFlash, addShake, bumpStreak, flashColor, flashEl, floatNum, juiceState } from './fx/juice.js';
@@ -240,6 +240,11 @@ import { connect, price } from './feed/market-feed.js';
             if (u.tailRotor) u.tailRotor.rotation.x += sdt * 55;         // rotor ekor berputar sumbu lain
             if (u.phase !== 'death' && u.wheels) {                       // roda tank & APC menggelinding di tempat
               for (const w of u.wheels) w.rotation.z += sdt * 5.5;
+            }
+            if (u.phase !== 'death' && u.legs) {                         // langkah unit satwa — kaki berayun bergantian di pinggul
+              u.walkT += sdt * u.walk.freq;
+              for (let li = 0; li < u.legs.length; li++) u.legs[li].rotation.z = Math.sin(u.walkT + li * Math.PI) * u.walk.amp;
+              if (u.walk.bob) u.obj.position.y = u.fly + Math.abs(Math.sin(u.walkT)) * u.obj.scale.x * u.walk.bob;   // badan naik-turun mengikuti tumpuan kaki
             }
             if (u.gun && u.gun.userData.basePos) {                       // laras menyentak balik tiap kali menembak, lalu kembali
               u.gun.userData.recoilT = Math.max(0, (u.gun.userData.recoilT || 0) - sdt);
@@ -513,7 +518,9 @@ import { connect, price } from './feed/market-feed.js';
       applyLanguage();
 
       /* bantuan uji manual dari console (peristiwa langka sulit ditunggu secara alami di pasar nyata):
-         __testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' | 'liq-big' | 'liq-mega') */
+         __testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' | 'liq-big' | 'liq-mega')
+         plus nama unit besar untuk memunculkannya langsung: 'tank' | 'apc' | 'trex' | 'hamster' |
+         'helicopter' | 'jet' | 'bomber' */
       window.__testEvent = (name) => {
         const usd = T_BOSS * 1.5, side = Math.random() < .5 ? 'buy' : 'sell';
         if (name === 'airstrike') spawnAirstrike(side, usd);
@@ -525,7 +532,8 @@ import { connect, price } from './feed/market-feed.js';
           const lusd = name === 'liq-mega' ? 2100000 : name === 'liq-big' ? 180000 : 12000;
           spawnLiquidation(side, lusd, p);
         }
-        else return 'unknown — use: airstrike | barrage | streak | star | liq | liq-big | liq-mega';
+        else if (BIG_UNIT_KEYS.includes(name)) spawnBigUnit(side, 120000, name);   // unit besar: nilai cuma memengaruhi variasi ukuran
+        else return 'unknown — use: airstrike | barrage | streak | star | liq | liq-big | liq-mega | ' + BIG_UNIT_KEYS.join(' | ');
         return 'triggered: ' + name;
       };
 
