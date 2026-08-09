@@ -44,7 +44,7 @@ src/
 ├─ boot/boot-screen.js  boot-screen title/quote (loads before three.min.js)
 ├─ core/                renderer.js (scene/camera/renderer/lights), postfx/bloom.js, assets.js (shared textures/geometry)
 ├─ world/               field.js (ground/front-line/territory), sky.js (weather/aurora/moon/lightning/shooting star)
-├─ entities/            soldiers.js, big-units.js (tank/apc/heli/jet/bomber), airstrike.js,
+├─ entities/            soldiers.js, big-units.js (tank/apc/trex/hamster/heli/jet/bomber), airstrike.js,
 │                       liquidation.js (forceOrder → execution spectacle, tiered by size)
 ├─ combat/              bullets.js (tracers/muzzle flash/puffs), explosions.js (craters/debris)
 ├─ fx/juice.js          screen shake, hitstop, floating damage numbers, streaks, flash/slowmo
@@ -112,13 +112,19 @@ There's no test suite (it's a real-time visual/audio simulation). Verify with
 a headless-browser smoke pass instead:
 
 1. Serve the repo (see above) and load the page in Chromium/Playwright.
-2. Console should be clean except WebSocket connection failures if sandboxed.
+2. Console should be clean except WebSocket connection failures if sandboxed
+   (plus a `favicon.ico` 404 — there is no favicon in the repo).
 3. Visually confirm: field/soldiers/HUD render, camera modes (1/2/3 keys or
    the CINEMATIC/FOLLOW/FREE buttons) switch, language toggle (EN/ID)
    updates text, audio mute toggles.
 4. Force rare events from the console instead of waiting for real trades:
    `window.__testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' |
-   'liq-big' | 'liq-mega')`.
+   'liq-big' | 'liq-mega')`. Passing a big-unit key instead (`'tank' | 'apc' |
+   'trex' | 'hamster' | 'helicopter' | 'jet' | 'bomber'`) spawns that exact
+   unit, which is the only practical way to eyeball a single model — the
+   normal path picks randomly within a tier and needs a matching trade size.
+   Big units travel in for ~1.2s before parking, so wait for `phase === 'hold'`
+   before pointing a camera at one.
 
 ## Files kept for historical reference
 

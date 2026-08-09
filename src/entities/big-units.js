@@ -6,12 +6,20 @@ import { scene } from '../core/renderer.js';
 import { buyCrowd, sellCrowd } from './soldiers.js';
 import { price } from '../feed/market-feed.js';
 
-      /* ═══════════ UNIT BESAR — model HIGH-POLY prosedural (tank/apc/heli/jet/bomber) ═══════════
+      /* ═══════════ UNIT BESAR — model HIGH-POLY prosedural ═══════════
+         (tank/apc/trex/hamster/heli/jet/bomber)
          Dibangun langsung dari primitif Three.js lengkung (silinder/bola/airfoil ber-bevel) alih-alih
          voxel .glb, lalu di-cache & di-clone tiap spawn demi performa (MAX_UNITS). Tiap model
-         menghadap +x, memberi shadow, dan menyimpan node beranama (gun/rotor/tailRotor) + array roda
-         supaya animasi tetap terikat. Warna tim (hijau=buy / merah=sell) dipertahankan sebagai warna
-         hull + aksen emissive agar sisi tetap terbaca. */
+         menghadap +x, memberi shadow, dan menyimpan node beranama supaya animasi tetap terikat.
+         Warna tim (hijau=buy / merah=sell) dipertahankan sebagai warna hull + aksen emissive agar
+         sisi tetap terbaca.
+
+         Nama node yang otomatis dianimasikan game loop — cukup pakai nama ini, tak perlu kode baru:
+           'gun'      → menyentak balik tiap tembakan; posisi dunianya juga jadi titik asal peluru
+                        (di T-Rex ini kepalanya, jadi dia terlihat meraung & menembak dari mulut)
+           'wheel'    → berputar di sumbu z (roda jalan tank/APC, roda hamster)
+           'rotor' / 'tailRotor' → baling-baling helikopter
+           'leg'      → berayun bergantian di pinggul (unit satwa), dikendalikan userData.walk */
       const tankAuraMat = {
         buy: new THREE.SpriteMaterial({ map: GLOW, color: C_LONG, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
         sell: new THREE.SpriteMaterial({ map: GLOW, color: C_SHORT, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
@@ -36,6 +44,7 @@ import { price } from '../feed/market-feed.js';
           glass:  new THREE.MeshStandardMaterial({ color: 0x0f1e28, metalness: .3,  roughness: .06, emissive: 0x0b2230, emissiveIntensity: .3, envMapIntensity: 1.0 }),
           accent: new THREE.MeshStandardMaterial({ color: team,    metalness: .3,  roughness: .35, emissive: team, emissiveIntensity: .5, envMapIntensity: .5 }),
           wing:   new THREE.MeshStandardMaterial({ color: team,    metalness: .5,  roughness: .5,  side: THREE.DoubleSide, envMapIntensity: .5 }),
+          bone:   new THREE.MeshStandardMaterial({ color: 0xe8e2d2, metalness: .05, roughness: .62, envMapIntensity: .4 }),   // gigi & cakar unit satwa
         });
       }
       /* — helper: tambah mesh (default memberi & menerima bayangan) — */
@@ -68,6 +77,7 @@ import { price } from '../feed/market-feed.js';
         return g;
       }
       function collectWheels(g) { const w = []; g.traverse(o => { if (o.name === 'wheel') w.push(o); }); return w; }
+      function collectLegs(g) { const l = []; g.traverse(o => { if (o.name === 'leg') l.push(o); }); return l; }
 
       /* — TANK: hull ber-glacis miring, turret kubah, laras silinder, roda jalan berputar — */
       function buildTank(side) {
@@ -178,7 +188,107 @@ import { price } from '../feed/market-feed.js';
         return g;
       }
 
-      const BIG_BUILDERS = { tank: buildTank, apc: buildAPC, helicopter: buildHelicopter, jet: buildJet, bomber: buildBomber };
+      /* — T-REX artileri: dino berpelana lapis baja untuk tingkat yang paling sering muncul.
+           Kepalanya dijadikan node 'gun' — sistem recoil yang sudah ada otomatis membuat kepala
+           menyentak balik tiap kali menembak (jadinya seperti meraung), dan peluru keluar dari
+           mulut karena moncong diambil dari posisi dunia node 'gun'. Kedua kaki dinamai 'leg'
+           supaya siklus langkah di game loop menggerakkannya. — */
+      function buildTrex(side) {
+        const M = bigMats(side), g = new THREE.Group();
+        const body = sphG(1.4, 18, 14); body.scale(1.8, 1.15, 1.05);
+        part(g, body, M.hull, [.1, 3.5, 0]);                                                  // badan (ellipsoid memanjang)
+        const belly = sphG(1.05, 14, 10); belly.scale(1.65, .82, .9);
+        part(g, belly, M.plate, [.35, 3.05, 0]);                                              // perut lebih terang
+        const saddle = domeGeo(1.3, 16); saddle.scale(1.15, .45, 1.0);
+        part(g, saddle, M.plate, [-.3, 4.5, 0]);                                              // pelana lapis baja melengkung mengikuti punggung
+        part(g, boxG(1.7, .16, .5), M.accent, [-.3, 5.06, 0], false);                         // garis aksen tim
+        for (const s of [[-2.9, 3.95], [-3.8, 3.8], [-4.7, 3.55]])                            // duri menurun sepanjang pangkal ekor
+          part(g, boxG(.22, .5, .22), M.bone, [s[0], s[1], 0], false);
+        const tail = part(g, tubeX(.8, .1, 4.4, 14), M.hull, [-4.2, 3.3, 0]); tail.rotation.z = -.1;  // ekor tebal di pangkal, meruncing & sedikit terangkat
+        part(g, tubeX(.62, .95, 2.4, 14), M.hull, [2.55, 4.35, 0]).rotation.z = .55;           // leher menanjak, ujungnya menembus tengkorak
+        /* kaki (pivot di pinggul, dinamai 'leg' → berayun bergantian) */
+        for (const zs of [-1.0, 1.0]) {
+          const leg = new THREE.Group(); leg.name = 'leg'; leg.position.set(-.2, 3.1, zs);
+          part(leg, boxG(.95, 1.7, .8), M.hull, [0, -.78, 0]);                                // paha
+          part(leg, boxG(.55, 1.4, .6), M.plate, [.16, -2.15, 0]);                            // betis
+          part(leg, boxG(1.2, .34, .72), M.plate, [.5, -2.95, 0]);                            // telapak
+          for (const cz of [-.22, .22]) part(leg, boxG(.34, .18, .18), M.bone, [1.15, -2.99, cz], false);  // cakar
+          g.add(leg);
+        }
+        /* tangan mungil — wajib, ini bagian lucunya */
+        for (const zs of [-1.15, 1.15]) {
+          part(g, boxG(.7, .24, .24), M.hull, [1.9, 3.4, zs]).rotation.z = -.4;
+          part(g, boxG(.45, .2, .2), M.plate, [2.38, 3.06, zs]);
+          part(g, boxG(.24, .14, .14), M.bone, [2.66, 3.0, zs], false);
+        }
+        /* kepala = node 'gun'; titik asalnya di ujung moncong supaya tembakan keluar dari mulut */
+        const head = new THREE.Group(); head.name = 'gun'; head.position.set(4.85, 5.15, 0);
+        const skull = sphG(.75, 14, 12); skull.scale(1.4, 1.05, 1.0);
+        part(head, skull, M.hull, [-1.15, .22, 0]);                                           // tengkorak
+        part(head, boxG(1.5, .62, .72), M.hull, [-.35, .1, 0]);                               // moncong atas
+        part(head, boxG(1.35, .3, .66), M.plate, [-.42, -.36, 0]);                            // rahang bawah
+        for (let i = 0; i < 4; i++) for (const zs of [-.3, .3])                               // gigi
+          part(head, boxG(.14, .3, .14), M.bone, [.1 - i * .32, -.14, zs], false);
+        part(head, boxG(.62, .22, .9), M.dark, [-1.15, .68, 0], false);                       // alis
+        for (const zs of [-.42, .42]) part(head, sphG(.17, 10, 8), M.accent, [-1.0, .5, zs], false);  // mata menyala
+        part(head, domeGeo(.8, 14), M.plate, [-1.15, .66, 0]);                                // helm tempur
+        part(head, boxG(.34, .14, .14), M.accent, [-.55, .95, 0], false);
+        g.add(head);
+        return g;
+      }
+
+      /* — HAMSTER RODA: unit "receh" pendamping tank. Rodanya sebuah Group bernama 'wheel'
+           (torus + rusuk) sehingga sistem roda yang sudah ada langsung menggelindingkannya;
+           hamsternya sendiri sibling, bukan anak roda, supaya tidak ikut berputar. Bazoka
+           di tangannya jadi node 'gun' → recoil + titik asal peluru. — */
+      function buildHamster(side) {
+        const M = bigMats(side), g = new THREE.Group();
+        /* rodanya sengaja dibuat berjeruji jarang & tipis: dengan rusuk rapat, dari arah depan
+           roda berubah jadi kandang yang menutupi penghuninya dan unitnya tak terbaca lagi */
+        const wheel = new THREE.Group(); wheel.name = 'wheel'; wheel.position.set(0, 2.15, 0);
+        for (const zs of [-1.35, 1.35]) part(wheel, new THREE.TorusGeometry(2.0, .16, 8, 24), M.metal, [0, 0, zs]);  // pelek kiri/kanan
+        part(wheel, new THREE.TorusGeometry(2.0, .07, 6, 24), M.accent, [0, 0, 0], false);     // cincin aksen tim
+        for (let i = 0; i < 8; i++) {                                                         // rusuk melintang (sumbu z)
+          const a = i / 8 * Math.PI * 2;
+          part(wheel, boxG(.12, .12, 2.7), M.metal, [Math.cos(a) * 2.0, Math.sin(a) * 2.0, 0], false);
+        }
+        g.add(wheel);
+        /* hamsternya sengaja kegedean untuk rodanya — kepala & helmnya nongol di atas pelek
+           supaya siluetnya tetap kebaca dari sudut mana pun, bukan cuma gumpalan di balik jeruji */
+        const body = sphG(1.2, 16, 12); body.scale(1.28, 1.12, 1.02);
+        part(g, body, M.hull, [-.4, 2.15, 0]);                                                // badan gempal
+        const belly2 = sphG(.92, 12, 10); belly2.scale(1.25, .95, 1.0);
+        part(g, belly2, M.plate, [-.1, 1.8, 0]);
+        part(g, sphG(.42, 10, 8), M.hull, [-2.0, 1.9, 0], false);                             // ekor bulat
+        /* kerah gelap — badan & kepala sama-sama bulat dan sewarna, tanpa pemisah ini siluetnya
+           menyatu jadi satu gumpalan kalau dilihat dari samping */
+        const collar = sphG(.95, 14, 10); collar.scale(1.0, .32, 1.0);
+        part(g, collar, M.dark, [1.15, 3.0, 0]);
+        part(g, sphG(1.05, 16, 12), M.hull, [1.4, 3.7, 0]);                                   // kepala (sengaja besar — ini yang bikin siluetnya kebaca)
+        for (const zs of [-.7, .7]) part(g, sphG(.62, 12, 10), M.plate, [1.55, 3.3, zs]);      // pipi menggembung penuh
+        for (const zs of [-.62, .62]) { const ear = sphG(.45, 10, 8); ear.scale(1, 1, .4); part(g, ear, M.plate, [1.05, 4.55, zs], false); }
+        part(g, sphG(.44, 10, 8), M.plate, [2.2, 3.52, 0], false);                            // moncong
+        part(g, sphG(.17, 8, 6), M.dark, [2.55, 3.58, 0], false);                             // hidung
+        for (const zs of [-.18, .18]) part(g, boxG(.18, .38, .2), M.bone, [2.42, 3.1, zs], false);   // gigi seri
+        for (const zs of [-.4, .4]) part(g, sphG(.19, 10, 8), M.accent, [2.1, 3.92, zs], false);     // mata menyala
+        part(g, domeGeo(1.02, 14), M.plate, [1.4, 3.78, 0]);                                  // helm
+        part(g, boxG(.34, .16, .16), M.accent, [1.95, 4.55, 0], false);
+        for (const zs of [-.6, .6]) {                                                         // kaki mungil (berlari di dasar roda)
+          const leg = new THREE.Group(); leg.name = 'leg'; leg.position.set(0, 1.5, zs);
+          part(leg, boxG(.36, .85, .36), M.hull, [0, -.42, 0], false);
+          part(leg, boxG(.62, .24, .4), M.plate, [.2, -.92, 0], false);
+          g.add(leg);
+        }
+        const gun = new THREE.Group(); gun.name = 'gun'; gun.position.set(1.9, 2.5, .85);
+        part(gun, tubeX(.22, .26, 2.2, 12), M.metal, [.6, 0, 0]);                              // bazoka kegedean buat badan sekecil itu
+        part(gun, tubeX(.36, .3, .55, 12), M.dark, [-.7, 0, 0], false);                        // corong belakang
+        part(gun, boxG(.32, .18, .18), M.accent, [.15, .24, 0], false);
+        part(gun, boxG(.4, .22, .22), M.hull, [-.12, -.28, 0], false);                         // cengkeraman tangan
+        g.add(gun);
+        return g;
+      }
+
+      const BIG_BUILDERS = { tank: buildTank, apc: buildAPC, helicopter: buildHelicopter, jet: buildJet, bomber: buildBomber, trex: buildTrex, hamster: buildHamster };
       const BIG_TEMPLATE = {};
       function bigTemplate(key, side) {
         const ck = key + '_' + side;
@@ -219,6 +329,20 @@ import { price } from '../feed/market-feed.js';
         attachAura(g, side, 26);
         return g;
       }
+      /* — T-REX (menghadap +x) — kaki berayun, kepala menyentak saat meraung menembak */
+      function makeTrex(side) {
+        const g = bigTemplate('trex', side);
+        attachAura(g, side, 17).position.y = 3.4;
+        g.userData = { legs: collectLegs(g), gun: markRecoilable(g.getObjectByName('gun')), walk: { amp: .42, freq: 3.0, bob: .055 } };
+        return g;
+      }
+      /* — HAMSTER RODA (menghadap +x) — roda menggelinding, kaki mungil berlari, bazoka recoil */
+      function makeHamster(side) {
+        const g = bigTemplate('hamster', side);
+        attachAura(g, side, 14).position.y = 2.2;
+        g.userData = { wheels: collectWheels(g), legs: collectLegs(g), gun: markRecoilable(g.getObjectByName('gun')), walk: { amp: .6, freq: 8.5, bob: 0 } };
+        return g;
+      }
 
       /* ═══════════ DEBU ROTOR — kepulan tanah di bawah helikopter yang terbang rendah ═══════════ */
       function makeRotorDust() {
@@ -241,7 +365,7 @@ import { price } from '../feed/market-feed.js';
          dipilih acak tiap kemunculan supaya tidak monoton (mis. tank vs APC di tingkat yang sama) */
       const T_TITAN = 3000000;   // ≥ $3jt → puncak tingkatan: bomber
       const BIG_UNIT_TIERS = [
-        { max: 300000, fly: 0, makers: [{ key: 'tank', maker: makeTank }, { key: 'apc', maker: makeAPC }] },
+        { max: 300000, fly: 0, makers: [{ key: 'tank', maker: makeTank }, { key: 'apc', maker: makeAPC }, { key: 'trex', maker: makeTrex }, { key: 'hamster', maker: makeHamster }] },
         { max: 1000000, fly: 26, makers: [{ key: 'helicopter', maker: makeHelicopter }] },   // lebih melayang tinggi di udara
         { max: T_TITAN, fly: 38, makers: [{ key: 'jet', maker: makeJet }] },
         { max: Infinity, fly: 46, makers: [{ key: 'bomber', maker: makeBomber }] },
@@ -249,23 +373,30 @@ import { price } from '../feed/market-feed.js';
       /* skala dasar per jenis unit — dihitung per model (bukan angka seragam) supaya tiap unit
          terlihat proporsional jauh melebihi tinggi prajurit (≈8.5 unit), bukan sekadar sedikit lebih besar.
          Kendaraan darat (tank/APC) diukur dari tinggi bodinya; pesawat (heli/jet/bomber) dari panjang
-         badannya, karena bentuknya pipih — kalau dipatok dari tinggi, hasilnya jadi raksasa tak masuk akal. */
-      export const UNIT_BASE_SCALE = { tank: 7.2, apc: 7.8, helicopter: 5.0, jet: 5.6, bomber: 5.2 };
-      function pickBigUnit(usd) {
-        const tier = BIG_UNIT_TIERS.find(t => usd < t.max);
-        const pick = tier.makers[Math.floor(Math.random() * tier.makers.length)];
+         badannya, karena bentuknya pipih — kalau dipatok dari tinggi, hasilnya jadi raksasa tak masuk akal.
+         Unit satwa (trex/hamster) diukur dari tinggi model utuh sampai ubun-ubun: T-Rex dibuat
+         sedikit menjulang di atas tank, hamster sengaja paling pendek karena dia unit "receh". */
+      export const UNIT_BASE_SCALE = { tank: 7.2, apc: 7.8, helicopter: 5.0, jet: 5.6, bomber: 5.2, trex: 4.4, hamster: 4.8 };
+      /* forceKey dipakai hook uji manual (__testEvent) untuk memanggil satu jenis unit tertentu
+         tanpa menunggu order dengan nilai yang pas — jalur normal tetap murni acak per tingkat. */
+      function pickBigUnit(usd, forceKey) {
+        const tier = forceKey ? BIG_UNIT_TIERS.find(t => t.makers.some(m => m.key === forceKey))
+                              : BIG_UNIT_TIERS.find(t => usd < t.max);
+        const pick = forceKey ? tier.makers.find(m => m.key === forceKey)
+                              : tier.makers[Math.floor(Math.random() * tier.makers.length)];
         return { maker: pick.maker, key: pick.key, fly: tier.fly };
       }
+      export const BIG_UNIT_KEYS = BIG_UNIT_TIERS.flatMap(t => t.makers.map(m => m.key));
 
       /* ═══════════ UNIT (tembakan / unit besar) ═══════════ */
       export const units = [];
       export const lastImpact = new THREE.Vector3(0, 0, 0);
 
-      export function spawnBigUnit(side, usd) {
+      export function spawnBigUnit(side, usd, forceKey) {
         if (units.length >= MAX_UNITS) return;
         const color = side === 'buy' ? C_LONG : C_SHORT;
         const mag = Math.min(1, Math.log10(usd / T_WHALE + 1) / 2);
-        const pick = pickBigUnit(usd);
+        const pick = pickBigUnit(usd, forceKey);
         const sx = (side === 'buy' ? -1 : 1) * 185;
         const start = new THREE.Vector3(sx, pick.fly, (Math.random() - .5) * 180);
         const ownSign = side === 'buy' ? -1 : 1;   // sisi wilayah sendiri, sama seperti formasi prajurit (base.x)
@@ -274,11 +405,11 @@ import { price } from '../feed/market-feed.js';
           : ownSign * (130 + Math.random() * 25);      // unit darat (tank/APC): berhenti di barisan belakang pasukan sendiri, menyerang dari sana
         const end = new THREE.Vector3(ex, pick.fly, (Math.random() - .5) * 180);
         const obj = pick.maker(side);
-        const { rotor, tailRotor, wheels, gun } = obj.userData || {};
+        const { rotor, tailRotor, wheels, gun, legs, walk } = obj.userData || {};
         const sc = UNIT_BASE_SCALE[pick.key] * (0.9 + mag * 0.3);   // identitas ukuran per jenis, mag cuma variasi ±
         obj.scale.set(sc, sc, sc);
         obj.rotation.y = side === 'buy' ? 0 : Math.PI;   // moncong menghadap musuh
-        obj.userData = { pick: true, side, usd, price, ts: Date.now(), rotor, tailRotor, wheels, gun };
+        obj.userData = { pick: true, side, usd, price, ts: Date.now(), rotor, tailRotor, wheels, gun, legs, walk };
         scene.add(obj);
         bigUnitObjs.push(obj);
         playChargeHorn(start);
@@ -286,7 +417,8 @@ import { price } from '../feed/market-feed.js';
         // fase: 'approach' (masuk) → 'hold' (menetap & menghujani lawan) → 'death' (tertembak lalu meledak)
         units.push({
           obj, start, end, apex: 0, t: 0, dur: 2.0, side, usd, mag, color, tier: 2, key: pick.key,
-          fly: pick.fly, rotor, tailRotor, wheels, gun, dust, defender: side === 'buy' ? sellCrowd : buyCrowd,
+          fly: pick.fly, rotor, tailRotor, wheels, gun, legs, walk, walkT: Math.random() * Math.PI * 2,
+          dust, defender: side === 'buy' ? sellCrowd : buyCrowd,
           phase: 'approach', clock: 0, fireT: .2,
           approachDur: 1.2, holdDur: 3.4 + Math.random() * 1.6, deathDur: .6, deathSpin: 0,
           // parameter gerak lifelike — diacak per unit supaya tidak seragam
