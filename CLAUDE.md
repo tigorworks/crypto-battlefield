@@ -2,8 +2,8 @@
 
 Live BTC/USDT trade feed visualized as a real-time 3D battle between "buy" and
 "sell" armies (Three.js). Buy pressure pushes the front line one way, sell
-pressure the other; big trades spawn tanks/helicopters/jets/bombers; huge
-trades trigger airstrikes/artillery barrages. Static site, no backend, no
+pressure the other; big trades spawn tanks/T-Rexes/helicopters/jets/bombers;
+huge trades trigger airstrikes/artillery barrages. Static site, no backend, no
 build step — deployed to GitHub Pages as-is on every push to `main`
 (`.github/workflows/static.yml` uploads the whole repo).
 
@@ -44,7 +44,8 @@ src/
 ├─ boot/boot-screen.js  boot-screen title/quote (loads before three.min.js)
 ├─ core/                renderer.js (scene/camera/renderer/lights), postfx/bloom.js, assets.js (shared textures/geometry)
 ├─ world/               field.js (ground/front-line/territory), sky.js (weather/aurora/moon/lightning/shooting star)
-├─ entities/            soldiers.js, big-units.js (tank/apc/trex/hamster/heli/jet/bomber), airstrike.js,
+├─ entities/            soldiers.js, big-units.js (tank/apc/trex/heli/jet/bomber), airstrike.js,
+│                       fireball.js (T-Rex's lobbed fireball — rare shot, airstrike-grade impact),
 │                       liquidation.js (forceOrder → execution spectacle, tiered by size)
 ├─ combat/              bullets.js (tracers/muzzle flash/puffs), explosions.js (craters/debris)
 ├─ fx/juice.js          screen shake, hitstop, floating damage numbers, streaks, flash/slowmo
@@ -120,7 +121,7 @@ a headless-browser smoke pass instead:
 4. Force rare events from the console instead of waiting for real trades:
    `window.__testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' |
    'liq-big' | 'liq-mega')`. Passing a big-unit key instead (`'tank' | 'apc' |
-   'trex' | 'hamster' | 'helicopter' | 'jet' | 'bomber'`) spawns that exact
+   'trex' | 'helicopter' | 'jet' | 'bomber'`) spawns that exact
    unit, which is the only practical way to eyeball a single model — the
    normal path picks randomly within a tier and needs a matching trade size.
    Big units travel in for ~1.2s before parking, so wait for `phase === 'hold'`

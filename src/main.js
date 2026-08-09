@@ -6,6 +6,7 @@ import { bloom } from './core/postfx/bloom.js';
 import { camera, renderer, scene, sun } from './core/renderer.js';
 import { airstrikes, barrages, spawnAirstrike, spawnBarrage } from './entities/airstrike.js';
 import { BIG_UNIT_KEYS, enterDeath, lastImpact, spawnBigUnit, units } from './entities/big-units.js';
+import { FB_CORE_SIZE, FB_SHELL_SIZE, detonateFireball, fireballs, spawnFireball } from './entities/fireball.js';
 import { spawnLiquidation } from './entities/liquidation.js';
 import { buyCrowd, initCrowds, killSoldier, loadAllModels, reviveSoldier, sellCrowd, updateCrowd } from './entities/soldiers.js';
 import { _pv, addFlash, addShake, bumpStreak, flashColor, flashEl, floatNum, juiceState } from './fx/juice.js';
@@ -247,8 +248,9 @@ import { connect, price } from './feed/market-feed.js';
               if (u.walk.bob) u.obj.position.y = u.fly + Math.abs(Math.sin(u.walkT)) * u.obj.scale.x * u.walk.bob;   // badan naik-turun mengikuti tumpuan kaki
             }
             if (u.gun && u.gun.userData.basePos) {                       // laras menyentak balik tiap kali menembak, lalu kembali
+              const rdur = u.gun.userData.recoilDur || .16;              // T-Rex menyentak lebih lambat — raungan, bukan rentetan
               u.gun.userData.recoilT = Math.max(0, (u.gun.userData.recoilT || 0) - sdt);
-              const rk = u.gun.userData.recoilT / .16;
+              const rk = u.gun.userData.recoilT / rdur;
               const bp = u.gun.userData.basePos;
               u.gun.position.set(bp.x - rk * .55, bp.y, bp.z);
             }
@@ -268,14 +270,26 @@ import { connect, price } from './feed/market-feed.js';
             if (u.phase !== 'death') {                                    // masih hidup → terus menyerang
               u.fireT -= sdt;
               if (u.fireT <= 0) {
-                u.fireT = .16;
                 // tembakan keluar dari moncong senjata (node 'gun') kalau ada — bukan dari dasar unit
                 const from = u.gun ? u.gun.getWorldPosition(new THREE.Vector3()) : u.obj.position.clone();
                 if (!u.gun) from.y += u.fly > 0 ? 2 : 16;   // unit tanpa node 'gun' eksplisit (heli/jet/bomber) — perkiraan tinggi moncong
-                fireBullet(u.side, from, crowdPoint(u.defender, 14), true, u.defender, true); // peluru besar, jangkauan jauh
-                if (u.gun) u.gun.userData.recoilT = .16;
-                playCannon(from);
+                const w = u.weapon;
+                if (w) {                                                  // senjata khusus (T-Rex: bola api) — jarang, berjatah, berdampak besar
+                  u.fireT = w.interval;
+                  w.fired++;
+                  spawnFireball(u.side, from, crowdPoint(u.defender, w.spread), u.defender);
+                  if (u.gun) u.gun.userData.recoilT = u.gun.userData.recoilDur || .16;
+                  playCannon(from);
+                  if (w.fired >= w.shots) { u.fireT = Infinity; u.spentT = .9; }   // jatah habis → sebentar lagi tumbang
+                } else {
+                  u.fireT = .16;
+                  fireBullet(u.side, from, crowdPoint(u.defender, 14), true, u.defender, true); // peluru besar, jangkauan jauh
+                  if (u.gun) u.gun.userData.recoilT = .16;
+                  playCannon(from);
+                }
               }
+              // jeda pendek setelah semburan terakhir supaya kematiannya tidak terasa terpotong
+              if (u.spentT > 0 && (u.spentT -= sdt) <= 0) enterDeath(u);
             }
           } else {
             u.t += sdt / u.dur;
@@ -333,6 +347,24 @@ import { connect, price } from './feed/market-feed.js';
           if (b.t >= b.dur) {
             barrages.splice(i, 1);
           }
+        }
+
+        // bola api T-Rex — melengkung ke barisan lawan sambil meninggalkan ekor bara, lalu menghantam
+        for (let i = fireballs.length - 1; i >= 0; i--) {
+          const f = fireballs[i];
+          f.t += sdt / f.dur;
+          const k = Math.min(1, f.t);
+          f.g.position.lerpVectors(f.from, f.to, k);
+          f.g.position.y += Math.sin(k * Math.PI) * f.apex;
+          const puls = 1 + Math.sin(t * 26 + f.phase) * .13;             // berdenyut supaya terbaca menyala, bukan bola statis
+          f.shell.scale.set(FB_SHELL_SIZE * puls, FB_SHELL_SIZE * puls, 1);
+          f.core.scale.set(FB_CORE_SIZE * puls, FB_CORE_SIZE * puls, 1);
+          f.trailT -= sdt;
+          if (f.trailT <= 0) {
+            f.trailT = .028;
+            emitPuff(f.g.position.x, f.g.position.y, f.g.position.z, 0xff8a3c, 11 + Math.random() * 7, .5, 6, .5, true);
+          }
+          if (f.t >= 1) { detonateFireball(f); fireballs.splice(i, 1); }
         }
 
         // peluru pelacak
@@ -519,7 +551,7 @@ import { connect, price } from './feed/market-feed.js';
 
       /* bantuan uji manual dari console (peristiwa langka sulit ditunggu secara alami di pasar nyata):
          __testEvent('airstrike' | 'barrage' | 'streak' | 'star' | 'liq' | 'liq-big' | 'liq-mega')
-         plus nama unit besar untuk memunculkannya langsung: 'tank' | 'apc' | 'trex' | 'hamster' |
+         plus nama unit besar untuk memunculkannya langsung: 'tank' | 'apc' | 'trex' |
          'helicopter' | 'jet' | 'bomber' */
       window.__testEvent = (name) => {
         const usd = T_BOSS * 1.5, side = Math.random() < .5 ? 'buy' : 'sell';
